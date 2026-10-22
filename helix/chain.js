@@ -18,15 +18,19 @@ const A={
   vault:'0x3DEea5f638cA0dFb03A0873CF4c0b90BA50E1aA2',     // HELIX COMMUNITY_VAULT (터빈 대기 AiLGNS)
   hTurbine:'0xE884A336550a4482Ca6A17A3F93aa30Ed4eD9BaD',  // HELIX TURBINE (24시간 잠금)
   ve:'0x52D7f7745D4Ba3dE6C3A0B503815878aeE7eDf14',        // HELIX VE
+  long360:'0x88ea98af226Cd4402A3873400308a4D78784eCE6',   // Anubis 360일 장기 스테이킹
+  long600:'0x04eD22c6d1D020A9B5e032E93D79ab28293EF72f',   // Anubis 600일 장기 스테이킹
 };
 const P={lgns:'0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01',pair:'0x882df4B0fB50a229C3B4124EB18c759911485bFb'};
 const SEL={balanceOf:'0x70a08231',getReserves:'0x0902f1ac',token0:'0x0dfe1681',
   activePowerOf:'0x6cf2fa36',totalPowerOf:'0x4f343040',pendingPowerOf:'0xaa81a38f',queuedPowerOf:'0x4029c12c',
   pendingOf:'0xf44136a1',lockedBalanceOf:'0x59355736',claimableOf:'0x8903ab9d',getTurbineBal:'0xb4131557',
   positionsOf:'0xf867d46b',positions:'0x99fbab88',
-  getUserOrderCount:'0x2cc75967',getUserOrders:'0xc7efbe36',sellableBalance:'0x3bbb623b',lockedBalance:'0x9ae697bf',ratePerEpoch:'0xd8e2219c'};
+  getUserOrderCount:'0x2cc75967',getUserOrders:'0xc7efbe36',sellableBalance:'0x3bbb623b',lockedBalance:'0x9ae697bf',ratePerEpoch:'0xd8e2219c',
+  // 장기 스테이킹: stakes(user,i)[0]=원금 LGNS, [7]=진행 중 / pendingPayout=받을 이자 / extraInterest=터보로 받는 추가 이자
+  getUserStakesCount:'0x98dc8dea',stakes:'0x584b62a1',pendingPayout:'0xda709204',extraInterest:'0xb01d3563'};
 const LABEL={power:'활성 Power',totalPower:'누적 Power',queued:'대기 Power',ai:'AiLGNS',unc:'터빈 대기',turbLocked:'터빈 잠김',turbClaim:'터빈 수령 가능',
-  dai:'DAI',lgnsA:'LGNS(Anubis)',lgnsP:'LGNS(Polygon)',pend:'일반 터보',ve:'ve 잠금',nt25:'신생태 2.5배',nt4:'신생태 4배'};
+  dai:'DAI',lgnsA:'LGNS(Anubis)',lgnsP:'LGNS(Polygon)',pend:'일반 터보',ve:'ve 잠금',nt25:'신생태 2.5배',nt4:'신생태 4배',long:'장기 스테이킹'};
 
 const isAddr=a=>/^0x[0-9a-fA-F]{40}$/.test(a);
 const word=v=>BigInt(v).toString(16).padStart(64,'0');
@@ -109,6 +113,7 @@ async function loadWallets(addrs,opt={}){
     c('unc',A.vault,SEL.pendingOf);c('turbLocked',A.hTurbine,SEL.lockedBalanceOf);c('turbClaim',A.hTurbine,SEL.claimableOf);
     c('pend',A.turbine,SEL.getTurbineBal);c('veIds',A.ve,SEL.positionsOf);
     ['nt25','nt4'].forEach(k=>{c(k+'n',A[k],SEL.getUserOrderCount);c(k+'s',A[k],SEL.sellableBalance);c(k+'l',A[k],SEL.lockedBalance);});
+    ['long360','long600'].forEach(k=>c(k+'n',A[k],SEL.getUserStakesCount));
   });
   R1.push(callReq('r25',A.nt25,SEL.ratePerEpoch,[]),callReq('r4',A.nt4,SEL.ratePerEpoch,[]),{id:'bn',method:'eth_blockNumber',params:[]});
   const [r1,rp]=await Promise.all([batch(ANUBIS,R1),batch(POLYGON,addrs.map((a,i)=>callReq(i+':lgnsP',P.lgns,SEL.balanceOf,[a])))]);
@@ -126,6 +131,11 @@ async function loadWallets(addrs,opt={}){
     const v=r1[i+':veIds'];const ids=v&&!errOf(v)?words(v.result).slice(2):[];
     ids.slice(0,50).forEach((id,j)=>R2.push(callReq(i+':ve'+j,A.ve,SEL.positions,[id])));
     if(dayAgo){const blk='0x'+dayAgo.n.toString(16);R2.push(callReq(i+':p0',A.power,SEL.activePowerOf,[a],blk),callReq(i+':t0',A.power,SEL.totalPowerOf,[a],blk));}
+    ['long360','long600'].forEach(k=>{const x=r1[i+':'+k+'n'];const n=x&&!errOf(x)?Number(words(x.result)[0]||0n):0;
+      for(let j=0;j<Math.min(n,30);j++){
+        R2.push(callReq(`${i}:${k}s${j}`,A[k],SEL.stakes,[a,j]),callReq(`${i}:${k}p${j}`,A[k],SEL.pendingPayout,[a,j]),callReq(`${i}:${k}x${j}`,A[k],SEL.extraInterest,[a,j]));
+        if(dayAgo)R2.push(callReq(`${i}:${k}y${j}`,A[k],SEL.extraInterest,[a,j],'0x'+dayAgo.n.toString(16)));
+      }});
   });
   const r2=R2.length?await batch(ANUBIS,R2):{};
 
@@ -150,6 +160,21 @@ async function loadWallets(addrs,opt={}){
       nt[k]={sellable:units(words(s.result)[0]||0n,9),locked:units(words(l.result)[0]||0n,9)};
       if(o)orders.push(...decodeOrders(o.result,k==='nt25'?2.5:4,rate[k]));
     });
+    // 장기 스테이킹 추가 이자: 지금 쌓인 양 + 24시간 동안 늘어난 양(그 사이 터보로 옮긴 건은 늘어난 양을 못 재요)
+    const stakes=[];let lerr=null;
+    ['long360','long600'].forEach(k=>{
+      const nx=r1[i+':'+k+'n'];if(errOf(nx)){lerr=errOf(nx);return;}
+      const n=Math.min(Number(words(nx.result)[0]||0n),30);
+      for(let j=0;j<n;j++){
+        const s=r2[`${i}:${k}s${j}`],pp=r2[`${i}:${k}p${j}`],xx=r2[`${i}:${k}x${j}`],yy=r2[`${i}:${k}y${j}`];
+        if(errOf(s)||errOf(pp)||errOf(xx)){lerr=errOf(s)||errOf(pp)||errOf(xx);continue;}
+        const sw=words(s.result);if(sw.length<8||sw[7]===0n)continue;
+        const extra=units(words(xx.result)[0]||0n,9),before=yy&&!errOf(yy)?units(words(yy.result)[0]||0n,9):null;
+        stakes.push({term:k==='long360'?360:600,idx:j,principal:units(sw[0],9),interest:units(words(pp.result)[0]||0n,9),extra,
+          daily:before!=null&&dayAgo&&extra>=before?(extra-before)*86400/dayAgo.sec:null});
+      }
+    });
+    v.long=lerr?{ok:false,err:lerr}:{ok:true,x:stakes.reduce((s,x)=>s+x.extra,0)};
     // 실측 하루 비율: 24시간 동안 누적 Power가 그대로였던(입금 없던) 지갑만
     let rate1=null;
     const p0=r2[i+':p0'],t0=r2[i+':t0'];
@@ -157,7 +182,7 @@ async function loadWallets(addrs,opt={}){
       const a0=units(words(p0.result)[0]||0n,18),tt=units(words(t0.result)[0]||0n,18);
       if(a0>0&&Math.abs(tt-v.totalPower.x)<1e-9&&v.power.x<a0){const r=1-Math.pow(v.power.x/a0,86400/dayAgo.sec);if(r>0&&r<.05)rate1=r;}
     }
-    return {address:a,v,nt,orders,rate:rate1,block:bn};
+    return {address:a,v,nt,orders,stakes,rate:rate1,block:bn};
   });
 }
 root.HelixChain={isAddr,loadPrices,loadWallets,LABEL,ADDR:{anubis:A,polygon:P},CHAIN_ID};

@@ -9,6 +9,11 @@
 //   basis  이미 들인 원금 (원금 회수 계산용)               ❓ 사용자 입력
 //   nt     진행 중인 신생태 터보 주문: 하루 지급 DAI 가치 d, 남은 일수 left  ✅ NewTurbo.getUserOrders
 //   ntNow  신생태 터보 금고에서 지금 팔 수 있는 몫 (수수료 뺀 DAI)            ✅ sellableBalance + lockedBalance + claimableLgns
+//   pendDaily  Anubis 장기 스테이킹에서 매일 새로 쌓이는 추가 이자 LGNS (터보로 1+1)  ✅ LongStaking.extraInterest 하루 변화
+// 레퍼런스에 없던 선택 (기본값이면 꺼져 있어요):
+//   p.route='auto'   다시 넣는 DAI를 이득 순서대로: 일반 터보(쌓인 수량까지) → 남은 DAI로 LGNS 사서 소각
+//   p.route='aiburn' 받은 AiLGNS를 팔지 않고 소각 (AiLGNS 소각 2.5배, 비교용)
+//   p.ntShare        다시 넣는 돈 중 신생태 터보(p.ntMult배 · p.ntDays일)에 넣는 비율. 풀린 DAI는 p.route 대로 다시 넣어요
 (function(root){
 // 디앱 컨트랙트에서 읽은 수수료 (2026-10-21): 일반 터보 burnExtraBps 500, 신생태 터보 activationFeeBps 100, LGNS feeRatio 5%, 매수 0%
 const FEE={oldTurbo:.05,ntSell:.05,ntAct:.01};
@@ -31,7 +36,7 @@ function simulate(p,pl){
   if(ex.power)P+=ex.power;
   const fundInv=(pl==='B'&&p.bFund==='nt')?(p.ntFundIn!==''&&p.ntFundIn!=null?Math.max(0,+p.ntFundIn):autoFund(p,P)):0;
   let fs=fundInv>0?[{d:fundInv*2.5/300*(1-FEE.ntSell-FEE.ntAct-p.slip),left:300}]:[];
-  let R=p.R0,cash=0,ai=0,ve=0,ext=0,unc=0,pending=0,streams=[],cashDay=null,veDay=null,ntOut=0,cs=[];
+  let R=p.R0,cash=0,ai=0,ve=0,ext=0,unc=0,pending=0,streams=[],cashDay=null,veDay=null,ntOut=0,cs=[],ntIn=0;
   if(ex.dai)R+=ex.dai;
   if(ex.ai)ai+=ex.ai;
   if(ex.unc)unc+=ex.unc;
@@ -44,8 +49,12 @@ function simulate(p,pl){
   for(let t=1;t<=p.days;t++){
     const pA=p.pA0*Math.pow(1+p.aChg,t/30), pL=p.pL0*Math.pow(1+p.lChg,t/30), r=p.r0*Math.pow(1-p.rDecl,t/30);
     const lgPow=x=>x*2*Math.max(pL,1)/pL;
+    // auto: 쌓인 터보 수량까지 일반 터보, 남은 DAI는 LGNS 사서 소각
+    const autoPow=dai=>{const o=oldTurbo(dai,pL);return o.pow+lgPow(o.left*(1-p.slip));};
+    if(ex.pendDaily)pend+=ex.pendDaily;
     P+=pending;pending=0;
-    if(streams.length){let V=0;streams.forEach(s=>{V+=s.d;s.left--;});streams=streams.filter(s=>s.left>0);const o=oldTurbo(V*ntNet,pL);P+=o.pow+o.left*2.5;}
+    if(streams.length){let V=0;streams.forEach(s=>{V+=s.d;s.left--;});streams=streams.filter(s=>s.left>0);
+      if(p.route==='auto')P+=autoPow(V*ntNet);else{const o=oldTurbo(V*ntNet,pL);P+=o.pow+o.left*2.5;}}
     let ntDai=t<=ntDays?ntDaily*ntNet:0;
     if(exNt.length){let V=0;exNt.forEach(s=>{V+=s.d;s.left--;});exNt=exNt.filter(s=>s.left>0);ntDai+=V*ntNet;}
     if(t===1&&ex.ntNow)ntDai+=ex.ntNow;
@@ -78,8 +87,11 @@ function simulate(p,pl){
       let inv=0;
       if(pl==='C'&&cash<goalC){const toCash=Math.min(sur,goalC-cash);cash+=toCash;inv=(sur-toCash)*p.reinv;cash+=sur-toCash-inv;}
       else{inv=sur*p.reinv;const c=sur-inv;if(pl==='A'&&p.cashVia==='nt'&&c>0)cs.push({d:c*2.5/300*ntNet,left:300});else cash+=c;}
+      if(inv>0&&p.ntShare>0){const x=inv*p.ntShare;inv-=x;streams.push({d:x*p.ntMult/p.ntDays,left:p.ntDays});ntIn+=x;}
       if(inv>0){
-        if(p.route==='dai')pending+=inv*2.5;
+        if(p.route==='auto')pending+=autoPow(inv);
+        else if(p.route==='aiburn')pending+=inv*2.5/(1-p.fee-p.slip); // 판 만큼의 AiLGNS를 소각했을 때 (수수료 안 냄)
+        else if(p.route==='dai')pending+=inv*2.5;
         else if(p.route==='old'){const o=oldTurbo(inv,pL);pending+=o.pow+o.left*2.5;}
         else if(p.route==='lgns')pending+=lgPow(inv*(1-p.slip));
         else streams.push({d:inv*2.5/300,left:300});
@@ -91,7 +103,7 @@ function simulate(p,pl){
     if(p.rankOn&&veDay===null&&ve*pA>=p.veTarget)veDay=t;
     series.push({t,P,D,cost,cash,R,ai,ve,veVal:ve*pA,pA,pL,r,invested,liquid});
   }
-  return {series,last:series[series.length-1],startValue,startP,missed:unc*series[series.length-1].pA,uncQty:unc,pendLeft:pend,ntOut,ntLeft:ntDays>p.days?(ntDays-p.days)*ntDaily:0,csLeft:cs.reduce((a,s)=>a+s.d*s.left,0),fundLeft:fs.reduce((a,x)=>a+x.d*x.left,0),fundInv,cashDay,veDay,ext,streamsLeft:streams.reduce((a,s)=>a+s.d*s.left,0),exNtLeft:exNt.reduce((a,s)=>a+s.d*s.left,0)};
+  return {series,last:series[series.length-1],startValue,startP,missed:unc*series[series.length-1].pA,uncQty:unc,pendLeft:pend,ntOut,ntLeft:ntDays>p.days?(ntDays-p.days)*ntDaily:0,csLeft:cs.reduce((a,s)=>a+s.d*s.left,0),fundLeft:fs.reduce((a,x)=>a+x.d*x.left,0),fundInv,cashDay,veDay,ext,streamsLeft:streams.reduce((a,s)=>a+s.d*s.left,0),exNtLeft:exNt.reduce((a,s)=>a+s.d*s.left,0),ntIn};
 }
 root.HelixEngine={FEE,autoFund,simulate};
 })(typeof window!=='undefined'?window:globalThis);
