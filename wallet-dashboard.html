@@ -54,6 +54,12 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 button.ghost { background: none; border-color: transparent; color: var(--accent); padding: 4px 6px; }
 button.danger { color: var(--warn); }
 button:disabled { opacity: .55; cursor: default; }
+.calc { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 20px; align-items: start; }
+.calc .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border-radius: 999px; padding: 4px 12px; font-size: 13px; }
+.calc-kv dd { line-height: 1.3; }
+.calc-result { margin-top: 14px; background: var(--panel-2); border-radius: 10px; padding: 12px 14px; }
+select { font: inherit; color: inherit; border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 9px 11px; width: 100%; }
 input[type=text], textarea { border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 9px 11px; width: 100%; min-width: 0; }
 textarea { resize: vertical; font-size: 12px; word-break: break-all; }
 details.transfer { border-top: 1px solid var(--line); padding-top: 10px; }
@@ -266,6 +272,7 @@ details.recs td, details.recs th { padding: 5px 6px; }
             <div class="metric"><div class="label">지갑 보유</div><div class="v" id="m-wallet">—</div></div>
             <div class="metric"><div class="label">디앱 예치</div><div class="v" id="m-dapp">—</div></div>
             <div class="metric"><div class="label">지금 받을 수 있는 보상</div><div class="v pos" id="m-reward">—</div></div>
+            <div class="metric"><div class="label">전부 팔았을 때 (수수료 후)</div><div class="v" id="m-net">—</div></div>
           </div>
           <div class="updated" id="updated"></div>
           <div class="errors" id="errors" style="margin-top:10px"></div>
@@ -286,11 +293,11 @@ details.recs td, details.recs th { padding: 5px 6px; }
 
     <section class="panel" aria-label="토큰 합계">
       <div class="tools">
-        <div><h2 style="font-size:16px">토큰 합계</h2><div class="small muted">지갑에 있는 토큰과 디앱에 예치된 토큰을 합친 개수입니다.</div></div>
+        <div><h2 style="font-size:16px">토큰 합계</h2><div class="small muted">지갑에 있는 토큰과 디앱에 예치된 토큰을 합친 개수입니다. "수수료 후"는 지금 거래소에서 DAI로 전부 판다고 가정한 실수령액입니다.</div></div>
       </div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>토큰</th><th class="r hide-sm">지갑</th><th class="r hide-sm">디앱 예치</th><th class="r">총 개수</th><th class="r">원화</th><th class="r">달러</th></tr></thead>
+          <thead><tr><th>토큰</th><th class="r hide-sm">지갑</th><th class="r hide-sm">디앱 예치</th><th class="r">총 개수</th><th class="r">수수료 전<br>(시세)</th><th class="r">수수료 후<br>(팔았을 때)</th><th class="r hide-sm">차감</th></tr></thead>
           <tbody id="sum-rows"></tbody>
           <tfoot id="sum-foot"></tfoot>
         </table>
@@ -301,6 +308,30 @@ details.recs td, details.recs th { padding: 5px 6px; }
       <div class="tabs" role="tablist">
         <button type="button" role="tab" id="tab-dapp" aria-selected="true">디앱 상품<span class="count" id="cnt-dapp"></span></button>
         <button type="button" role="tab" id="tab-token" aria-selected="false">토큰<span class="count" id="cnt-token"></span></button>
+        <button type="button" role="tab" id="tab-calc" aria-selected="false">매도 계산기</button>
+      </div>
+
+      <div id="pane-calc" hidden>
+        <div class="calc">
+          <div class="addbox">
+            <label class="label" for="calc-token">팔 토큰</label>
+            <select id="calc-token">
+              <option value="anubis:LGNS">LGNS (아누비스)</option>
+              <option value="polygon:LGNS">LGNS (폴리곤)</option>
+              <option value="anubis:AiLGNS">AiLGNS (아누비스)</option>
+            </select>
+            <label class="label" for="calc-amount">팔 개수</label>
+            <input type="text" id="calc-amount" class="mono" inputmode="decimal" placeholder="예: 100">
+            <div class="small muted" id="calc-have"></div>
+            <div class="chips">
+              <button type="button" class="chip" data-pct="25">25%</button>
+              <button type="button" class="chip" data-pct="50">50%</button>
+              <button type="button" class="chip" data-pct="100">전부</button>
+            </div>
+          </div>
+          <div id="calc-out"></div>
+        </div>
+        <p class="small muted" style="margin:14px 0 0">판매 수수료는 각 체인 LGNS 토큰 계약에 설정된 값을 그대로 읽어 계산하고, 거래소 수수료와 가격 영향은 거래소(라우터)에 직접 받은 견적입니다. 실제 거래 때는 가격 변동, 슬리피지 설정, 가스비에 따라 조금 달라질 수 있습니다. 스테이킹·본드에 묶인 양은 먼저 상환·수령해야 팔 수 있습니다.</p>
       </div>
 
       <div id="pane-dapp">
@@ -573,6 +604,7 @@ const SEL = {
   getUserDepositCount: "0x1bae91a4", getDepositRewardInfo: "0xfac459cd", getTotalClaimable: "0x267e8ab6", totalDaiValue: "0xac541224",
   getUserStakesCount: "0x98dc8dea", stakes: "0x584b62a1", pendingPayout: "0xda709204", extraInterest: "0xb01d3563",
   claimable: "0x402914f5", rewardOf: "0x1d62ebd9", totalDaiOf: "0xe6746345", activityPoints: "0x5a43f789",
+  feeRatio: "0x41744dd4", extraFeeRatio: "0x3c336ff4", PRECISION: "0xaaf5eb68", extraFeeReceiver: "0x44bfcc30",
   getReserves: "0x0902f1ac", token0: "0x0dfe1681", epoch: "0x900cf0cf", circulatingSupply: "0x9358928b", balanceOf: "0x70a08231",
   activePowerOf: "0x6cf2fa36", pendingPowerOf: "0xaa81a38f", totalPowerOf: "0x4f343040", queuedPowerOf: "0x4029c12c",
   pendingOf: "0xf44136a1", lockedBalanceOf: "0x59355736", claimableOf: "0x8903ab9d", claimedBalance: "0x9886c2a5",
@@ -609,10 +641,14 @@ async function loadMarket() {
     multiCall(ANUBIS_RPCS, [
       { id: "r", to: ORIGIN.anubis.pair, fn: "getReserves" }, { id: "t", to: ORIGIN.anubis.pair, fn: "token0" },
       { id: "hr", to: ORIGIN.helix.ailgnsPair, fn: "getReserves" }, { id: "ht", to: ORIGIN.helix.ailgnsPair, fn: "token0" },
+      { id: "ff", to: ORIGIN.anubis.lgns, fn: "feeRatio" }, { id: "fx", to: ORIGIN.anubis.lgns, fn: "extraFeeRatio" },
+      { id: "fp", to: ORIGIN.anubis.lgns, fn: "PRECISION" }, { id: "fr", to: ORIGIN.anubis.lgns, fn: "extraFeeReceiver" },
     ]),
     multiCall(POLYGON_RPCS, [
       { id: "r", to: ORIGIN.polygon.pair, fn: "getReserves" }, { id: "t", to: ORIGIN.polygon.pair, fn: "token0" },
       { id: "e", to: ORIGIN.polygon.staking, fn: "epoch" }, { id: "c", to: ORIGIN.polygon.slgns, fn: "circulatingSupply" },
+      { id: "ff", to: ORIGIN.polygon.lgns, fn: "feeRatio" }, { id: "fx", to: ORIGIN.polygon.lgns, fn: "extraFeeRatio" },
+      { id: "fp", to: ORIGIN.polygon.lgns, fn: "PRECISION" }, { id: "fr", to: ORIGIN.polygon.lgns, fn: "extraFeeReceiver" },
     ]),
     rpcBatch(POLYGON_RPCS, [{ jsonrpc: "2.0", id: "bn", method: "eth_blockNumber", params: [] }]).catch(() => ({})),
   ]);
@@ -630,7 +666,17 @@ async function loadMarket() {
     rebase, perDay,
     apy: rebase != null ? Math.pow(1 + rebase, perDay * 365) - 1 : null,
     polygonBlock: bn.bn ? parseInt(bn.bn, 16) : null,
+    fees: { anubis: readFees(a), polygon: readFees(p) },
   };
+}
+
+// LGNS 토큰 계약의 판매 수수료: 기본 수수료(feeRatio) 뒤에 추가 수수료(extraFeeRatio)가 남은 양에 한 번 더 붙음.
+// 추가 수수료는 받는 주소(extraFeeReceiver)가 정해져 있을 때만 적용 (오리진 디앱의 매도 계산과 같은 방식)
+function readFees(r) {
+  const prec = Number(r.fp?.[0] ?? 0n);
+  if (!prec) return null;
+  const receiverSet = (r.fr?.[0] ?? 0n) !== 0n;
+  return { fee: Number(r.ff?.[0] ?? 0n) / prec, extra: receiverSet ? Number(r.fx?.[0] ?? 0n) / prec : 0 };
 }
 
 // 아누비스 탐색기에서 이 지갑의 LGNS 이동 내역을 상대 주소별로 합산 (원금·받은 이자 계산용)
@@ -646,7 +692,7 @@ async function lgnsFlows(address) {
       else { flows[from] = flows[from] || { out: 0, in: 0 }; flows[from].in += v; }
     }
     const np = d.next_page_params;
-    url = np ? `${ANUBIS_API}/addresses/${address}/token-transfers?type=ERC-20&token=${ORIGIN.anubis.lgns}&` + new URLSearchParams(np) : null;
+    url = np ? `${ANUBIS_API}/addresses/${address}/token-transfers?` + new URLSearchParams({ type: "ERC-20", token: ORIGIN.anubis.lgns, ...np }) : null;
   }
   return flows;
 }
@@ -889,7 +935,7 @@ async function refresh() {
     loadOrigin(wallets, errors).catch(e => { errors.push("디앱 상품을 불러오지 못했습니다 (" + e.message + "). 잠시 후 새로고침하세요."); return null; }),
   ]);
   if (anubisFailed.length) errors.push(`아누비스 지갑 토큰 잔고를 ${anubisFailed.length}개 지갑에서 불러오지 못했습니다 (${anubisReason}): ${anubisFailed.join(", ")}. 직전 값을 그대로 보여 주며, 새로고침하면 다시 시도합니다.`);
-  if (origin) state.origin = origin;
+  if (origin) { state.origin = origin; quoteCache.clear(); quoteFailed.clear(); }
   // 이전 결과를 유지하되, 이번에 성공한 부분만 교체
   let holdings = state.holdings;
   if (poly) holdings = holdings.filter(h => h.chain !== "polygon").concat(poly);
@@ -1042,6 +1088,9 @@ function render() {
   $("tab-token").setAttribute("aria-selected", state.tab === "token");
   $("pane-dapp").hidden = state.tab !== "dapp";
   $("pane-token").hidden = state.tab !== "token";
+  $("tab-calc").setAttribute("aria-selected", state.tab === "calc");
+  $("pane-calc").hidden = state.tab !== "calc";
+  if (state.tab === "calc") renderCalcHoldings();
 
   $("custom-tokens").innerHTML = state.customTokens.map(tk =>
     `<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span><b>${esc(tk.symbol)}</b> <span class="mono muted">${short(tk.address)}</span></span><button type="button" class="ghost danger" data-tdel="${tk.address}">빼기</button></div>`).join("");
@@ -1087,20 +1136,58 @@ function renderProducts() {
     "평가액은 각 체인의 LGNS/DAI 유동성 풀 가격으로 계산합니다. 디앱이 화면에 표시하는 이자율은 보장된 수익이 아니며, 블록체인에서 읽을 수 없는 조건은 반영하지 못했습니다.";
 }
 
+// ── 매도 가정 계산 ──────────────────────────────────────────────
+// 팔 수 있는 토큰: 각 체인 거래소(라우터)에서 DAI로 바꾼다고 가정
+const ANUBIS_DAI = "0x83fd06F0846d9D90B3016bF670Efe2E0B11cDe14", POLYGON_DAI = "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063";
+const SELLABLE = {
+  "anubis:LGNS": { label: "LGNS (아누비스)", token: ORIGIN.anubis.lgns, decimals: 9, rpcs: ANUBIS_RPCS, router: "0x3E412E02B6157fBE80b6C6697f3Ce1142E629019", dai: ANUBIS_DAI, fees: "anubis", price: mk => mk.lgnsAnubis },
+  "polygon:LGNS": { label: "LGNS (폴리곤)", token: ORIGIN.polygon.lgns, decimals: 9, rpcs: POLYGON_RPCS, router: "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff", dai: POLYGON_DAI, fees: "polygon", price: mk => mk.lgnsPolygon },
+  "anubis:AiLGNS": { label: "AiLGNS (아누비스)", token: ORIGIN.helix.ailgns, decimals: 18, rpcs: ANUBIS_RPCS, router: "0x3E412E02B6157fBE80b6C6697f3Ce1142E629019", dai: ANUBIS_DAI, fees: null, price: mk => mk.ailgns },
+};
+const toRaw = (n, d) => BigInt(Math.floor(n * 1e6)) * 10n ** BigInt(d - 6);
+const quoteCache = new Map();
+
+// amount 개를 팔았을 때: 시세 금액, 판매 수수료, 추가 수수료, 거래소 수수료·가격 영향, 실제 받는 DAI
+async function quoteSell(key, amount) {
+  const mk = state.origin?.market, cfg = SELLABLE[key];
+  if (!mk || !cfg || !(amount > 0)) return null;
+  const ck = key + ":" + amount.toFixed(6);
+  if (quoteCache.has(ck)) return quoteCache.get(ck);
+  const price = cfg.price(mk);
+  const f = (cfg.fees && mk.fees?.[cfg.fees]) || { fee: 0, extra: 0 };
+  const afterFee = amount * (1 - f.fee);
+  const afterExtra = afterFee * (1 - f.extra);
+  const data = "0xd06ca61f" + word(toRaw(afterExtra, cfg.decimals)) + word(64) + word(2) + word(BigInt(cfg.token)) + word(BigInt(cfg.dai));
+  const res = await rpcBatch(cfg.rpcs, [{ jsonrpc: "2.0", id: "q", method: "eth_call", params: [{ to: cfg.router, data }, "latest"] }]);
+  const w = words(res.q);
+  if (!w.length) throw new Error("거래소 견적을 받지 못했습니다");
+  const out = D(w[w.length - 1]);
+  const q = {
+    amount, price, gross: amount * (price ?? 0),
+    feeRate: f.fee, extraRate: f.extra,
+    feeCost: amount * f.fee * (price ?? 0),
+    extraCost: afterFee * f.extra * (price ?? 0),
+    poolCost: afterExtra * (price ?? 0) - out,
+    net: out,
+  };
+  quoteCache.set(ck, q);
+  return q;
+}
+
 // 같은 체인의 같은 토큰을 지갑 보유분 + 디앱 예치분으로 합산
-function renderTokenSummary() {
+function tokenRows(scopeFilter) {
   const rows = new Map();
   const row = (chain, symbol) => {
     const k = chain + ":" + symbol;
     if (!rows.has(k)) rows.set(k, { chain, symbol, wallet: 0, dapp: 0, valueUsd: 0, priced: false });
     return rows.get(k);
   };
-  for (const h of state.holdings.filter(inScope)) {
+  for (const h of state.holdings.filter(scopeFilter)) {
     if (h.flagged || h.valueUsd == null) continue;
     const r = row(h.chain, h.symbol);
     r.wallet += h.amount; r.valueUsd += h.valueUsd; r.priced = true;
   }
-  for (const it of (state.origin?.items || []).filter(inScope)) {
+  for (const it of (state.origin?.items || []).filter(scopeFilter)) {
     if (it.unit === "Power") continue;
     const amount = it.countValue != null ? it.countValue : it.value;
     if (!amount) continue;
@@ -1108,29 +1195,104 @@ function renderTokenSummary() {
     r.dapp += amount;
     if (it.valueUsd != null) { r.valueUsd += it.valueUsd; r.priced = true; }
   }
-  const list = [...rows.values()].filter(r => r.wallet + r.dapp > 0).sort((a, b) => b.valueUsd - a.valueUsd);
+  return [...rows.values()].filter(r => r.wallet + r.dapp > 0).sort((a, b) => b.valueUsd - a.valueUsd);
+}
+
+// 각 줄의 "팔았을 때 받는 금액". 견적이 아직 없으면 받아 온 뒤 다시 그림
+const quotePending = new Set(), quoteFailed = new Set();
+function sellNet(r) {
+  const key = r.chain + ":" + r.symbol;
+  if (!SELLABLE[key]) return { net: r.valueUsd, modeled: false };
+  const amount = r.wallet + r.dapp;
+  const ck = key + ":" + amount.toFixed(6);
+  const q = quoteCache.get(ck);
+  if (q) return { net: q.net, q, modeled: true };
+  if (quoteFailed.has(ck)) return { net: r.valueUsd, modeled: true, failed: true };
+  if (!quotePending.has(ck) && state.origin?.market) {
+    quotePending.add(ck);
+    quoteSell(key, amount).catch(() => quoteFailed.add(ck)).finally(() => { quotePending.delete(ck); renderTokenSummary(); });
+  }
+  return { net: null, modeled: true };
+}
+
+const twoCur = usd => `${fmtKrw(usd)}<br><span class="small muted">${fmtUsd(usd)}</span>`;
+
+function renderTokenSummary() {
+  const list = tokenRows(inScope);
   const total = sum(list, r => r.valueUsd);
   if (!state.wallets.length) {
-    $("sum-rows").innerHTML = `<tr><td colspan="6"><div class="empty">지갑을 추가하면 토큰별 개수와 금액이 나옵니다.</div></td></tr>`;
-    $("sum-foot").innerHTML = ""; return;
+    $("sum-rows").innerHTML = `<tr><td colspan="7"><div class="empty">지갑을 추가하면 토큰별 개수와 금액이 나옵니다.</div></td></tr>`;
+    $("sum-foot").innerHTML = ""; $("m-net").textContent = "—"; return;
   }
   if (!list.length) {
-    $("sum-rows").innerHTML = `<tr><td colspan="6"><div class="empty">${state.loading ? '<span class="spin"></span> 불러오는 중입니다' : "표시할 토큰이 없습니다."}</div></td></tr>`;
-    $("sum-foot").innerHTML = ""; return;
+    $("sum-rows").innerHTML = `<tr><td colspan="7"><div class="empty">${state.loading ? '<span class="spin"></span> 불러오는 중입니다' : "표시할 토큰이 없습니다."}</div></td></tr>`;
+    $("sum-foot").innerHTML = ""; $("m-net").textContent = "—"; return;
   }
+  let netTotal = 0, netReady = true;
   $("sum-rows").innerHTML = list.map(r => {
     const ch = CHAINS[r.chain];
+    const s = sellNet(r);
+    if (s.net == null) netReady = false; else netTotal += s.net;
+    const cut = s.net != null && r.valueUsd > 0 ? 1 - s.net / r.valueUsd : null;
     return `<tr>
       <td><div class="tok"><b>${esc(r.symbol)}</b><small><span class="dot" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${ch.color};margin-right:4px"></span>${ch.name}</small></div></td>
       <td class="r num hide-sm">${r.wallet ? fmtAmount(r.wallet) : "—"}</td>
       <td class="r num hide-sm">${r.dapp ? fmtAmount(r.dapp) : "—"}</td>
       <td class="r num"><b>${fmtAmount(r.wallet + r.dapp)}</b></td>
-      <td class="r num">${r.priced ? fmtKrw(r.valueUsd) : "—"}</td>
-      <td class="r num">${r.priced ? fmtUsd(r.valueUsd) : "—"}</td>
+      <td class="r num">${r.priced ? twoCur(r.valueUsd) : "—"}</td>
+      <td class="r num">${s.net == null ? '<span class="spin"></span>' : twoCur(s.net)}</td>
+      <td class="r num hide-sm">${!s.modeled ? '<span class="muted">0%</span>' : s.failed ? '<span class="muted" title="거래소 견적을 받지 못해 시세 금액을 그대로 표시">견적 실패</span>' : cut == null ? "—" : `<span style="color:var(--warn)">-${(cut * 100).toFixed(1)}%</span>`}</td>
     </tr>`;
   }).join("");
-  $("sum-foot").innerHTML = `<tr><td><b>합계</b></td><td class="hide-sm"></td><td class="hide-sm"></td><td class="r small muted">토큰 ${list.length}종</td><td class="r num"><b>${fmtKrw(total)}</b></td><td class="r num"><b>${fmtUsd(total)}</b></td></tr>`;
+  const totalCut = netReady && total > 0 ? 1 - netTotal / total : null;
+  $("sum-foot").innerHTML = `<tr><td><b>합계</b></td><td class="hide-sm"></td><td class="hide-sm"></td><td class="r small muted">토큰 ${list.length}종</td>
+    <td class="r num"><b>${twoCur(total)}</b></td><td class="r num"><b>${netReady ? twoCur(netTotal) : '<span class="spin"></span>'}</b></td>
+    <td class="r num hide-sm">${totalCut == null ? "" : `<b style="color:var(--warn)">-${(totalCut * 100).toFixed(1)}%</b>`}</td></tr>`;
+  // 요약의 "팔았을 때 받는 금액": 디앱 상품 중 토큰이 아닌 것(Power)은 원래 합계에서 빠져 있으므로 토큰 합계 기준으로 비교
+  $("m-net").innerHTML = netReady ? `${fmtMoney(netTotal)}` : '<span class="spin"></span>';
 }
+
+// ── 매도 계산기 ──────────────────────────────────────────────
+let calcTimer = null, calcSeq = 0;
+function holdingsOf(key) {
+  const [chain, symbol] = key.split(":");
+  const r = tokenRows(inScope).find(x => x.chain === chain && x.symbol === symbol);
+  return r ? r.wallet + r.dapp : 0;
+}
+function renderCalcHoldings() {
+  const key = $("calc-token").value;
+  const have = holdingsOf(key);
+  $("calc-have").textContent = `${state.scope === "all" ? "전체 지갑" : walletName(state.scope)} 보유: ${fmtAmount(have)} ${SELLABLE[key].label.split(" ")[0]}`;
+}
+async function runCalc() {
+  const key = $("calc-token").value;
+  const amount = parseFloat(($("calc-amount").value || "").replace(/,/g, ""));
+  const out = $("calc-out");
+  renderCalcHoldings();
+  if (!(amount > 0)) { out.innerHTML = '<div class="small muted">팔 개수를 넣으면 실제로 받는 금액을 계산합니다.</div>'; return; }
+  if (!state.origin?.market) { out.innerHTML = '<div class="small muted"><span class="spin"></span> 시세를 불러오는 중입니다.</div>'; return; }
+  const my = ++calcSeq;
+  out.innerHTML = '<div class="small muted"><span class="spin"></span> 거래소 견적을 받는 중입니다.</div>';
+  let q;
+  try { q = await quoteSell(key, amount); } catch (e) { if (my === calcSeq) out.innerHTML = `<div class="err">${esc(e.message)}</div>`; return; }
+  if (my !== calcSeq || !q) return;
+  const sym = SELLABLE[key].label.split(" ")[0];
+  const cut = q.gross > 0 ? 1 - q.net / q.gross : 0;
+  const line = (k, usd, neg, note) => `<dt>${k}${note ? `<br><span class="est" style="margin:0">${note}</span>` : ""}</dt><dd class="${neg ? "" : "pos"}">${neg && usd > 0 ? "-" : ""}${fmtKrw(Math.abs(usd))}<br><span class="small muted">${neg && usd > 0 ? "-" : ""}${fmtUsd(Math.abs(usd))}</span></dd>`;
+  out.innerHTML = `
+    <dl class="kv calc-kv">
+      ${line("수수료 전 (시세 기준)", q.gross, false, `${fmtAmount(amount)} ${sym} × ${fmtPrice(q.price)}`)}
+      ${q.feeRate ? line(`판매 수수료 ${(q.feeRate * 100).toFixed(1)}%`, q.feeCost, true) : ""}
+      ${q.extraRate ? line(`추가 수수료 ${(q.extraRate * 100).toFixed(2)}%`, q.extraCost, true, "판매 수수료를 뺀 나머지에 한 번 더") : ""}
+      ${line("거래소 수수료·가격 영향", q.poolCost, true, "많이 팔수록 커짐")}
+    </dl>
+    <div class="calc-result">
+      <div class="label">수수료 후 실제로 받는 금액</div>
+      <div class="total num" style="font-size:28px">${fmtKrw(q.net)}</div>
+      <div class="small muted num">${fmtUsd(q.net)} · ${fmtAmount(q.net)} DAI · 차감 <b style="color:var(--warn)">${(cut * 100).toFixed(1)}%</b></div>
+    </div>`;
+}
+function scheduleCalc() { clearTimeout(calcTimer); calcTimer = setTimeout(runCalc, 350); }
 
 function renderTokens() {
   const groups = new Map();
@@ -1298,6 +1460,15 @@ document.addEventListener("click", e => {
 
 $("tab-dapp").addEventListener("click", () => { state.tab = "dapp"; store.set("tab", "dapp"); render(); });
 $("tab-token").addEventListener("click", () => { state.tab = "token"; store.set("tab", "token"); render(); });
+$("tab-calc").addEventListener("click", () => { state.tab = "calc"; store.set("tab", "calc"); render(); runCalc(); });
+$("calc-token").addEventListener("change", () => { renderCalcHoldings(); scheduleCalc(); });
+$("calc-amount").addEventListener("input", scheduleCalc);
+document.querySelectorAll("[data-pct]").forEach(b => b.addEventListener("click", () => {
+  const have = holdingsOf($("calc-token").value);
+  const v = have * Number(b.dataset.pct) / 100;
+  $("calc-amount").value = v > 0 ? String(Math.floor(v * 1e6) / 1e6) : "";
+  runCalc();
+}));
 $("refresh").addEventListener("click", refresh);
 $("cur-krw").addEventListener("click", () => { state.currency = "krw"; store.set("currency", "krw"); render(); });
 $("cur-usd").addEventListener("click", () => { state.currency = "usd"; store.set("currency", "usd"); render(); });
