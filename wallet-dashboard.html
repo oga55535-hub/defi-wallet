@@ -318,6 +318,7 @@ details.recs td, details.recs th { padding: 5px 6px; }
             <select id="calc-token">
               <option value="anubis:LGNS">LGNS (아누비스)</option>
               <option value="polygon:LGNS">LGNS (폴리곤)</option>
+              <option value="anubis:gLGNS">gLGNS (아누비스)</option>
               <option value="anubis:AiLGNS">AiLGNS (아누비스)</option>
             </select>
             <label class="label" for="calc-amount">팔 개수</label>
@@ -581,6 +582,11 @@ const ORIGIN = {
     cobweb: "0xF7a0cacDF0810609EE5618247C4121b799E41664",
     genesis: "0x030590921E9841e1d2104642ED285C83B5F0ddB5",
     points: "0x943C6462d9A5A3CcadC12ef6AD34b9518e6128f6",
+    glgns: "0xf140a92C156e76F5A1d3D6f96284b250330F8F4c",
+    glgnsPair: "0x8c4Ea5dAC01E2E8Fb67F50201Aa2e10A6949C58D",
+    kopek: "0x8c6C69d640A392645EBcD021d3bfD8dD177cCeFB",          // 360 크로스 스테이킹 gLGNS 보상
+    glgnsVesting: "0xaC9e27714266766Ab0a6908C6ccD899E7f90108f",   // gLGNS 베스팅
+    idoLedger: "0x5E6d77F8071642561c999E97c1022108b8D5DE57",      // ILO(DAI) gLGNS 베스팅
   },
   // 헬릭스(awakehelix.io)도 아누비스 체인 위의 오리진 생태계 디앱
   helix: {
@@ -604,6 +610,8 @@ const SEL = {
   getUserDepositCount: "0x1bae91a4", getDepositRewardInfo: "0xfac459cd", getTotalClaimable: "0x267e8ab6", totalDaiValue: "0xac541224",
   getUserStakesCount: "0x98dc8dea", stakes: "0x584b62a1", pendingPayout: "0xda709204", extraInterest: "0xb01d3563",
   claimable: "0x402914f5", rewardOf: "0x1d62ebd9", totalDaiOf: "0xe6746345", activityPoints: "0x5a43f789",
+  recordCount: "0xba63245d", pendingAll: "0x7550115f", getRecord: "0xcdb8acf0", getUserVests: "0x466bac72",
+  getClaimable: "0x6f5244b1", getGlgnsVesting: "0xd02b4c00", getUserDepositsPaged: "0x4698b883",
   feeRatio: "0x41744dd4", extraFeeRatio: "0x3c336ff4", PRECISION: "0xaaf5eb68", extraFeeReceiver: "0x44bfcc30",
   getReserves: "0x0902f1ac", token0: "0x0dfe1681", epoch: "0x900cf0cf", circulatingSupply: "0x9358928b", balanceOf: "0x70a08231",
   activePowerOf: "0x6cf2fa36", pendingPowerOf: "0xaa81a38f", totalPowerOf: "0x4f343040", queuedPowerOf: "0x4029c12c",
@@ -620,7 +628,7 @@ const shortDate = ts => new Date(ts * 1000).toLocaleDateString("ko-KR", { year: 
 // [{id, to, fn, addr?, idx?}] 를 한 번에 조회해 {id: 단어 배열} 로 돌려줌. 실패한 호출은 빈 배열.
 async function multiCall(urls, calls) {
   if (!calls.length) return {};
-  const reqs = calls.map(c => ({ jsonrpc: "2.0", id: c.id, method: "eth_call", params: [{ to: c.to, data: callData(c.fn, c.addr, c.idx) }, "latest"] }));
+  const reqs = calls.map(c => ({ jsonrpc: "2.0", id: c.id, method: "eth_call", params: [{ to: c.to, data: callData(c.fn, c.addr, c.idx) + (c.extra || "") }, "latest"] }));
   const out = {};
   for (let i = 0; i < reqs.length; i += 40) Object.assign(out, await rpcBatch(urls, reqs.slice(i, i + 40)));
   const r = {};
@@ -641,6 +649,8 @@ async function loadMarket() {
     multiCall(ANUBIS_RPCS, [
       { id: "r", to: ORIGIN.anubis.pair, fn: "getReserves" }, { id: "t", to: ORIGIN.anubis.pair, fn: "token0" },
       { id: "hr", to: ORIGIN.helix.ailgnsPair, fn: "getReserves" }, { id: "ht", to: ORIGIN.helix.ailgnsPair, fn: "token0" },
+      { id: "gr", to: ORIGIN.anubis.glgnsPair, fn: "getReserves" }, { id: "gt", to: ORIGIN.anubis.glgnsPair, fn: "token0" },
+      { id: "gff", to: ORIGIN.anubis.glgns, fn: "feeRatio" }, { id: "gfp", to: ORIGIN.anubis.glgns, fn: "PRECISION" },
       { id: "ff", to: ORIGIN.anubis.lgns, fn: "feeRatio" }, { id: "fx", to: ORIGIN.anubis.lgns, fn: "extraFeeRatio" },
       { id: "fp", to: ORIGIN.anubis.lgns, fn: "PRECISION" }, { id: "fr", to: ORIGIN.anubis.lgns, fn: "extraFeeReceiver" },
     ]),
@@ -663,10 +673,11 @@ async function loadMarket() {
     lgnsAnubis: pairPrice(a.r, a.t, ORIGIN.anubis.lgns),
     lgnsPolygon: pairPrice(p.r, p.t, ORIGIN.polygon.lgns),
     ailgns: pairPrice(a.hr, a.ht, ORIGIN.helix.ailgns, 18),
+    glgns: pairPrice(a.gr, a.gt, ORIGIN.anubis.glgns, 18),
     rebase, perDay,
     apy: rebase != null ? Math.pow(1 + rebase, perDay * 365) - 1 : null,
     polygonBlock: bn.bn ? parseInt(bn.bn, 16) : null,
-    fees: { anubis: readFees(a), polygon: readFees(p) },
+    fees: { anubis: readFees(a), polygon: readFees(p), glgns: readFees({ ff: a.gff, fp: a.gfp }) },
   };
 }
 
@@ -716,7 +727,10 @@ async function loadOriginWallet(w, mk) {
       ["hpa", H.power, "activePowerOf"], ["hpt", H.power, "totalPowerOf"], ["hpp", H.power, "pendingPowerOf"], ["hpq", H.power, "queuedPowerOf"],
       ["hvp", H.vault, "pendingOf"], ["htl", H.turbine, "lockedBalanceOf"], ["htc", H.turbine, "claimableOf"], ["htd", H.turbine, "claimedBalance"],
       ["hnft", H.productionNft, "balanceOf"],
-    ].map(([id, to, fn]) => ({ id, to, fn, addr: me }))),
+      ["kc", A.kopek, "recordCount"], ["kp", A.kopek, "pendingAll"], ["gv", A.glgnsVesting, "getUserVests"],
+    ].map(([id, to, fn]) => ({ id, to, fn, addr: me })).concat([
+      { id: "id", to: A.idoLedger, fn: "getUserDepositsPaged", addr: me, extra: word(0) + word(100) },
+    ])),
     multiCall(POLYGON_RPCS, [
       { id: "sb", to: P.slgns, fn: "balanceOf", addr: me },
       { id: "qc", to: P.quota360, fn: "getUserStakesCount", addr: me },
@@ -737,6 +751,13 @@ async function loadOriginWallet(w, mk) {
       if (k !== "e") a2calls.push({ id: k + "x" + i, to, fn: "extraInterest", addr: me, idx: i });
     }
   }
+  // gLGNS: 크로스 스테이킹 보상 기록, 베스팅 목록(동적 배열: [오프셋, 개수, 항목...]), ILO 예치 건수
+  const kc = cap(n(a1, "kc"));
+  for (let i = 0; i < kc; i++) a2calls.push({ id: "kr" + i, to: A.kopek, fn: "getRecord", addr: me, idx: i });
+  const gvCount = cap(Number(a1.gv?.[1] ?? 0n));
+  for (let i = 0; i < gvCount; i++) a2calls.push({ id: "gc" + i, to: A.glgnsVesting, fn: "getClaimable", addr: me, idx: i });
+  const idCount = cap(Number(a1.id?.[1] ?? 0n));
+  for (let i = 0; i < idCount; i++) a2calls.push({ id: "ig" + i, to: A.idoLedger, fn: "getGlgnsVesting", addr: me, idx: i });
   for (let i = 0; i < cap(n(p1, "qc")); i++) {
     p2calls.push({ id: "qs" + i, to: P.quota360, fn: "stakes", addr: me, idx: i });
     p2calls.push({ id: "qp" + i, to: P.quota360, fn: "pendingPayout", addr: me, idx: i });
@@ -832,6 +853,36 @@ async function loadOriginWallet(w, mk) {
       principal: null, earned: null, nums: [["총 보상", L(cr[0]), "LGNS"], ["받은 보상", L(cr[1]), "LGNS"]], rate: "—" });
   }
 
+  // 6-1. gLGNS 보상·베스팅: 세 곳에서 받기로 된 gLGNS를 합산 (전체 배정량, 받은 양, 지금 받을 수 있는 양)
+  {
+    const src = [];
+    if (kc > 0) {
+      let total = 0, claimed = 0;
+      for (let i = 0; i < kc; i++) { const r = a2["kr" + i] || []; total += D(r[0]); claimed += D(r[2]); }
+      src.push({ name: "360 크로스 스테이킹 보상", total, claimed, claimable: D(a1.kp?.[0]), count: kc });
+    }
+    if (gvCount > 0) {
+      let total = 0, claimed = 0, claimable = 0;
+      const v = a1.gv || [];
+      for (let i = 0; i < gvCount; i++) { const b = 2 + i * 6; total += D(v[b]); claimed += D(v[b + 1]); claimable += D(a2["gc" + i]?.[0]); }
+      src.push({ name: "gLGNS 베스팅", total, claimed, claimable, count: gvCount });
+    }
+    if (idCount > 0) {
+      let total = 0, claimed = 0, claimable = 0;
+      for (let i = 0; i < idCount; i++) { const r = a2["ig" + i] || []; total += D(r[0]); claimed += D(r[2]); claimable += D(r[3]); }
+      if (total > 0) src.push({ name: "ILO gLGNS 베스팅", total, claimed, claimable, count: idCount });
+    }
+    const remain = sum(src, s => s.total - s.claimed), now = sum(src, s => s.claimable);
+    if (src.length && (remain > 0 || now > 0)) {
+      items.push({ ...base, chain: "anubis", key: "glgnsRewards", name: "gLGNS 보상·베스팅", unit: "gLGNS", value: remain,
+        valueLabel: "아직 받지 않은 gLGNS", reward: now, principal: null, earned: null,
+        nums: [["지금 받을 수 있음", now, "gLGNS"], ["총 배정", sum(src, s => s.total), "gLGNS"], ["이미 받음", sum(src, s => s.claimed), "gLGNS"]],
+        rate: "선형 해제", rateNote: "기간에 걸쳐 조금씩 풀림",
+        records: { head: ["출처", "총 배정", "받음", "수령 가능"], rows: src.map(s => [`${s.name} (${s.count}건)`, fmtAmount(s.total), fmtAmount(s.claimed), fmtAmount(s.claimable)]) },
+        note: "잠겨 있는 양도 평가액에 포함했습니다. 다 풀리기 전에는 팔 수 없습니다." });
+    }
+  }
+
   // 7. 헬릭스 파워: 창세 계획 등에 DAI로 참여하면 Power를 받고, Power가 매일 AiLGNS 배출을 나눠 받음
   const gd = D(a1.gd?.[0]);
   const hpa = D(a1.hpa?.[0]), hpt = D(a1.hpt?.[0]), hpp = D(a1.hpp?.[0]) + D(a1.hpq?.[0]);
@@ -906,7 +957,7 @@ async function loadOrigin(wallets, errors) {
   if (failed.length) errors.push(`디앱 상품을 ${failed.length}개 지갑에서 불러오지 못했습니다 (${reason}): ${failed.join(", ")}. 직전 값을 그대로 보여 주며, 새로고침하면 다시 시도합니다.`);
   const items = per.flatMap(p => p.items);
   for (const it of items) {
-    const price = it.unit === "DAI" ? 1 : it.unit === "AiLGNS" ? mk.ailgns : it.unit === "Power" ? null
+    const price = it.unit === "DAI" ? 1 : it.unit === "AiLGNS" ? mk.ailgns : it.unit === "gLGNS" ? mk.glgns : it.unit === "Power" ? null
       : it.chain === "anubis" ? mk.lgnsAnubis : mk.lgnsPolygon;
     it.price = price;
     const counted = it.countValue != null ? it.countValue : it.value;
@@ -947,6 +998,9 @@ async function refresh() {
   if (prices) holdings.forEach(h => { if (h.cg && prices[h.cg]) h.priceUsd = prices[h.cg].usd; });
   const lgnsP = state.origin?.market?.lgnsPolygon;
   holdings.forEach(h => { if (h.lgnsPolygon && lgnsP != null) h.priceUsd = lgnsP; });
+  // 지갑에 든 gLGNS는 탐색기 시세가 없을 수 있어 유동성 풀 가격으로 채움
+  const glgnsP = state.origin?.market?.glgns, glgnsKey = "anubis:" + ORIGIN.anubis.glgns.toLowerCase();
+  holdings.forEach(h => { if (h.key === glgnsKey && glgnsP != null) { h.priceUsd = glgnsP; h.symbol = "gLGNS"; } });
   holdings.forEach(h => h.valueUsd = h.priceUsd != null ? h.amount * h.priceUsd : null);
   if (state.origin) state.origin.items = state.origin.items.filter(it => known.has(it.wallet));
   state.holdings = holdings;
@@ -1101,6 +1155,7 @@ function renderProducts() {
   $("market").innerHTML = mk ? [
     `LGNS 아누비스 <b>${fmtPrice(mk.lgnsAnubis)}</b>`,
     `LGNS 폴리곤 <b>${fmtPrice(mk.lgnsPolygon)}</b>`,
+    mk.glgns != null ? `gLGNS <b>${fmtPrice(mk.glgns)}</b>` : "",
     mk.ailgns != null ? `AiLGNS <b>${fmtPrice(mk.ailgns)}</b>` : "",
     mk.rebase != null ? `리베이스 <b>${(mk.rebase * 100).toFixed(4)}%</b> / ${Math.round(24 / mk.perDay)}시간 · 연 <b>${(mk.apy * 100).toFixed(1)}%</b>` : "",
   ].filter(Boolean).map(s => `<span>${s}</span>`).join("") : "";
@@ -1142,6 +1197,7 @@ const ANUBIS_DAI = "0x83fd06F0846d9D90B3016bF670Efe2E0B11cDe14", POLYGON_DAI = "
 const SELLABLE = {
   "anubis:LGNS": { label: "LGNS (아누비스)", token: ORIGIN.anubis.lgns, decimals: 9, rpcs: ANUBIS_RPCS, router: "0x3E412E02B6157fBE80b6C6697f3Ce1142E629019", dai: ANUBIS_DAI, fees: "anubis", price: mk => mk.lgnsAnubis },
   "polygon:LGNS": { label: "LGNS (폴리곤)", token: ORIGIN.polygon.lgns, decimals: 9, rpcs: POLYGON_RPCS, router: "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff", dai: POLYGON_DAI, fees: "polygon", price: mk => mk.lgnsPolygon },
+  "anubis:gLGNS": { label: "gLGNS (아누비스)", token: ORIGIN.anubis.glgns, decimals: 18, rpcs: ANUBIS_RPCS, router: "0x3E412E02B6157fBE80b6C6697f3Ce1142E629019", dai: ANUBIS_DAI, fees: "glgns", price: mk => mk.glgns },
   "anubis:AiLGNS": { label: "AiLGNS (아누비스)", token: ORIGIN.helix.ailgns, decimals: 18, rpcs: ANUBIS_RPCS, router: "0x3E412E02B6157fBE80b6C6697f3Ce1142E629019", dai: ANUBIS_DAI, fees: null, price: mk => mk.ailgns },
 };
 const toRaw = (n, d) => BigInt(Math.floor(n * 1e6)) * 10n ** BigInt(d - 6);
