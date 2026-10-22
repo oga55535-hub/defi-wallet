@@ -54,7 +54,10 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 button.ghost { background: none; border-color: transparent; color: var(--accent); padding: 4px 6px; }
 button.danger { color: var(--warn); }
 button:disabled { opacity: .55; cursor: default; }
-input[type=text] { border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 9px 11px; width: 100%; min-width: 0; }
+input[type=text], textarea { border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 9px 11px; width: 100%; min-width: 0; }
+textarea { resize: vertical; font-size: 12px; word-break: break-all; }
+details.transfer { border-top: 1px solid var(--line); padding-top: 10px; }
+details.transfer summary { cursor: pointer; font-size: 13px; color: var(--accent); }
 label.check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; }
 
 /* 상단 바 */
@@ -235,6 +238,18 @@ details.recs td, details.recs th { padding: 5px 6px; }
         <button type="submit" class="primary">추가</button>
         <div class="formmsg" id="w-msg"></div>
       </form>
+      <details class="transfer">
+        <summary>다른 기기로 지갑 목록 옮기기</summary>
+        <div class="addbox" style="margin-top:10px">
+          <div class="small muted">보내는 기기에서 내보내기 → 코드를 받는 기기로 보내기(카카오톡 나에게 보내기 등) → 받는 기기에서 가져오기.</div>
+          <button type="button" id="export-btn">지갑 목록 내보내기</button>
+          <textarea id="export-out" class="mono" rows="3" readonly hidden aria-label="내보낸 코드"></textarea>
+          <div class="formmsg" id="export-msg"></div>
+          <textarea id="import-in" class="mono" rows="3" placeholder="받은 코드를 여기에 붙여 넣기" spellcheck="false" aria-label="가져올 코드"></textarea>
+          <button type="button" id="import-btn">가져오기</button>
+          <div class="formmsg" id="import-msg"></div>
+        </div>
+      </details>
       <div class="safety"><strong>주소만 넣으세요.</strong> 지갑 연결, 서명, 승인 요청이 없습니다. 니모닉이나 개인키는 어디에도 입력하지 마세요. TokenPocket → 지갑 선택 → 주소 옆 복사 버튼으로 주소를 복사할 수 있습니다.</div>
     </section>
   </aside>
@@ -1079,6 +1094,50 @@ $("add-wallet").addEventListener("submit", e => {
   msg.className = err ? "formmsg bad" : "formmsg ok";
   msg.textContent = err || "추가했습니다. 잔고와 디앱 상품을 불러오는 중입니다.";
   if (!err) { $("w-name").value = ""; $("w-addr").value = ""; }
+});
+
+// 지갑 목록 옮기기: 이름과 주소만 담은 짧은 코드(DW1:base64)로 주고받음. 서버를 거치지 않음.
+const EXPORT_PREFIX = "DW1:";
+function encodeWallets(list) {
+  const json = JSON.stringify(list.map(w => [w.name, w.address]));
+  return EXPORT_PREFIX + btoa(String.fromCharCode(...new TextEncoder().encode(json)));
+}
+function decodeWallets(text) {
+  const t = text.trim();
+  if (t.startsWith(EXPORT_PREFIX)) {
+    const bytes = Uint8Array.from(atob(t.slice(EXPORT_PREFIX.length).replace(/\s+/g, "")), c => c.charCodeAt(0));
+    const arr = JSON.parse(new TextDecoder().decode(bytes));
+    return arr.map(([name, address]) => ({ name: String(name || "").slice(0, 30), address: String(address || "") }));
+  }
+  // 코드 대신 주소만 줄마다 붙여 넣어도 받아 줌
+  return (t.match(/0x[0-9a-fA-F]{40}/g) || []).map(address => ({ name: "", address }));
+}
+
+$("export-btn").addEventListener("click", () => {
+  const out = $("export-out"), msg = $("export-msg");
+  if (!state.wallets.some(w => !w.example)) { msg.className = "formmsg bad"; msg.textContent = "내보낼 지갑이 없습니다. 예시 지갑은 내보내지 않습니다."; return; }
+  const code = encodeWallets(state.wallets.filter(w => !w.example));
+  out.value = code; out.hidden = false;
+  const done = () => { msg.className = "formmsg ok"; msg.textContent = `지갑 ${state.wallets.filter(w => !w.example).length}개를 담은 코드를 복사했습니다. 받는 기기로 보내 주세요.`; };
+  const fallback = () => { out.focus(); out.select(); msg.className = "formmsg"; msg.textContent = "자동 복사가 안 돼서 코드를 선택해 두었습니다. 직접 복사해 주세요."; };
+  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(code).then(done, fallback); else fallback();
+});
+
+$("import-btn").addEventListener("click", () => {
+  const msg = $("import-msg");
+  let list;
+  try { list = decodeWallets($("import-in").value); } catch { list = null; }
+  if (!list || !list.length) { msg.className = "formmsg bad"; msg.textContent = "코드를 읽지 못했습니다. 내보내기로 받은 코드 전체를 붙여 넣었는지 확인하세요."; return; }
+  let added = 0, skipped = 0;
+  for (const w of list) {
+    if (!isAddr(w.address) || state.wallets.some(x => x.address.toLowerCase() === w.address.toLowerCase())) { skipped++; continue; }
+    state.wallets.push({ name: w.name || "지갑 " + (state.wallets.length + 1), address: w.address, example: false });
+    added++;
+  }
+  saveWallets();
+  msg.className = added ? "formmsg ok" : "formmsg bad";
+  msg.textContent = added ? `지갑 ${added}개를 가져왔습니다.` + (skipped ? ` 이미 있거나 잘못된 주소 ${skipped}개는 건너뛰었습니다.` : "") : "새로 추가할 지갑이 없습니다. 이미 모두 등록되어 있습니다.";
+  if (added) { $("import-in").value = ""; setScope("all"); refresh(); }
 });
 
 $("add-token").addEventListener("submit", async e => {
