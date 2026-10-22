@@ -1,0 +1,1118 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>내 디파이 지갑</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* 레이아웃: 왼쪽 지갑 목록(전체 + 지갑별) → 오른쪽 선택한 범위의 요약 · 디앱 상품 · 토큰. 좁은 화면에서는 지갑 목록이 위쪽 가로 탭이 됨. */
+:root {
+  --bg: #0f1218;
+  --panel: #171b24;
+  --panel-2: #1e2330;
+  --line: #2a3040;
+  --fg: #e8ebf3;
+  --muted: #8d94a8;
+  --accent: #6d8dff;
+  --accent-ink: #0f1218;
+  --polygon: #a585ff;
+  --anubis: #d8ad57;
+  --good: #4cc38a;
+  --warn: #f0905a;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #eef0f5; --panel: #ffffff; --panel-2: #f5f6fa; --line: #dde1ea; --fg: #161a24; --muted: #616880;
+    --accent: #3354d6; --accent-ink: #ffffff; --polygon: #7b4ae2; --anubis: #a87a1f; --good: #1b8656; --warn: #b5541c;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #eef0f5; --panel: #ffffff; --panel-2: #f5f6fa; --line: #dde1ea; --fg: #161a24; --muted: #616880;
+  --accent: #3354d6; --accent-ink: #ffffff; --polygon: #7b4ae2; --anubis: #a87a1f; --good: #1b8656; --warn: #b5541c;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.55 var(--font-body); }
+button, input { font: inherit; color: inherit; }
+.mono, .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.label { font-size: 12px; letter-spacing: .06em; color: var(--muted); font-weight: 500; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+button { border: 1px solid var(--line); background: var(--panel-2); border-radius: 8px; padding: 7px 12px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+button.ghost { background: none; border-color: transparent; color: var(--accent); padding: 4px 6px; }
+button.danger { color: var(--warn); }
+button:disabled { opacity: .55; cursor: default; }
+input[type=text] { border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 9px 11px; width: 100%; min-width: 0; }
+label.check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; }
+
+/* 상단 바 */
+.topbar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--bg); border-bottom: 1px solid var(--line);
+  padding: 12px max(16px, env(safe-area-inset-right, 0px)) 12px max(16px, env(safe-area-inset-left, 0px));
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.topbar .in { max-width: 1280px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand .mark { width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(135deg, var(--polygon), var(--anubis)); }
+.brand h1 { font-size: 17px; font-weight: 700; }
+.brand .sub { font-size: 12px; color: var(--muted); }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; background: none; padding: 6px 11px; }
+.seg button[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+
+/* 본문 */
+.app {
+  max-width: 1280px; margin: 0 auto; display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 20px; align-items: start;
+  padding: 20px max(16px, env(safe-area-inset-right, 0px)) 48px max(16px, env(safe-area-inset-left, 0px));
+}
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; min-width: 0; }
+
+/* 지갑 목록 */
+.side { position: sticky; top: 76px; display: flex; flex-direction: column; gap: 12px; }
+.wlist { display: flex; flex-direction: column; gap: 6px; }
+.witem {
+  display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 10px; align-items: center; text-align: left;
+  width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid transparent; background: none;
+}
+.witem:hover { border-color: var(--line); background: var(--panel-2); }
+.witem[aria-current="true"] { background: var(--panel-2); border-color: var(--accent); }
+.witem .dot { width: 10px; height: 10px; border-radius: 3px; }
+.witem .nm { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.witem .ad { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+.witem .val { font-family: var(--font-mono); font-size: 13px; text-align: right; }
+.witem .pct { font-size: 11px; color: var(--muted); text-align: right; }
+.witem.all .dot { background: linear-gradient(135deg, var(--polygon), var(--anubis)); }
+.addbox { display: flex; flex-direction: column; gap: 8px; }
+.formmsg { font-size: 13px; min-height: 1em; }
+.formmsg.bad { color: var(--warn); }
+.formmsg.ok { color: var(--good); }
+.safety { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.safety strong { color: var(--fg); }
+
+/* 범위 머리말 */
+.content { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.scope-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.scope-head h2 { font-size: 20px; }
+.scope-head .addr { font-family: var(--font-mono); font-size: 12px; color: var(--muted); word-break: break-all; }
+.scope-acts { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 13px; }
+.scope-acts a { color: var(--accent); text-decoration: none; padding: 4px 6px; }
+
+.hero { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 24px; }
+.total { overflow-wrap: anywhere; font-family: var(--font-mono); font-size: clamp(26px, 4vw, 40px); font-weight: 500; letter-spacing: -.02em; line-height: 1.1; margin-top: 6px; }
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 16px; }
+.metric { background: var(--panel-2); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+.metric .v { font-family: var(--font-mono); font-size: 16px; margin-top: 2px; overflow-wrap: anywhere; }
+.metric .v.pos { color: var(--good); }
+.updated { margin-top: 10px; font-size: 12px; color: var(--muted); }
+.bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--line); margin: 10px 0 12px; }
+.bar span { display: block; height: 100%; }
+.legend { display: flex; flex-direction: column; gap: 6px; }
+.legend .row { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto auto; gap: 10px; align-items: center; font-size: 14px; }
+.legend .dot { width: 10px; height: 10px; border-radius: 3px; }
+.split { display: flex; flex-direction: column; gap: 18px; }
+.errors { display: flex; flex-direction: column; gap: 6px; }
+.err { font-size: 13px; color: var(--warn); border: 1px solid currentColor; border-radius: 8px; padding: 8px 10px; }
+
+/* 탭 */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: -4px 0 16px; overflow-x: auto; }
+.tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 9px 12px; color: var(--muted); font-weight: 600; white-space: nowrap; }
+.tabs button[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); }
+.tabs .count { font-family: var(--font-mono); font-size: 12px; color: var(--muted); margin-left: 4px; font-weight: 400; }
+
+.market { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+.market b { color: var(--fg); font-family: var(--font-mono); font-weight: 500; }
+
+/* 상품 카드 */
+.prods { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+.prod { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.prod .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.prod h3 { font-size: 15px; font-weight: 600; }
+.prod .sub { font-size: 12px; color: var(--muted); }
+.prod .big { font-family: var(--font-mono); font-size: 22px; font-weight: 500; line-height: 1.2; }
+.prod .big small { display: block; font-family: var(--font-body); font-size: 13px; color: var(--muted); font-weight: 400; margin-top: 2px; }
+.kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 5px 12px; font-size: 13px; margin: 0; }
+.kv dt { color: var(--muted); white-space: nowrap; }
+.kv dd { margin: 0; text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.kv dd.pos { color: var(--good); }
+.est { font-family: var(--font-body); color: var(--muted); font-size: 11px; margin-left: 4px; }
+.progress { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.progress b { display: block; height: 100%; background: var(--anubis); }
+details.recs summary { cursor: pointer; font-size: 13px; color: var(--accent); }
+.prod .note { font-size: 12px; color: var(--muted); }
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); white-space: nowrap; }
+.pill .dot { width: 7px; height: 7px; border-radius: 50%; }
+.pill.warn { color: var(--warn); border-color: currentColor; }
+
+/* 표 */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; font-weight: 500; font-size: 12px; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+th.r, td.r { text-align: right; }
+details.recs table { font-size: 12px; margin-top: 6px; }
+details.recs td, details.recs th { padding: 5px 6px; }
+.tok { display: flex; flex-direction: column; min-width: 0; }
+.tok b { font-weight: 600; }
+.tok small { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+.share { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.share i { display: block; width: 54px; height: 5px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.share i b { display: block; height: 100%; background: var(--accent); }
+.tools { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
+.empty { padding: 28px 8px; text-align: center; color: var(--muted); }
+.cmp .row { display: grid; grid-template-columns: minmax(0, 140px) minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.cmp .row:last-child { border-bottom: 0; }
+.cmp .track { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; display: flex; }
+.cmp .track span { height: 100%; }
+.spin { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: s .8s linear infinite; vertical-align: -1px; }
+@keyframes s { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+
+@media (max-width: 900px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .side { display: contents; }
+  .side > .panel:first-child { order: 0; }
+  .content { order: 1; }
+  .side > .addbox { order: 2; }
+  .wlist { flex-direction: row; overflow-x: auto; padding-bottom: 4px; }
+  .witem { flex: 0 0 auto; width: 168px; grid-template-columns: 10px minmax(0, 1fr); row-gap: 4px; }
+  .witem > span:last-child { grid-column: 2; }
+  .witem .val, .witem .pct { text-align: left; }
+  .hero { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  .metrics { grid-template-columns: minmax(0, 1fr); }
+  .hide-sm { display: none; }
+  .cmp .row { grid-template-columns: minmax(0, 90px) minmax(0, 1fr) auto; }
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="in">
+    <div class="brand">
+      <div class="mark" aria-hidden="true"></div>
+      <div>
+        <h1>내 디파이 지갑</h1>
+        <div class="sub">폴리곤 · 아누비스 · 오리진 디앱 · 주소만 쓰는 읽기 전용</div>
+      </div>
+    </div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="표시 통화">
+        <button type="button" id="cur-krw" aria-pressed="true">₩</button>
+        <button type="button" id="cur-usd" aria-pressed="false">$</button>
+      </div>
+      <label class="check"><input type="checkbox" id="auto"> 1분 자동</label>
+      <button type="button" class="primary" id="refresh">새로고침</button>
+    </div>
+  </div>
+</header>
+
+<div class="app">
+  <aside class="side">
+    <section class="panel" aria-label="지갑 목록" style="padding:10px">
+      <div class="wlist" id="wlist"></div>
+    </section>
+    <section class="panel addbox" aria-label="지갑 추가">
+      <form id="add-wallet" class="addbox" autocomplete="off">
+        <label class="label" for="w-addr">지갑 추가</label>
+        <input type="text" id="w-name" placeholder="별명 (예: 메인 지갑)" maxlength="30" aria-label="지갑 별명">
+        <input type="text" id="w-addr" class="mono" placeholder="0x로 시작하는 지갑 주소" spellcheck="false">
+        <button type="submit" class="primary">추가</button>
+        <div class="formmsg" id="w-msg"></div>
+      </form>
+      <div class="safety"><strong>주소만 넣으세요.</strong> 지갑 연결, 서명, 승인 요청이 없습니다. 니모닉이나 개인키는 어디에도 입력하지 마세요. TokenPocket → 지갑 선택 → 주소 옆 복사 버튼으로 주소를 복사할 수 있습니다.</div>
+    </section>
+  </aside>
+
+  <main class="content">
+    <section class="panel">
+      <div class="scope-head" id="scope-head"></div>
+      <div class="hero" style="margin-top:16px">
+        <div>
+          <div class="label">총 평가액</div>
+          <div class="total num" id="total">—</div>
+          <div class="metrics">
+            <div class="metric"><div class="label">지갑 보유</div><div class="v" id="m-wallet">—</div></div>
+            <div class="metric"><div class="label">디앱 예치</div><div class="v" id="m-dapp">—</div></div>
+            <div class="metric"><div class="label">지금 받을 수 있는 보상</div><div class="v pos" id="m-reward">—</div></div>
+          </div>
+          <div class="updated" id="updated"></div>
+          <div class="errors" id="errors" style="margin-top:10px"></div>
+        </div>
+        <div class="split">
+          <div>
+            <div class="label">체인별</div>
+            <div class="bar" id="chain-bar"></div>
+            <div class="legend" id="chain-legend"></div>
+          </div>
+          <div id="cmp-wrap">
+            <div class="label">지갑별 비교</div>
+            <div class="cmp" id="cmp"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" id="tab-dapp" aria-selected="true">디앱 상품<span class="count" id="cnt-dapp"></span></button>
+        <button type="button" role="tab" id="tab-token" aria-selected="false">토큰<span class="count" id="cnt-token"></span></button>
+      </div>
+
+      <div id="pane-dapp">
+        <div class="market" id="market"></div>
+        <div class="prods" id="prods"></div>
+        <div class="small muted" id="prod-note" style="margin-top:12px"></div>
+      </div>
+
+      <div id="pane-token" hidden>
+        <div class="tools">
+          <label class="check"><input type="checkbox" id="show-all"> 가격 없는 토큰·주의 토큰도 보기</label>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>토큰</th><th>체인</th><th class="r">수량</th><th class="r hide-sm">가격</th><th class="r">평가액</th><th class="r hide-sm">비중</th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <div class="small muted" id="hidden-note" style="margin-top:10px"></div>
+        <details style="margin-top:16px">
+          <summary class="small" style="cursor:pointer;color:var(--accent)">폴리곤 토큰 직접 추가</summary>
+          <p class="small muted">기본 목록(POL, USDT, USDC, USDC.e, WETH, WBTC, DAI, WPOL, LINK, AAVE, LGNS)에 없는 폴리곤 토큰은 계약 주소로 추가하세요. 아누비스 체인은 모든 토큰을 자동으로 찾습니다.</p>
+          <form id="add-token" class="addbox" autocomplete="off" style="max-width:420px">
+            <input type="text" id="t-addr" class="mono" placeholder="토큰 계약 주소 0x…" spellcheck="false" aria-label="토큰 계약 주소">
+            <button type="submit">토큰 추가</button>
+            <div class="formmsg" id="t-msg"></div>
+          </form>
+          <div id="custom-tokens" class="small" style="margin-top:8px;max-width:420px"></div>
+        </details>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+"use strict";
+const POLYGON_RPCS = ["https://polygon-bor-rpc.publicnode.com", "https://polygon.drpc.org"];
+const ANUBIS_RPCS = ["https://rpc.anubispace.org"];
+const ANUBIS_API = "https://browser.anubispace.org/api/v2";
+const CHAINS = {
+  polygon: { name: "폴리곤", color: "var(--polygon)", explorer: a => "https://polygonscan.com/address/" + a },
+  anubis: { name: "아누비스", color: "var(--anubis)", explorer: a => "https://browser.anubispace.org/address/" + a },
+};
+const POLYGON_TOKENS = [
+  { address: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", symbol: "USDT", name: "Tether USD", decimals: 6, cg: "tether" },
+  { address: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", symbol: "USDC", name: "USD Coin", decimals: 6, cg: "usd-coin" },
+  { address: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", symbol: "USDC.e", name: "Bridged USDC", decimals: 6, cg: "usd-coin" },
+  { address: "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619", symbol: "WETH", name: "Wrapped Ether", decimals: 18, cg: "weth" },
+  { address: "0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6", symbol: "WBTC", name: "Wrapped BTC", decimals: 8, cg: "wrapped-bitcoin" },
+  { address: "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063", symbol: "DAI", name: "Dai Stablecoin", decimals: 18, cg: "dai" },
+  { address: "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270", symbol: "WPOL", name: "Wrapped POL", decimals: 18, cg: "polygon-ecosystem-token" },
+  { address: "0x53E0bca35eC356BD5ddDFebbD1Fc0fD03FaBad39", symbol: "LINK", name: "Chainlink", decimals: 18, cg: "chainlink" },
+  { address: "0xD6DF932A45C0f255f85145f286eA0b292B21C90B", symbol: "AAVE", name: "Aave", decimals: 18, cg: "aave" },
+  { address: "0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01", symbol: "LGNS", name: "Origin LGNS", decimals: 9, lgnsPolygon: true },
+];
+const EXAMPLE_WALLET = { name: "예시 지갑", address: "0x85fF1E15CaBCa867F244B9c2465227477f251972", example: true };
+const WALLET_COLORS = ["#6d8dff", "#4cc38a", "#e0679b", "#d8ad57", "#a585ff", "#45b5cf", "#f0905a", "#8d94a8"];
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("walletdash." + k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("walletdash." + k, JSON.stringify(v)); } catch {} },
+};
+
+const state = {
+  wallets: store.get("wallets", []),
+  customTokens: store.get("customTokens", []),
+  currency: store.get("currency", "krw"),
+  scope: store.get("scope", "all"),
+  tab: store.get("tab", "dapp"),
+  showAll: false,
+  holdings: [],
+  origin: null,
+  errors: [],
+  usdKrw: null,
+  loading: false,
+  updatedAt: null,
+};
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const isAddr = a => /^0x[0-9a-fA-F]{40}$/.test(a);
+const short = a => a.slice(0, 6) + "…" + a.slice(-4);
+const walletColor = addr => WALLET_COLORS[Math.max(0, state.wallets.findIndex(w => w.address === addr)) % WALLET_COLORS.length];
+const walletName = addr => state.wallets.find(w => w.address === addr)?.name || short(addr);
+
+function units(raw, decimals) {
+  let v; try { v = BigInt(raw || 0); } catch { return 0; }
+  const d = BigInt(10) ** BigInt(decimals || 0);
+  return Number(v / d) + Number(v % d) / Number(d);
+}
+function fmtAmount(n) {
+  if (n == null || !isFinite(n)) return "—";
+  if (n === 0) return "0";
+  const a = Math.abs(n);
+  if (a < 0.0001) return (n < 0 ? "-" : "") + "<0.0001";
+  const digits = a >= 1000 ? 2 : a >= 1 ? 4 : 6;
+  return n.toLocaleString("ko-KR", { maximumFractionDigits: digits });
+}
+function fmtMoney(usd) {
+  if (usd == null || !isFinite(usd)) return "—";
+  if (state.currency === "krw" && state.usdKrw) return "₩" + Math.round(usd * state.usdKrw).toLocaleString("ko-KR");
+  return "$" + usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: Math.abs(usd) < 1 ? 4 : 2 });
+}
+function fmtPrice(usd) {
+  if (usd == null) return "—";
+  if (state.currency === "krw" && state.usdKrw) {
+    const k = usd * state.usdKrw;
+    return "₩" + k.toLocaleString("ko-KR", { maximumFractionDigits: k < 10 ? 2 : 0 });
+  }
+  return "$" + usd.toLocaleString("en-US", { maximumFractionDigits: usd < 1 ? 4 : 2 });
+}
+
+async function fetchJson(url, opts = {}, timeout = 20000) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), timeout);
+  try {
+    const r = await fetch(url, { ...opts, signal: ctl.signal });
+    if (!r.ok) { const e = new Error("HTTP " + r.status); e.status = r.status; throw e; }
+    return await r.json();
+  } finally { clearTimeout(t); }
+}
+
+async function rpcBatch(urls, reqs) {
+  let lastErr;
+  for (const url of urls) {
+    try {
+      const res = await fetchJson(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(reqs) });
+      if (Array.isArray(res)) { const m = {}; res.forEach(x => m[x.id] = x.result); return m; }
+    } catch (e) { lastErr = e; }
+    // 배치를 지원하지 않는 노드는 하나씩 요청
+    try {
+      const m = {};
+      for (let i = 0; i < reqs.length; i += 8) {
+        const part = await Promise.all(reqs.slice(i, i + 8).map(q =>
+          fetchJson(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(q) })));
+        part.forEach(x => m[x.id] = x.result);
+      }
+      return m;
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error("노드 응답 없음");
+}
+
+const balanceOfData = a => "0x70a08231" + a.slice(2).toLowerCase().padStart(64, "0");
+
+// ── 지갑 토큰 ──────────────────────────────────────────────
+async function loadPolygon(wallets) {
+  const tokens = [...POLYGON_TOKENS, ...state.customTokens];
+  const reqs = [];
+  wallets.forEach((w, wi) => {
+    reqs.push({ jsonrpc: "2.0", id: `${wi}:native`, method: "eth_getBalance", params: [w.address, "latest"] });
+    tokens.forEach((t, ti) => reqs.push({ jsonrpc: "2.0", id: `${wi}:${ti}`, method: "eth_call", params: [{ to: t.address, data: balanceOfData(w.address) }, "latest"] }));
+  });
+  const res = {};
+  for (let i = 0; i < reqs.length; i += 40) Object.assign(res, await rpcBatch(POLYGON_RPCS, reqs.slice(i, i + 40)));
+  const out = [];
+  wallets.forEach((w, wi) => {
+    const nat = units(res[`${wi}:native`], 18);
+    if (nat > 0) out.push({ chain: "polygon", wallet: w.address, key: "polygon:native", symbol: "POL", name: "Polygon (가스)", amount: nat, cg: "polygon-ecosystem-token" });
+    tokens.forEach((t, ti) => {
+      const r = res[`${wi}:${ti}`];
+      const amt = r && r !== "0x" ? units(r, t.decimals) : 0;
+      if (amt > 0) out.push({ chain: "polygon", wallet: w.address, key: "polygon:" + t.address.toLowerCase(), symbol: t.symbol, name: t.name, amount: amt, cg: t.cg, lgnsPolygon: t.lgnsPolygon, contract: t.address });
+    });
+  });
+  return out;
+}
+
+async function loadAnubisWallet(w) {
+  const out = [];
+  let info = null;
+  try { info = await fetchJson(`${ANUBIS_API}/addresses/${w.address}`); }
+  catch (e) { if (e.status !== 404) throw e; }
+  const coin = info ? units(info.coin_balance, 18) : 0;
+  if (coin > 0) out.push({ chain: "anubis", wallet: w.address, key: "anubis:native", symbol: "gasDAI", name: "Anubis 가스 (DAI 연동)", amount: coin, priceUsd: info.exchange_rate != null ? Number(info.exchange_rate) : 1 });
+  if (!info) return out;
+  const list = await fetchJson(`${ANUBIS_API}/addresses/${w.address}/token-balances`);
+  for (const item of list) {
+    const t = item.token || {};
+    if (t.type !== "ERC-20") continue;
+    const amt = units(item.value, Number(t.decimals || 18));
+    if (amt <= 0) continue;
+    out.push({
+      chain: "anubis", wallet: w.address, key: "anubis:" + String(t.address_hash || t.address).toLowerCase(),
+      symbol: t.symbol || "?", name: t.name || "", amount: amt,
+      priceUsd: t.exchange_rate != null ? Number(t.exchange_rate) : null,
+      flagged: t.reputation && t.reputation !== "ok",
+      contract: t.address_hash || t.address,
+    });
+  }
+  return out;
+}
+
+async function loadPrices(ids) {
+  const all = [...new Set([...ids, "tether"])];
+  const res = await fetchJson(`https://api.coingecko.com/api/v3/simple/price?ids=${all.join(",")}&vs_currencies=usd,krw`);
+  if (res.tether && res.tether.usd) state.usdKrw = res.tether.krw / res.tether.usd;
+  return res;
+}
+
+// ── 오리진 디앱 상품 ──────────────────────────────────────────────
+// 계약 주소와 조회 함수는 오리진 디앱(anubis.origindefi.io, origindefi.io)의 프런트엔드 코드에서 확인한 값입니다.
+const ORIGIN = {
+  anubis: {
+    lgns: "0x4D1D808a081FdAc440703b3765FC61f8028C06B8",
+    pair: "0x32A4586797E3f561F41C0F47CA57eD08D64f3dC0",
+    instant: "0xf7788F5A5CbBaFAc4120c63C79dcd9F1931c7824",
+    burnBond: "0x11b10C9827c5B7071E96fcAa143B4e6E86b17c69",
+    energy: "0x1E5FeeC473F7F445FC7F5FeEC0beABB2270b0b4E",
+    long360: "0x88ea98af226Cd4402A3873400308a4D78784eCE6",
+    long600: "0x04eD22c6d1D020A9B5e032E93D79ab28293EF72f",
+    cobweb: "0xF7a0cacDF0810609EE5618247C4121b799E41664",
+    genesis: "0x030590921E9841e1d2104642ED285C83B5F0ddB5",
+    points: "0x943C6462d9A5A3CcadC12ef6AD34b9518e6128f6",
+  },
+  polygon: {
+    lgns: "0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01",
+    slgns: "0x99a57E6C8558BC6689f894e068733ADf83C19725",
+    staking: "0x1964Ca90474b11FFD08af387b110ba6C96251Bfc",
+    pair: "0x882df4B0fB50a229C3B4124EB18c759911485bFb",
+    quota360: "0x25a4b842cB200E9148FF5a11BAbF80488c8d8b07",
+  },
+};
+const SEL = {
+  getDepositorBalance: "0xb79215d6", frozenBalance: "0x266565a9", redeemableNow: "0x66b223fb", unlockTimeOf: "0x469a6947",
+  getUserDepositCount: "0x1bae91a4", getDepositRewardInfo: "0xfac459cd", getTotalClaimable: "0x267e8ab6", totalDaiValue: "0xac541224",
+  getUserStakesCount: "0x98dc8dea", stakes: "0x584b62a1", pendingPayout: "0xda709204", extraInterest: "0xb01d3563",
+  claimable: "0x402914f5", rewardOf: "0x1d62ebd9", totalDaiOf: "0xe6746345", activityPoints: "0x5a43f789",
+  getReserves: "0x0902f1ac", token0: "0x0dfe1681", epoch: "0x900cf0cf", circulatingSupply: "0x9358928b", balanceOf: "0x70a08231",
+};
+const POLYGON_BLOCK_SEC = 2;
+const word = v => (typeof v === "bigint" ? v : BigInt(v)).toString(16).padStart(64, "0");
+const callData = (fn, addr, idx) => SEL[fn] + (addr ? word(BigInt(addr)) : "") + (idx != null ? word(idx) : "");
+const words = hex => { if (!hex || hex === "0x") return []; const h = hex.slice(2), out = []; for (let i = 0; i < h.length; i += 64) out.push(BigInt("0x" + h.slice(i, i + 64))); return out; };
+const L = v => units(v ?? 0n, 9);    // LGNS, sLGNS: 소수점 9자리
+const D = v => units(v ?? 0n, 18);   // DAI: 소수점 18자리
+const shortDate = ts => new Date(ts * 1000).toLocaleDateString("ko-KR", { year: "2-digit", month: "numeric", day: "numeric" });
+
+// [{id, to, fn, addr?, idx?}] 를 한 번에 조회해 {id: 단어 배열} 로 돌려줌. 실패한 호출은 빈 배열.
+async function multiCall(urls, calls) {
+  if (!calls.length) return {};
+  const reqs = calls.map(c => ({ jsonrpc: "2.0", id: c.id, method: "eth_call", params: [{ to: c.to, data: callData(c.fn, c.addr, c.idx) }, "latest"] }));
+  const out = {};
+  for (let i = 0; i < reqs.length; i += 40) Object.assign(out, await rpcBatch(urls, reqs.slice(i, i + 40)));
+  const r = {};
+  calls.forEach(c => r[c.id] = words(out[c.id]));
+  return r;
+}
+
+function pairPrice(res, t0, lgns) {
+  if (!res || res.length < 2 || !t0.length) return null;
+  const token0 = "0x" + t0[0].toString(16).padStart(40, "0");
+  const [l, d] = token0.toLowerCase() === lgns.toLowerCase() ? [res[0], res[1]] : [res[1], res[0]];
+  return l > 0n ? D(d) / L(l) : null;
+}
+
+async function loadMarket() {
+  const [a, p, bn] = await Promise.all([
+    multiCall(ANUBIS_RPCS, [{ id: "r", to: ORIGIN.anubis.pair, fn: "getReserves" }, { id: "t", to: ORIGIN.anubis.pair, fn: "token0" }]),
+    multiCall(POLYGON_RPCS, [
+      { id: "r", to: ORIGIN.polygon.pair, fn: "getReserves" }, { id: "t", to: ORIGIN.polygon.pair, fn: "token0" },
+      { id: "e", to: ORIGIN.polygon.staking, fn: "epoch" }, { id: "c", to: ORIGIN.polygon.slgns, fn: "circulatingSupply" },
+    ]),
+    rpcBatch(POLYGON_RPCS, [{ jsonrpc: "2.0", id: "bn", method: "eth_blockNumber", params: [] }]).catch(() => ({})),
+  ]);
+  // 리베이스: 매 에포크(epoch.length 블록)마다 distribute / 스테이킹 유통량 만큼 늘어남
+  const ep = p.e, cs = p.c[0];
+  let rebase = null, perDay = null;
+  if (ep && ep.length >= 4 && cs > 0n) {
+    rebase = Number(ep[3]) / Number(cs);
+    perDay = 86400 / (Number(ep[0]) * POLYGON_BLOCK_SEC);
+  }
+  return {
+    lgnsAnubis: pairPrice(a.r, a.t, ORIGIN.anubis.lgns),
+    lgnsPolygon: pairPrice(p.r, p.t, ORIGIN.polygon.lgns),
+    rebase, perDay,
+    apy: rebase != null ? Math.pow(1 + rebase, perDay * 365) - 1 : null,
+    polygonBlock: bn.bn ? parseInt(bn.bn, 16) : null,
+  };
+}
+
+// 아누비스 탐색기에서 이 지갑의 LGNS 이동 내역을 상대 주소별로 합산 (원금·받은 이자 계산용)
+async function lgnsFlows(address) {
+  const flows = {};
+  let url = `${ANUBIS_API}/addresses/${address}/token-transfers?type=ERC-20&token=${ORIGIN.anubis.lgns}`;
+  for (let page = 0; url && page < 25; page++) {
+    const d = await fetchJson(url);
+    for (const t of d.items || []) {
+      const v = units(t.total?.value, 9);
+      const from = t.from.hash.toLowerCase(), to = t.to.hash.toLowerCase();
+      if (from === address.toLowerCase()) { flows[to] = flows[to] || { out: 0, in: 0 }; flows[to].out += v; }
+      else { flows[from] = flows[from] || { out: 0, in: 0 }; flows[from].in += v; }
+    }
+    const np = d.next_page_params;
+    url = np ? `${ANUBIS_API}/addresses/${address}/token-transfers?type=ERC-20&token=${ORIGIN.anubis.lgns}&` + new URLSearchParams(np) : null;
+  }
+  return flows;
+}
+const flowOf = (flows, c) => flows?.[c.toLowerCase()] || { out: 0, in: 0 };
+
+// 상품 항목 형식
+//   value: 카드 큰 숫자(unit 단위), countValue: 합계에 넣을 양(없으면 value), reward: 지금 받을 수 있는 보상(unit 단위)
+//   nums: [[이름, 숫자, 단위]] 지갑 합산 가능한 세부 값, texts: [[이름, 글]] 지갑 하나일 때만 보이는 세부 값
+async function loadOriginWallet(w, mk) {
+  const A = ORIGIN.anubis, P = ORIGIN.polygon, me = w.address;
+  const now = Date.now() / 1000;
+  const [a1, p1, flows] = await Promise.all([
+    multiCall(ANUBIS_RPCS, [
+      ["ib", A.instant, "getDepositorBalance"], ["if", A.instant, "frozenBalance"], ["ir", A.instant, "redeemableNow"], ["iu", A.instant, "unlockTimeOf"],
+      ["bc", A.burnBond, "getUserDepositCount"], ["bd", A.burnBond, "totalDaiValue"],
+      ["ec", A.energy, "getUserStakesCount"], ["eb", A.energy, "getDepositorBalance"],
+      ["lc", A.long360, "getUserStakesCount"], ["lb", A.long360, "getDepositorBalance"],
+      ["mc", A.long600, "getUserStakesCount"], ["mb", A.long600, "getDepositorBalance"],
+      ["cc", A.cobweb, "claimable"], ["cr", A.cobweb, "rewardOf"],
+      ["gd", A.genesis, "totalDaiOf"], ["pt", A.points, "activityPoints"],
+    ].map(([id, to, fn]) => ({ id, to, fn, addr: me }))),
+    multiCall(POLYGON_RPCS, [
+      { id: "sb", to: P.slgns, fn: "balanceOf", addr: me },
+      { id: "qc", to: P.quota360, fn: "getUserStakesCount", addr: me },
+      { id: "qb", to: P.quota360, fn: "getDepositorBalance", addr: me },
+    ]),
+    lgnsFlows(me).catch(() => null),
+  ]);
+  const n = (r, id) => Number(r[id]?.[0] ?? 0n);
+  const cap = k => Math.min(k, 60);
+
+  // 기록이 여러 건인 상품은 건별로 다시 조회
+  const a2calls = [], p2calls = [];
+  for (let i = 0; i < cap(n(a1, "bc")); i++) a2calls.push({ id: "bi" + i, to: A.burnBond, fn: "getDepositRewardInfo", addr: me, idx: i });
+  for (const [k, c, to] of [["e", "ec", A.energy], ["l", "lc", A.long360], ["m", "mc", A.long600]]) {
+    for (let i = 0; i < cap(n(a1, c)); i++) {
+      a2calls.push({ id: k + "s" + i, to, fn: "stakes", addr: me, idx: i });
+      a2calls.push({ id: k + "p" + i, to, fn: "pendingPayout", addr: me, idx: i });
+      if (k !== "e") a2calls.push({ id: k + "x" + i, to, fn: "extraInterest", addr: me, idx: i });
+    }
+  }
+  for (let i = 0; i < cap(n(p1, "qc")); i++) {
+    p2calls.push({ id: "qs" + i, to: P.quota360, fn: "stakes", addr: me, idx: i });
+    p2calls.push({ id: "qp" + i, to: P.quota360, fn: "pendingPayout", addr: me, idx: i });
+  }
+  const [a2, p2] = await Promise.all([multiCall(ANUBIS_RPCS, a2calls), multiCall(POLYGON_RPCS, p2calls)]);
+
+  const items = [];
+  const rebaseText = mk.rebase != null ? `${(mk.rebase * 100).toFixed(4)}% / ${Math.round(24 / mk.perDay)}시간 · 연 ${(mk.apy * 100).toFixed(1)}%` : "—";
+  const base = { wallet: me };
+
+  // 1. 즉시 스테이킹 (아누비스)
+  const ib = L(a1.ib?.[0]);
+  if (ib > 0) {
+    const f = flowOf(flows, A.instant);
+    const principal = flows ? f.out - f.in : null;
+    const unlock = n(a1, "iu");
+    items.push({ ...base, chain: "anubis", key: "instant", name: "즉시 스테이킹", unit: "LGNS", value: ib,
+      principal, earned: principal != null ? ib - principal : null, earnedEst: true, reward: 0,
+      nums: [["지금 상환 가능", L(a1.ir?.[0]), "LGNS"], ["잠김(쿨다운)", L(a1.if?.[0]), "LGNS"]],
+      texts: unlock > now ? [["잠금 해제", new Date(unlock * 1000).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })]] : [],
+      rate: rebaseText, rateNote: "폴리곤 스테이킹 리베이스 기준",
+      note: principal != null ? "원금 = 넣은 LGNS − 상환한 LGNS (탐색기 이동 내역 기준)" : "이동 내역을 불러오지 못해 원금을 계산하지 못했습니다." });
+  }
+
+  // 2. 소각 본드 (아누비스): DAI 가치 기준 230~250% 한도까지 LGNS로 분할 지급
+  const bc = cap(n(a1, "bc"));
+  if (bc > 0) {
+    let totalReward = 0, released = 0, claimed = 0, claimable = 0;
+    const recs = [];
+    for (let i = 0; i < bc; i++) {
+      const r = a2["bi" + i] || [];
+      totalReward += D(r[0]); released += D(r[1]); claimed += L(r[2]); claimable += L(r[3]);
+      recs.push([`#${i + 1}`, fmtAmount(D(r[0])) + " DAI", fmtAmount(D(r[1])) + " DAI", (D(r[0]) > 0 ? (D(r[1]) / D(r[0]) * 100).toFixed(1) : "0") + "%"]);
+    }
+    const daiIn = D(a1.bd?.[0]);
+    items.push({ ...base, chain: "anubis", key: "burnBond", name: "소각 본드", unit: "LGNS",
+      value: claimable, valueLabel: "지금 받을 수 있는 LGNS", reward: claimable,
+      principal: daiIn, principalUnit: "DAI", earned: null,
+      progressNums: [released, totalReward],
+      nums: [["총 보상 한도", totalReward, "DAI"], ["지금까지 풀린 보상", released, "DAI"], ["남은 보상", totalReward - released, "DAI"], ["받은 LGNS", claimed, "LGNS"]],
+      rate: daiIn > 0 ? `투입 가치의 ${(totalReward / daiIn * 100).toFixed(0)}% 한도` : "—", rateNote: "한도까지 LGNS로 나눠서 지급",
+      records: { head: ["건", "보상 한도", "풀린 보상", "진행률"], rows: recs },
+      note: "평가액에는 지금 받을 수 있는 LGNS만 넣고, 남은 보상은 넣지 않았습니다." });
+  }
+
+  // 3·4·5. 스테이킹 기록형 상품 (에너지 스테이킹, 360일·600일 장기 스테이킹)
+  const stakeProduct = (k, countId, balId, name, contract) => {
+    const cnt = cap(n(a1, countId));
+    const bal = L(a1[balId]?.[0]);
+    if (cnt === 0 && bal === 0) return;
+    let principal = 0, pending = 0, extraI = 0, maxPayout = 0, maxPrincipal = 0, nextExpiry = null;
+    const recs = [];
+    for (let i = 0; i < cnt; i++) {
+      const s = a2[k + "s" + i] || [];
+      if (!s.length || s[7] === 0n) continue;
+      const pr = L(s[0]), pp = L(a2[k + "p" + i]?.[0]), ex = L(a2[k + "x" + i]?.[0]);
+      principal += pr; pending += pp; extraI += ex;
+      const expiry = Number(s[3]);
+      const isTs = expiry > 1e9;
+      if (isTs && expiry > now && (nextExpiry == null || expiry < nextExpiry)) nextExpiry = expiry;
+      if (k === "e" && s[8] > 0n) { maxPayout += L(s[8]); maxPrincipal += pr; }
+      recs.push([`#${i + 1}`, fmtAmount(pr), fmtAmount(pp + ex), isTs ? shortDate(expiry) : "—"]);
+    }
+    const f = flowOf(flows, contract);
+    const claimedIn = flows ? f.in : null;
+    const nums = [];
+    if (k === "e" && maxPrincipal > 0) nums.push(["총 지급 예정", maxPayout, "LGNS"]);
+    if (claimedIn != null) nums.push(["지금까지 받은 이자", claimedIn, "LGNS"]);
+    if (extraI > 0) nums.push(["추가 이자", extraI, "LGNS"]);
+    let rate = rebaseText, rateNote = "폴리곤 스테이킹 리베이스 기준";
+    if (k === "e" && maxPrincipal > 0) {
+      const days = Number((a2.es0 || [])[6] ?? 31104000n) / 86400;
+      rate = `${days.toFixed(0)}일 동안 원금의 ${(maxPayout / maxPrincipal * 100).toFixed(0)}% 지급`;
+      rateNote = `단순 연 환산 약 ${((maxPayout / maxPrincipal - 1) * 365 / days * 100).toFixed(0)}%`;
+    }
+    items.push({ ...base, chain: "anubis", key: k, name, unit: "LGNS", value: bal, principal,
+      earned: bal - principal + (claimedIn ?? 0), earnedEst: true, reward: pending + extraI,
+      nums: [["지금 수령 가능", pending + extraI, "LGNS"], ...nums],
+      texts: nextExpiry ? [["가장 가까운 만기", shortDate(nextExpiry)]] : [],
+      rate, rateNote,
+      records: recs.length > 1 ? { head: ["건", "원금", "수령 가능", "만기"], rows: recs } : null,
+      note: "누적 이자 = 현재 잔액 − 원금 + 이미 받은 이자 (추정)" });
+  };
+  stakeProduct("e", "ec", "eb", "웹 에너지 스테이킹", A.energy);
+  stakeProduct("l", "lc", "lb", "360일 장기 스테이킹", A.long360);
+  stakeProduct("m", "mc", "mb", "600일 장기 스테이킹", A.long600);
+
+  // 6. 커뮤니티 보상
+  const cr = a1.cr || [];
+  if (cr.length && cr[0] > 0n) {
+    const cl = L(a1.cc?.[0]);
+    items.push({ ...base, chain: "anubis", key: "cobweb", name: "커뮤니티 보상", unit: "LGNS", value: cl, valueLabel: "지금 받을 수 있는 LGNS", reward: cl,
+      principal: null, earned: null, nums: [["총 보상", L(cr[0]), "LGNS"], ["받은 보상", L(cr[1]), "LGNS"]], rate: "—" });
+  }
+
+  // 7. 창세 계획 (DAI 참여)
+  const gd = D(a1.gd?.[0]);
+  if (gd > 0) {
+    items.push({ ...base, chain: "anubis", key: "genesis", name: "창세 계획 참여", unit: "DAI", value: gd, valueLabel: "참여 금액", countValue: 0, reward: 0,
+      principal: null, earned: null, rate: "—",
+      note: "보상 조건을 계약에서 읽을 수 없어 참여 금액만 표시하고 합계에는 넣지 않았습니다." });
+  }
+
+  // 8. 폴리곤 유연 스테이킹 (sLGNS)
+  const sb = L(p1.sb?.[0]);
+  if (sb > 0) {
+    items.push({ ...base, chain: "polygon", key: "slgns", name: "유연 스테이킹 (sLGNS)", unit: "LGNS", value: sb, reward: 0,
+      principal: null, earned: null,
+      nums: mk.rebase != null ? [["하루 예상 이자", sb * (Math.pow(1 + mk.rebase, mk.perDay) - 1), "LGNS"]] : [],
+      rate: rebaseText, rateNote: "리베이스마다 잔액이 자동으로 늘어납니다",
+      note: "폴리곤 이동 내역을 불러올 수 없어 원금과 누적 이자는 표시하지 않습니다." });
+  }
+
+  // 9. 폴리곤 에너지 스테이킹 360
+  const qc = cap(n(p1, "qc")), qb = L(p1.qb?.[0]);
+  if (qc > 0 || qb > 0) {
+    let principal = 0, pending = 0, active = 0, nextBlocks = null;
+    const recs = [];
+    for (let i = 0; i < qc; i++) {
+      const s = p2["qs" + i] || [];
+      if (!s.length || s[7] === 0n) continue;
+      const pr = L(s[0]), pp = L(p2["qp" + i]?.[0]);
+      principal += pr; pending += pp;
+      const left = mk.polygonBlock ? Number(s[3]) - mk.polygonBlock : null;
+      if (left != null && left > 0) { active++; if (nextBlocks == null || left < nextBlocks) nextBlocks = left; }
+      recs.push([`#${i + 1}`, fmtAmount(pr), fmtAmount(pp), left == null ? "—" : left > 0 ? `${Math.ceil(left * POLYGON_BLOCK_SEC / 86400)}일 남음` : "만기"]);
+    }
+    items.push({ ...base, chain: "polygon", key: "quota360", name: "에너지 스테이킹 360", unit: "LGNS", value: qb, principal,
+      earned: qb - principal, earnedEst: true, reward: pending,
+      nums: [["지금 수령 가능", pending, "LGNS"], ["진행 중", active, "건"], ["전체 기록", recs.length, "건"]],
+      texts: nextBlocks ? [["가장 가까운 만기", `약 ${Math.ceil(nextBlocks * POLYGON_BLOCK_SEC / 86400)}일 후`]] : [],
+      rate: rebaseText, rateNote: "폴리곤 스테이킹 리베이스 기준",
+      records: { head: ["건", "남은 원금", "수령 가능", "만기"], rows: recs },
+      note: "누적 이자 = 현재 잔액 − 남은 원금 (이미 받은 이자는 빠져 있음)" });
+  }
+
+  return { items, points: n(a1, "pt") > 0 ? L(a1.pt[0]) : 0 };
+}
+
+async function loadOrigin(wallets, errors) {
+  const mk = await loadMarket();
+  // 지갑 하나가 실패해도 나머지 지갑은 보여 줌. 실패한 지갑은 이전 결과를 유지.
+  const prev = state.origin?.items || [];
+  const per = await Promise.all(wallets.map(w => loadOriginWallet(w, mk).catch(e => {
+    errors.push(`${w.name}: 디앱 상품을 불러오지 못했습니다 (${e.name === "AbortError" ? "응답 시간 초과" : e.message}). 새로고침하면 다시 시도합니다.`);
+    return { items: prev.filter(it => it.wallet === w.address), points: state.origin?.points?.[w.address] || 0 };
+  })));
+  const items = per.flatMap(p => p.items);
+  for (const it of items) {
+    const price = it.unit === "DAI" ? 1 : it.chain === "anubis" ? mk.lgnsAnubis : mk.lgnsPolygon;
+    it.price = price;
+    const counted = it.countValue != null ? it.countValue : it.value;
+    it.valueUsd = price != null ? counted * price : null;
+    it.rewardUsd = price != null ? (it.reward || 0) * price : null;
+  }
+  const points = {};
+  wallets.forEach((w, i) => points[w.address] = per[i].points);
+  return { market: mk, items, points };
+}
+
+// ── 불러오기 ──────────────────────────────────────────────
+let timer = null;
+async function refresh() {
+  if (state.loading) return;
+  if (!state.wallets.length) { state.holdings = []; state.origin = null; state.errors = []; render(); return; }
+  state.loading = true; state.errors = []; render();
+  const wallets = state.wallets;
+  const errors = [];
+  const [poly, anu, prices, origin] = await Promise.all([
+    loadPolygon(wallets).catch(e => { errors.push("폴리곤 잔고를 불러오지 못했습니다 (" + e.message + "). 잠시 후 새로고침하세요."); return null; }),
+    Promise.all(wallets.map(w => loadAnubisWallet(w).catch(e => { errors.push(`아누비스: ${w.name} 잔고를 불러오지 못했습니다 (${e.message}).`); return null; }))),
+    loadPrices([...new Set(POLYGON_TOKENS.map(t => t.cg).filter(Boolean).concat(state.customTokens.map(t => t.cg).filter(Boolean)))]).catch(() => { errors.push("시세를 불러오지 못해 일부 평가액이 빠졌습니다. 원화 환산도 달러로 표시됩니다."); return null; }),
+    loadOrigin(wallets, errors).catch(e => { errors.push("오리진 디앱 상품을 불러오지 못했습니다 (" + e.message + "). 잠시 후 새로고침하세요."); return null; }),
+  ]);
+  if (origin) state.origin = origin;
+  // 이전 결과를 유지하되, 이번에 성공한 부분만 교체
+  let holdings = state.holdings;
+  if (poly) holdings = holdings.filter(h => h.chain !== "polygon").concat(poly);
+  anu.forEach((list, i) => {
+    if (list) holdings = holdings.filter(h => !(h.chain === "anubis" && h.wallet === wallets[i].address)).concat(list);
+  });
+  const known = new Set(wallets.map(w => w.address));
+  holdings = holdings.filter(h => known.has(h.wallet));
+  if (prices) holdings.forEach(h => { if (h.cg && prices[h.cg]) h.priceUsd = prices[h.cg].usd; });
+  const lgnsP = state.origin?.market?.lgnsPolygon;
+  holdings.forEach(h => { if (h.lgnsPolygon && lgnsP != null) h.priceUsd = lgnsP; });
+  holdings.forEach(h => h.valueUsd = h.priceUsd != null ? h.amount * h.priceUsd : null);
+  if (state.origin) state.origin.items = state.origin.items.filter(it => known.has(it.wallet));
+  state.holdings = holdings;
+  state.errors = errors;
+  state.loading = false;
+  state.updatedAt = new Date();
+  render();
+}
+
+// ── 화면 ──────────────────────────────────────────────
+const inScope = x => state.scope === "all" || x.wallet === state.scope;
+const sum = (arr, f) => arr.reduce((s, x) => s + (f(x) || 0), 0);
+
+// 같은 상품을 여러 지갑에서 가진 경우 하나의 카드로 합침
+function aggregateProducts(items) {
+  const groups = new Map();
+  for (const it of items) {
+    const k = it.chain + ":" + it.key;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(it);
+  }
+  return [...groups.values()].map(list => {
+    if (list.length === 1) return list[0];
+    const first = list[0];
+    const add = f => list.every(x => x[f] != null) ? sum(list, x => x[f]) : null;
+    const nums = [];
+    for (const it of list) for (const [label, v, u] of it.nums || []) {
+      const e = nums.find(x => x[0] === label);
+      if (e) e[1] += v; else nums.push([label, v, u]);
+    }
+    let records = null;
+    if (list.some(x => x.records)) {
+      const head = (list.find(x => x.records).records.head);
+      records = { head: ["지갑", ...head], rows: list.flatMap(x => (x.records?.rows || []).map(r => [walletName(x.wallet), ...r])) };
+    }
+    return {
+      ...first, wallet: null, wallets: list.map(x => x.wallet),
+      value: add("value"), principal: add("principal"), earned: add("earned"), reward: add("reward"),
+      valueUsd: add("valueUsd"), rewardUsd: add("rewardUsd"),
+      progressNums: list.every(x => x.progressNums) ? [sum(list, x => x.progressNums[0]), sum(list, x => x.progressNums[1])] : null,
+      nums, texts: [], records,
+      rate: first.rate, rateNote: first.rateNote,
+      note: `지갑 ${list.length}개 합계${first.note ? " · " + first.note : ""}`,
+    };
+  }).sort((a, b) => (b.valueUsd ?? 0) - (a.valueUsd ?? 0));
+}
+
+function scopeTotals(scopeFilter) {
+  const toks = state.holdings.filter(h => scopeFilter(h) && !h.flagged && h.valueUsd != null);
+  const prods = (state.origin?.items || []).filter(it => scopeFilter(it) && it.valueUsd != null);
+  const wallet = sum(toks, h => h.valueUsd), dapp = sum(prods, it => it.valueUsd), reward = sum(prods, it => it.rewardUsd);
+  const byChain = {};
+  for (const c of Object.keys(CHAINS)) byChain[c] = sum(toks.filter(h => h.chain === c), h => h.valueUsd) + sum(prods.filter(p => p.chain === c), p => p.valueUsd);
+  return { wallet, dapp, reward, total: wallet + dapp, byChain };
+}
+
+function render() {
+  if (state.scope !== "all" && !state.wallets.some(w => w.address === state.scope)) state.scope = "all";
+  const btn = $("refresh");
+  btn.disabled = state.loading;
+  btn.innerHTML = state.loading ? '<span class="spin"></span> 불러오는 중' : "새로고침";
+  $("cur-krw").setAttribute("aria-pressed", state.currency === "krw");
+  $("cur-usd").setAttribute("aria-pressed", state.currency === "usd");
+
+  const has = state.wallets.length > 0;
+  const allT = scopeTotals(() => true);
+  const perWallet = state.wallets.map(w => ({ w, t: scopeTotals(x => x.wallet === w.address) }));
+
+  // 지갑 목록
+  const item = (id, cls, color, name, sub, val, pct) => `
+    <button type="button" class="witem ${cls}" data-scope="${id}" aria-current="${state.scope === id}">
+      <span class="dot" ${color ? `style="background:${color}"` : ""}></span>
+      <span style="min-width:0"><div class="nm">${esc(name)}</div><div class="ad">${esc(sub)}</div></span>
+      <span><div class="val">${val}</div><div class="pct">${pct}</div></span>
+    </button>`;
+  $("wlist").innerHTML = (has ? item("all", "all", "", "전체 보기", `지갑 ${state.wallets.length}개`, fmtMoney(allT.total), "합계") : "") +
+    perWallet.map(({ w, t }) => item(w.address, "", walletColor(w.address), w.name + (w.example ? " (예시)" : ""), short(w.address), fmtMoney(t.total),
+      allT.total > 0 ? (t.total / allT.total * 100).toFixed(1) + "%" : "")).join("") +
+    (has ? "" : '<div class="small muted" style="padding:8px">아직 지갑이 없습니다. 아래에서 주소를 추가하세요.</div>');
+
+  // 범위 머리말
+  const cur = state.wallets.find(w => w.address === state.scope);
+  if (!has) {
+    $("scope-head").innerHTML = `<div><h2>시작하기</h2><div class="small muted">TokenPocket 지갑 주소를 추가하면 지갑 토큰과 오리진 디앱 예치 상품을 한눈에 보여 드립니다.</div></div><button type="button" class="primary" id="try-example">예시 지갑으로 둘러보기</button>`;
+  } else if (!cur) {
+    $("scope-head").innerHTML = `<div><h2>전체 지갑</h2><div class="small muted">지갑 ${state.wallets.length}개를 합친 자산입니다.</div></div>`;
+  } else {
+    $("scope-head").innerHTML = `<div style="min-width:0"><h2>${esc(cur.name)}${cur.example ? ' <span class="pill">예시</span>' : ""}</h2><div class="addr">${cur.address}</div></div>
+      <div class="scope-acts">
+        <button type="button" class="ghost" data-copy="${cur.address}">주소 복사</button>
+        <a href="${CHAINS.polygon.explorer(cur.address)}" target="_blank" rel="noopener">폴리곤 탐색기</a>
+        <a href="${CHAINS.anubis.explorer(cur.address)}" target="_blank" rel="noopener">아누비스 탐색기</a>
+        <button type="button" class="ghost" data-rename="${cur.address}">이름 바꾸기</button>
+        ${pendingDelete === cur.address
+          ? `<button type="button" class="ghost danger" data-del-yes="${cur.address}">정말 삭제</button><button type="button" class="ghost" data-del-no>취소</button>`
+          : `<button type="button" class="ghost danger" data-del="${cur.address}">삭제</button>`}
+      </div>
+      ${renaming === cur.address ? `<form id="rename-form" class="addbox" style="flex-basis:100%;max-width:360px;flex-direction:row"><input type="text" id="rename-input" maxlength="30" value="${esc(cur.name)}" aria-label="새 이름"><button type="submit" class="primary">저장</button></form>` : ""}`;
+  }
+  const ex = $("try-example");
+  if (ex) ex.onclick = () => addWallet(EXAMPLE_WALLET.name, EXAMPLE_WALLET.address, true);
+  const rf = $("rename-form");
+  if (rf) {
+    const inp = $("rename-input"); inp.focus(); inp.select();
+    rf.onsubmit = e => { e.preventDefault(); const v = inp.value.trim(); if (v) { cur.name = v; cur.example = false; saveWallets(); } renaming = null; render(); };
+  }
+
+  // 요약
+  const t = state.scope === "all" ? allT : scopeTotals(inScope);
+  $("total").textContent = has ? fmtMoney(t.total) : "—";
+  $("m-wallet").textContent = has ? fmtMoney(t.wallet) : "—";
+  $("m-dapp").textContent = has ? fmtMoney(t.dapp) : "—";
+  $("m-reward").textContent = has ? fmtMoney(t.reward) : "—";
+  $("updated").textContent = !has ? "" : state.updatedAt
+    ? "마지막 조회 " + state.updatedAt.toLocaleTimeString("ko-KR") + (state.currency === "krw" && state.usdKrw ? ` · 환율 $1 = ₩${Math.round(state.usdKrw).toLocaleString("ko-KR")}` : "")
+    : "불러오는 중…";
+  $("errors").innerHTML = state.errors.map(e => `<div class="err">${esc(e)}</div>`).join("");
+
+  const chains = Object.keys(CHAINS).map(c => ({ c, v: t.byChain[c] }));
+  $("chain-bar").innerHTML = t.total > 0 ? chains.map(x => `<span style="width:${(x.v / t.total * 100).toFixed(2)}%;background:${CHAINS[x.c].color}"></span>`).join("") : "";
+  $("chain-legend").innerHTML = chains.map(x => `<div class="row"><span class="dot" style="background:${CHAINS[x.c].color}"></span><span>${CHAINS[x.c].name}</span><span class="num">${fmtMoney(x.v)}</span><span class="num muted small">${t.total > 0 ? (x.v / t.total * 100).toFixed(1) : "0.0"}%</span></div>`).join("");
+
+  // 지갑별 비교 (전체 보기일 때)
+  $("cmp-wrap").hidden = !(state.scope === "all" && state.wallets.length > 0);
+  const maxT = Math.max(1e-9, ...perWallet.map(p => p.t.total));
+  $("cmp").innerHTML = perWallet.map(({ w, t: wt }) => `
+    <div class="row"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(w.name)}</span>
+      <span class="track" title="지갑 보유 / 디앱 예치"><span style="width:${(wt.wallet / maxT * 100).toFixed(1)}%;background:${walletColor(w.address)};opacity:.55"></span><span style="width:${(wt.dapp / maxT * 100).toFixed(1)}%;background:${walletColor(w.address)}"></span></span>
+      <span class="num small">${fmtMoney(wt.total)}</span></div>`).join("") +
+    (perWallet.length ? '<div class="small muted" style="margin-top:6px">진한 부분은 디앱 예치, 옅은 부분은 지갑 보유입니다.</div>' : "");
+
+  renderProducts();
+  renderTokens();
+
+  // 탭
+  $("tab-dapp").setAttribute("aria-selected", state.tab === "dapp");
+  $("tab-token").setAttribute("aria-selected", state.tab === "token");
+  $("pane-dapp").hidden = state.tab !== "dapp";
+  $("pane-token").hidden = state.tab !== "token";
+
+  $("custom-tokens").innerHTML = state.customTokens.map(tk =>
+    `<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span><b>${esc(tk.symbol)}</b> <span class="mono muted">${short(tk.address)}</span></span><button type="button" class="ghost danger" data-tdel="${tk.address}">빼기</button></div>`).join("");
+}
+
+function renderProducts() {
+  const o = state.origin, mk = o?.market;
+  $("market").innerHTML = mk ? [
+    `LGNS 아누비스 <b>${fmtPrice(mk.lgnsAnubis)}</b>`,
+    `LGNS 폴리곤 <b>${fmtPrice(mk.lgnsPolygon)}</b>`,
+    mk.rebase != null ? `리베이스 <b>${(mk.rebase * 100).toFixed(4)}%</b> / ${Math.round(24 / mk.perDay)}시간 · 연 <b>${(mk.apy * 100).toFixed(1)}%</b>` : "",
+  ].filter(Boolean).map(s => `<span>${s}</span>`).join("") : "";
+  const raw = (o?.items || []).filter(inScope);
+  const list = state.scope === "all" ? aggregateProducts(raw) : raw.slice().sort((a, b) => (b.valueUsd ?? 0) - (a.valueUsd ?? 0));
+  $("cnt-dapp").textContent = list.length || "";
+  if (!state.wallets.length) { $("prods").innerHTML = '<div class="empty">지갑을 추가하면 오리진 디앱 상품을 찾아 보여 드립니다.</div>'; $("prod-note").textContent = ""; return; }
+  if (!list.length) { $("prods").innerHTML = `<div class="empty">${state.loading ? '<span class="spin"></span> 디앱 상품을 확인하는 중입니다' : "이 범위에는 오리진 디앱 상품이 없습니다."}</div>`; $("prod-note").textContent = ""; return; }
+  const amt = (v, u) => v == null ? "—" : `${fmtAmount(v)} ${u}`;
+  $("prods").innerHTML = list.map(it => {
+    const ch = CHAINS[it.chain];
+    const sub = it.wallets ? it.wallets.map(walletName).join(", ") : state.scope === "all" ? walletName(it.wallet) : "";
+    const rows = [];
+    if (it.principal != null) rows.push(["원금", amt(it.principal, it.principalUnit || it.unit)]);
+    if (it.earned != null) rows.push(["누적 이자", (it.earned >= 0 ? "+" : "") + amt(it.earned, it.unit) + (it.earnedEst ? '<span class="est">추정</span>' : ""), it.earned > 0]);
+    for (const [k, v, u] of it.nums || []) rows.push([k, u === "건" ? `${v}건` : amt(v, u), k.includes("예상 이자") && v > 0]);
+    for (const [k, v] of it.texts || []) rows.push([k, esc(v)]);
+    rows.push(["이자율", esc(it.rate) + (it.rateNote ? `<br><span class="est">${esc(it.rateNote)}</span>` : "")]);
+    const prog = it.progressNums && it.progressNums[1] > 0 ? it.progressNums[0] / it.progressNums[1] : null;
+    const recs = it.records && it.records.rows.length ? `<details class="recs"><summary>건별 보기 (${it.records.rows.length}건)</summary><div class="tbl-wrap"><table><thead><tr>${it.records.head.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${it.records.rows.map(r => `<tr>${r.map((c, i) => `<td class="${i && !(it.wallets && i === 1) ? "r num" : ""}">${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div></details>` : "";
+    return `<article class="prod">
+      <div class="top"><div style="min-width:0"><h3>${esc(it.name)}</h3>${sub ? `<div class="sub">${esc(sub)}</div>` : ""}</div><span class="pill"><span class="dot" style="background:${ch.color}"></span>${ch.name}</span></div>
+      <div class="big">${amt(it.value, it.unit)}<small>${esc(it.valueLabel || "현재 잔액")} · ${fmtMoney(it.price != null ? it.value * it.price : null)}</small></div>
+      ${prog != null ? `<div><div class="progress"><b style="width:${(prog * 100).toFixed(1)}%"></b></div><div class="sub" style="margin-top:4px">보상 진행률 ${(prog * 100).toFixed(1)}%</div></div>` : ""}
+      <dl class="kv">${rows.map(([k, v, pos]) => `<dt>${k}</dt><dd class="${pos ? "pos" : ""}">${v}</dd>`).join("")}</dl>
+      ${recs}
+      ${it.note ? `<div class="note">${esc(it.note)}</div>` : ""}
+    </article>`;
+  }).join("");
+  const pts = o ? sum(Object.entries(o.points).filter(([a]) => state.scope === "all" || a === state.scope), ([, v]) => v) : 0;
+  $("prod-note").textContent = (pts > 0 ? `기여 포인트 ${fmtAmount(pts)} · ` : "") +
+    "평가액은 각 체인의 LGNS/DAI 유동성 풀 가격으로 계산합니다. 디앱이 화면에 표시하는 이자율은 보장된 수익이 아니며, 블록체인에서 읽을 수 없는 조건은 반영하지 못했습니다.";
+}
+
+function renderTokens() {
+  const groups = new Map();
+  for (const h of state.holdings.filter(inScope)) {
+    const g = groups.get(h.key) || { ...h, amount: 0, valueUsd: h.valueUsd == null ? null : 0 };
+    g.amount += h.amount;
+    if (h.valueUsd != null) g.valueUsd = (g.valueUsd || 0) + h.valueUsd;
+    groups.set(h.key, g);
+  }
+  const all = [...groups.values()];
+  const shown = r => state.showAll || (!r.flagged && r.valueUsd != null);
+  const rows = all.filter(shown).sort((a, b) => (b.valueUsd ?? -1) - (a.valueUsd ?? -1));
+  const viewTotal = sum(rows.filter(r => !r.flagged), r => r.valueUsd);
+  $("cnt-token").textContent = rows.length || "";
+  let body;
+  if (!state.wallets.length) body = `<tr><td colspan="6"><div class="empty">지갑을 추가하면 여기에 토큰이 표시됩니다.</div></td></tr>`;
+  else if (!rows.length) body = `<tr><td colspan="6"><div class="empty">${state.loading ? '<span class="spin"></span> 잔고를 불러오는 중입니다' : "표시할 토큰이 없습니다."}</div></td></tr>`;
+  else body = rows.map(r => {
+    const ch = CHAINS[r.chain];
+    const pct = viewTotal > 0 && r.valueUsd != null && !r.flagged ? r.valueUsd / viewTotal * 100 : 0;
+    return `<tr>
+      <td><div class="tok"><b>${esc(r.symbol)} ${r.flagged ? '<span class="pill warn">주의</span>' : ""}</b><small>${esc(r.name)}</small></div></td>
+      <td><span class="pill"><span class="dot" style="background:${ch.color}"></span>${ch.name}</span></td>
+      <td class="r num">${fmtAmount(r.amount)}</td>
+      <td class="r num hide-sm">${fmtPrice(r.priceUsd)}</td>
+      <td class="r num">${fmtMoney(r.valueUsd)}</td>
+      <td class="r hide-sm"><div class="share"><span class="num small">${pct.toFixed(1)}%</span><i><b style="width:${pct.toFixed(1)}%"></b></i></div></td>
+    </tr>`;
+  }).join("");
+  $("rows").innerHTML = body;
+  const hidden = all.length - rows.length;
+  $("hidden-note").textContent = hidden > 0 && !state.showAll ? `가격 정보가 없거나 탐색기가 주의 표시한 토큰 ${hidden}개를 숨겼습니다. 이런 토큰은 총액에 포함하지 않습니다.` : "";
+}
+
+// ── 동작 ──────────────────────────────────────────────
+let pendingDelete = null, renaming = null;
+function saveWallets() { store.set("wallets", state.wallets); }
+function setScope(s) { state.scope = s; store.set("scope", s); pendingDelete = null; renaming = null; render(); }
+function addWallet(name, address, example) {
+  if (state.wallets.some(w => w.address.toLowerCase() === address.toLowerCase())) return "이미 등록된 주소입니다.";
+  state.wallets.push({ name: name || "지갑 " + (state.wallets.length + 1), address, example: !!example });
+  saveWallets();
+  setScope(state.wallets.length > 1 ? state.scope : address);
+  refresh();
+  return null;
+}
+
+$("add-wallet").addEventListener("submit", e => {
+  e.preventDefault();
+  const name = $("w-name").value.trim();
+  const addr = $("w-addr").value.trim();
+  const msg = $("w-msg");
+  if (!isAddr(addr)) {
+    const words = addr.split(/\s+/).filter(Boolean).length;
+    msg.className = "formmsg bad";
+    msg.textContent = words >= 12
+      ? "니모닉 문구처럼 보입니다. 니모닉은 절대 입력하지 마세요. 0x로 시작하는 지갑 주소만 넣으면 됩니다."
+      : "주소 형식이 맞지 않습니다. 0x 다음에 40자리 영문·숫자인지 확인하세요.";
+    if (words >= 12) $("w-addr").value = "";
+    return;
+  }
+  const err = addWallet(name, addr);
+  msg.className = err ? "formmsg bad" : "formmsg ok";
+  msg.textContent = err || "추가했습니다. 잔고와 디앱 상품을 불러오는 중입니다.";
+  if (!err) { $("w-name").value = ""; $("w-addr").value = ""; }
+});
+
+$("add-token").addEventListener("submit", async e => {
+  e.preventDefault();
+  const addr = $("t-addr").value.trim();
+  const msg = $("t-msg");
+  if (!isAddr(addr)) { msg.className = "formmsg bad"; msg.textContent = "0x로 시작하는 42자리 계약 주소를 넣으세요."; return; }
+  if ([...POLYGON_TOKENS, ...state.customTokens].some(t => t.address.toLowerCase() === addr.toLowerCase())) { msg.className = "formmsg bad"; msg.textContent = "이미 목록에 있는 토큰입니다."; return; }
+  msg.className = "formmsg"; msg.textContent = "토큰 정보를 확인하는 중…";
+  try {
+    const r = await rpcBatch(POLYGON_RPCS, [
+      { jsonrpc: "2.0", id: "s", method: "eth_call", params: [{ to: addr, data: "0x95d89b41" }, "latest"] },
+      { jsonrpc: "2.0", id: "d", method: "eth_call", params: [{ to: addr, data: "0x313ce567" }, "latest"] },
+    ]);
+    if (!r.d || r.d === "0x") throw new Error("폴리곤에서 이 주소의 토큰을 찾지 못했습니다.");
+    let symbol = "?";
+    try {
+      const hex = r.s.slice(2);
+      const len = parseInt(hex.slice(64, 128), 16);
+      symbol = decodeURIComponent(hex.slice(128, 128 + len * 2).replace(/../g, "%$&")) || "?";
+    } catch {}
+    let cg = null;
+    try { cg = (await fetchJson(`https://api.coingecko.com/api/v3/coins/polygon-pos/contract/${addr.toLowerCase()}`)).id || null; } catch {}
+    state.customTokens.push({ address: addr, symbol: symbol.slice(0, 20), name: "직접 추가한 토큰", decimals: parseInt(r.d, 16), cg });
+    store.set("customTokens", state.customTokens);
+    msg.className = "formmsg ok"; msg.textContent = `${symbol} 추가했습니다.` + (cg ? "" : " 시세 정보가 없어 수량만 표시됩니다.");
+    $("t-addr").value = "";
+    render(); refresh();
+  } catch (err) {
+    msg.className = "formmsg bad"; msg.textContent = err.message || "토큰 정보를 불러오지 못했습니다.";
+  }
+});
+
+document.addEventListener("click", e => {
+  const t = e.target.closest("button");
+  if (!t) return;
+  if (t.dataset.scope) setScope(t.dataset.scope);
+  else if (t.dataset.copy) {
+    navigator.clipboard?.writeText(t.dataset.copy).then(() => { t.textContent = "복사됨"; setTimeout(render, 1200); }, () => {});
+  }
+  else if (t.dataset.rename) { renaming = t.dataset.rename; render(); }
+  else if (t.dataset.del) { pendingDelete = t.dataset.del; render(); }
+  else if ("delNo" in t.dataset) { pendingDelete = null; render(); }
+  else if (t.dataset.delYes) {
+    const a = t.dataset.delYes;
+    state.wallets = state.wallets.filter(w => w.address !== a);
+    state.holdings = state.holdings.filter(h => h.wallet !== a);
+    if (state.origin) state.origin.items = state.origin.items.filter(it => it.wallet !== a);
+    pendingDelete = null; saveWallets(); setScope("all");
+  }
+  else if (t.dataset.tdel) {
+    state.customTokens = state.customTokens.filter(x => x.address !== t.dataset.tdel);
+    store.set("customTokens", state.customTokens); render(); refresh();
+  }
+});
+
+$("tab-dapp").addEventListener("click", () => { state.tab = "dapp"; store.set("tab", "dapp"); render(); });
+$("tab-token").addEventListener("click", () => { state.tab = "token"; store.set("tab", "token"); render(); });
+$("refresh").addEventListener("click", refresh);
+$("cur-krw").addEventListener("click", () => { state.currency = "krw"; store.set("currency", "krw"); render(); });
+$("cur-usd").addEventListener("click", () => { state.currency = "usd"; store.set("currency", "usd"); render(); });
+$("show-all").addEventListener("change", e => { state.showAll = e.target.checked; render(); });
+$("auto").checked = store.get("auto", false);
+function setAuto() {
+  clearInterval(timer);
+  if ($("auto").checked) timer = setInterval(() => { if (!document.hidden) refresh(); }, 60000);
+  store.set("auto", $("auto").checked);
+}
+$("auto").addEventListener("change", setAuto);
+setAuto();
+
+render();
+refresh();
+</script>
+</body>
+</html>
