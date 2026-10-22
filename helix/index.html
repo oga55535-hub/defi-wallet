@@ -1,0 +1,910 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>HELIX 지갑 시뮬레이터</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="HELIX 시뮬">
+<meta name="theme-color" content="#0F7A63">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Roboto+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: 레퍼런스와 같은 한 줄 흐름 — 시세 → 내 지갑(여러 개, 합계·지갑별) → 시작 상태 → 질문 1~4 → 결과 → 운용 가이드 → 순환도 → 주의 → 비교 → 접힌 참고 */
+:root{
+  --bg:#F2F4F1; --panel:#FFFFFF; --ink:#141B2B; --muted:#5B6474; --line:#DCE1DA; --soft:#EEF1EC;
+  --acc:#0F7A63; --acc-soft:#E0F1EB; --b:#3B5BA9; --warn:#A8461E; --warn-soft:#FBEAE2;
+  --f-body:"Noto Sans KR",system-ui,sans-serif; --f-num:"Roboto Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F141E; --panel:#171E2B; --ink:#E8ECF2; --muted:#9AA4B5; --line:#2A3344; --soft:#1D2533;
+  --acc:#3DC29E; --acc-soft:#173A33; --b:#7E9BE8; --warn:#F08A62; --warn-soft:#3B2219; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F141E; --panel:#171E2B; --ink:#E8ECF2; --muted:#9AA4B5; --line:#2A3344; --soft:#1D2533;
+  --acc:#3DC29E; --acc-soft:#173A33; --b:#7E9BE8; --warn:#F08A62; --warn-soft:#3B2219; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.62;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:22px 56px}
+.wrap{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+h1{font-weight:900;font-size:25px;margin:0;letter-spacing:-.02em}
+.lead{margin:2px 0 0;color:var(--muted)}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible,textarea:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.pricebar{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 16px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between}
+.pv{font:700 14.5px var(--f-num);display:flex;flex-wrap:wrap;gap:2px 12px}
+.pm{font-size:12.5px;color:var(--muted)} .pm.stale{color:var(--warn)}
+.up{color:var(--acc)} .dn{color:var(--warn)}
+.btn{border:0;background:var(--acc);color:#fff;border-radius:10px;padding:9px 14px;font:700 14px var(--f-body);cursor:pointer}
+.btn.ghost{background:var(--soft);color:var(--ink);border:1px solid var(--line)}
+.btn[disabled]{opacity:.55;cursor:default}
+.linkbtn{border:0;background:none;color:var(--acc);font:500 12.5px var(--f-body);text-decoration:underline;cursor:pointer;padding:0}
+.linkbtn.danger{color:var(--warn)}
+.q{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.q h2{margin:0;font-size:16px}
+.q .sub{margin:-6px 0 0;font-size:12.5px;color:var(--muted)}
+.opts{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr))}
+.opt{text-align:left;border:1.5px solid var(--line);background:var(--panel);color:var(--ink);border-radius:12px;padding:10px 12px;cursor:pointer;font:inherit;display:flex;flex-direction:column;gap:1px}
+.opt b{font-size:14.5px}
+.opt span{font-size:12px;color:var(--muted)}
+.opt[aria-pressed="true"]{border-color:var(--acc);background:var(--acc-soft)}
+.opt[aria-pressed="true"] b{color:var(--acc)}
+.more{border-top:1px dashed var(--line);padding-top:10px;display:flex;flex-direction:column;gap:8px}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.row .lb{font-size:13px;color:var(--muted);min-width:100%;}
+.chip{border:1px solid var(--line);background:var(--soft);color:var(--ink);border-radius:999px;padding:5px 12px;font:500 13px var(--f-body);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.amt{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.field{display:flex;flex-direction:column;gap:3px;flex:1 1 150px;min-width:0}
+.field label{font-size:12.5px;color:var(--muted)}
+.field input,.amt input,.addw input,textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:500 16px var(--f-num)}
+.addw input#wName{font-family:var(--f-body)}
+textarea{font-size:12px;resize:vertical;word-break:break-all}
+.amt input{flex:1 1 140px;width:auto;min-width:0}
+.answer{background:var(--ink);color:var(--bg);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:10px}
+.say{font-size:17.5px;line-height:1.7;margin:0;font-weight:500;text-wrap:pretty}
+.say b{font-weight:900;color:var(--acc-soft)}
+.small{font-size:13px;opacity:.78;margin:0}
+.nums{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+@media (max-width:520px){.nums{grid-template-columns:minmax(0,1fr)}}
+.nb{background:rgba(255,255,255,.08);border-radius:12px;padding:12px}
+.nb .l{font-size:12.5px;opacity:.8}
+.nb .v{font:700 20px var(--f-num);margin:2px 0;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.nb .s{font-size:12px;opacity:.75}
+.sec{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+.sec h2{margin:0 0 8px;font-size:16px}
+.note{background:var(--warn-soft);border-radius:12px;padding:12px 14px;font-size:13.5px}
+.note ul{margin:0;padding-left:18px}
+.note b{color:var(--warn)}
+.bars{display:flex;flex-direction:column;gap:12px}
+.bar-h{display:flex;justify-content:space-between;gap:8px;font-size:13.5px;flex-wrap:wrap}
+.track{height:12px;border-radius:6px;background:var(--soft);display:flex;overflow:hidden;margin-top:4px}
+.track i{display:block;height:100%}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:10px}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:4px}
+details.ref{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:2px 16px}
+details.ref[open]{padding-bottom:14px}
+details.ref summary{cursor:pointer;padding:11px 0;font-weight:700}
+.path{list-style:none;margin:0;padding:0;counter-reset:s}
+.path li{counter-increment:s;position:relative;padding:0 0 12px 38px}
+.path li::before{content:counter(s);position:absolute;left:0;top:1px;width:25px;height:25px;border-radius:50%;background:var(--acc-soft);color:var(--acc);display:grid;place-items:center;font:700 13px var(--f-num)}
+.path li:not(:last-child)::after{content:"";position:absolute;left:12px;top:28px;bottom:2px;width:2px;background:var(--line)}
+.path li.loop::before{content:"↻";background:var(--ink);color:var(--bg)}
+.path b{display:block}
+.path span{font-size:13.5px;color:var(--muted)}
+.fee{display:inline-block;font:700 11.5px var(--f-body);color:var(--warn);background:var(--warn-soft);border-radius:6px;padding:0 6px;margin-left:3px;font-style:normal}
+.fly svg{width:100%;height:auto;display:block}
+.fly .ring{fill:none;stroke:var(--line)} .fly .arc{fill:none;stroke:var(--acc)} .fly .ahead{fill:var(--acc)}
+.fly .hub{fill:var(--ink)} .fly .hubt{fill:var(--bg)} .fly .hubs{fill:var(--bg);opacity:.75}
+.fly .card{fill:var(--panel);stroke:var(--acc)} .fly .num{fill:var(--acc)} .fly .numt{fill:var(--panel)}
+.fly .t1{fill:var(--ink)} .fly .t2{fill:var(--muted)} .fly .fee2{fill:var(--warn)}
+.fly .bcard{fill:var(--warn-soft);stroke:var(--warn)} .fly .bline{stroke:var(--warn);fill:none} .fly .bhead{fill:var(--warn)}
+.flynote{margin:8px 0 0;text-align:center;font-weight:700;color:var(--acc);font-size:14px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}
+@media (max-width:520px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.rk{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.rk div{background:var(--soft);border-radius:10px;padding:10px 12px;font-size:14px}
+.rk small{display:block;color:var(--muted);font-size:12.5px}
+.gl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+@media (max-width:520px){.gl{grid-template-columns:minmax(0,1fr)}}
+.gl div{background:var(--soft);border-radius:10px;padding:10px 12px;font-size:13.5px}
+.gl b{display:block;font-size:14px}
+footer{font-size:12px;color:var(--muted)}
+/* 지갑 */
+.addw{display:flex;flex-wrap:wrap;gap:8px}
+.addw input{flex:1 1 140px;min-width:0}
+.addw input#wAddr{flex:3 1 240px;font-size:14px}
+.msg{font-size:12.5px;color:var(--muted);margin:0}
+.msg.bad{color:var(--warn)} .msg.ok{color:var(--acc)}
+.wl{display:flex;flex-direction:column;gap:8px}
+.wc{border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;background:var(--panel)}
+.wc.sel{border-color:var(--acc);background:var(--acc-soft)}
+.wc .hd{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.wc .nm{display:flex;gap:8px;align-items:center;min-width:0;font-weight:700}
+.wc .dot{width:10px;height:10px;border-radius:50%;flex:none}
+.wc .ad{font:500 12px var(--f-num);color:var(--muted)}
+.wc .act{display:flex;gap:10px;align-items:center}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:4px 12px;font-size:13px}
+.kv div{display:flex;justify-content:space-between;gap:6px;min-width:0}
+.kv span{color:var(--muted)}
+.kv b{font:700 13px var(--f-num);text-align:right;overflow-wrap:anywhere}
+.tag{font-size:11px;font-style:normal;margin-left:2px}
+.err{font-size:12px;color:var(--warn)}
+.scope{display:flex;flex-wrap:wrap;gap:6px}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th,.tbl td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.tbl th:first-child,.tbl td:first-child{text-align:left;white-space:normal;min-width:88px}
+.tbl td{font-family:var(--f-num)}
+.tbl td:first-child{font-family:var(--f-body)}
+.tblwrap{overflow-x:auto;margin:0 -4px;padding:0 4px}
+.todo{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.todo li{background:var(--soft);border-radius:10px;padding:10px 12px;font-size:14px}
+.todo li.hot{background:var(--warn-soft)}
+.todo li small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+.todo li .wn{font-size:12px;color:var(--muted);font-weight:500}
+.pick{background:var(--acc-soft);border-radius:12px;padding:12px 14px;font-size:14.5px}
+.pick b{color:var(--acc)}
+.routine{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.routine label{display:flex;gap:10px;align-items:flex-start;font-size:14px;cursor:pointer;background:var(--soft);border-radius:10px;padding:9px 12px}
+.routine input{margin-top:4px;accent-color:var(--acc);width:16px;height:16px;flex:none}
+.routine small{display:block;color:var(--muted);font-size:12.5px}
+.h3{font-size:14px;font-weight:700;margin:14px 0 8px}
+.legend3{font-size:12px;color:var(--muted)}
+.mode{display:flex;gap:6px;flex-wrap:wrap}
+/* QR은 어느 테마에서도 카메라가 읽도록 흰 바탕에 검은 점 (의도한 고정색) */
+.qrbox{align-self:flex-start;background:#fff;padding:12px;border-radius:12px;line-height:0}
+.qrbox img,.qrbox canvas{width:220px;height:220px;max-width:100%}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>HELIX 지갑 시뮬레이터</h1>
+    <p class="lead">지갑 주소를 넣으면 지금 현황을 읽어 와서, 그 상태에서부터 계산해요. 지갑 없이 새로 시작하는 계산도 그대로 쓸 수 있어요.</p>
+  </header>
+
+  <div class="pricebar" aria-live="polite">
+    <div><div class="pv" id="priceVals">LGNS Anubis $0.20 · Polygon $0.28 · AiLGNS $793</div><div class="pm" id="priceMeta">10/22 기준 기본값이에요. 온체인 시세를 불러오는 중…</div></div>
+    <div class="row"><button type="button" class="linkbtn" id="priceRevert" hidden>온체인 시세로 되돌리기</button><button type="button" class="btn" id="priceBtn">시세 새로고침</button></div>
+  </div>
+
+  <!-- ===== 내 지갑 현황 (새로 추가) ===== -->
+  <section class="q" id="walletSec">
+    <h2>내 지갑 현황</h2>
+    <p class="sub">지갑 주소(0x…)만 넣어요. 읽기 전용이라 서명·승인·전송을 하지 않고, 주소는 이 브라우저에만 저장돼요. <b>시드 문구나 개인키는 절대 넣지 마세요.</b></p>
+    <form class="addw" id="addForm" autocomplete="off">
+      <input id="wName" type="text" placeholder="이름 (예: 메인)" maxlength="30" aria-label="지갑 이름">
+      <input id="wAddr" type="text" placeholder="0x로 시작하는 지갑 주소" spellcheck="false" aria-label="지갑 주소">
+      <button class="btn" type="submit">추가</button>
+    </form>
+    <p class="msg" id="addMsg"></p>
+    <details id="moreBox">
+      <summary class="linkbtn" style="text-decoration:none">휴대폰·다른 기기로 옮기기 · 여러 개 한 번에 넣기</summary>
+      <div class="more" style="margin-top:8px">
+        <b style="font-size:14px">다른 기기로 옮기기</b>
+        <p class="msg">이 화면에서 QR을 만들고 휴대폰 카메라로 찍으면, 지갑 목록과 적어 둔 원금이 휴대폰에도 들어가요. 지갑을 바꿀 때마다 한 번씩 옮겨 주세요. 주소는 서버로 보내지 않아요.</p>
+        <div class="row"><button type="button" class="btn ghost" id="qrBtn">QR코드 만들기</button> <button type="button" class="btn ghost" id="codeBtn">옮기기 코드 복사</button></div>
+        <div class="qrbox" id="qrOut" hidden></div>
+        <textarea id="codeOut" rows="3" readonly hidden aria-label="옮기기 코드"></textarea>
+        <p class="msg" id="syncMsg"></p>
+      </div>
+      <div class="more" style="margin-top:10px">
+        <b style="font-size:14px">여러 개 한 번에 넣기</b>
+        <button type="button" class="btn ghost" id="fromDash">‘내 디파이 지갑’ 대시보드에 등록한 지갑 가져오기</button>
+        <textarea id="impText" rows="3" placeholder="옮기기 코드(HS1:…), 대시보드 내보내기 코드(DW1:…), 또는 주소를 줄마다 붙여 넣어요"></textarea>
+        <div class="row"><button type="button" class="btn ghost" id="impBtn">붙여 넣은 지갑 추가</button></div>
+        <p class="msg" id="impMsg"></p>
+      </div>
+    </details>
+    <div class="row" style="justify-content:space-between"><span class="msg" id="loadMeta">지갑을 추가하면 바로 조회해요.</span><button type="button" class="btn" id="loadBtn" hidden>모두 다시 조회</button></div>
+    <div class="wl" id="wl"></div>
+    <p class="legend3">✅ 온체인에서 직접 읽은 값 · 📢 운영 측 안내·강의 설명 · ❓ 가정·미확인</p>
+  </section>
+
+  <section class="q" id="startSec">
+    <h2>어디서부터 계산할까요?</h2>
+    <div class="mode" id="gMode"><button type="button" class="chip" data-v="wallet" aria-pressed="false">내 지갑 현황에서 시작</button> <button type="button" class="chip" data-v="new" aria-pressed="true">새로 시작 (지갑 없이)</button></div>
+    <div id="walletStart" hidden>
+      <div class="row"><span class="lb">계산 대상</span><span class="scope" id="gScope"></span></div>
+      <p class="sub" style="margin:0" id="scopeHint"></p>
+      <div class="grid2" style="margin-top:6px">
+        <div class="field"><label for="exPower">활성 Power <i class="tag" id="tPower">✅</i></label><input id="exPower" type="number" min="0" step="any" inputmode="decimal"></div>
+        <div class="field"><label for="exAi">보유 AiLGNS (지갑 + 터빈 잠김·수령 가능) <i class="tag" id="tAi">✅</i></label><input id="exAi" type="number" min="0" step="any" inputmode="decimal"></div>
+        <div class="field"><label for="exUnc">터빈 대기 AiLGNS (아직 못 받은 몫) <i class="tag" id="tUnc">✅</i></label><input id="exUnc" type="number" min="0" step="any" inputmode="decimal"></div>
+        <div class="field"><label for="exDai">터빈용으로 쓸 지갑 DAI <i class="tag" id="tDai">✅</i></label><input id="exDai" type="number" min="0" step="any" inputmode="decimal"></div>
+        <div class="field"><label for="exPend">일반 터보에 쌓인 LGNS <i class="tag" id="tPend">✅</i></label><input id="exPend" type="number" min="0" step="any" inputmode="decimal"></div>
+        <div class="field"><label for="exVe">ve로 잠근 AiLGNS <i class="tag" id="tVe">✅</i></label><input id="exVe" type="number" min="0" step="any" inputmode="decimal"></div>
+        <div class="field"><label for="exNtRem">신생태 터보 남은 지급 (DAI 가치) <i class="tag" id="tNt">✅</i></label><input id="exNtRem" type="number" min="0" step="any" inputmode="decimal"></div>
+        <div class="field"><label for="exNtDaily">신생태 터보 하루 지급 (DAI 가치) <i class="tag">✅</i></label><input id="exNtDaily" type="number" min="0" step="any" inputmode="decimal"></div>
+        <div class="field"><label for="exNtNow">신생태 금고에서 지금 팔 수 있는 LGNS <i class="tag">✅</i></label><input id="exNtNow" type="number" min="0" step="any" inputmode="decimal"></div>
+        <div class="field"><label for="exBasis">이미 들인 원금 DAI (원금 회수 계산용) <i class="tag">❓</i></label><input id="exBasis" type="number" min="0" step="any" inputmode="decimal" placeholder="모르면 0"></div>
+      </div>
+      <div class="row" style="justify-content:space-between;margin-top:4px"><span class="msg" id="exMeta"></span><button type="button" class="btn" id="applyBtn">이 현황으로 계산</button></div>
+      <div class="more" id="moreExNt" hidden>
+        <div class="row"><span class="lb">진행 중인 신생태 터보에서 풀려서 판 돈은 어디에?</span><span data-key="ntUse"><button type="button" class="chip" data-v="turbo" aria-pressed="false">일반 터보 → 소각</button> <button type="button" class="chip" data-v="lgns" aria-pressed="true">LGNS 사서 소각</button> <button type="button" class="chip" data-v="helix" aria-pressed="false">HELIX에 DAI 참여</button> <button type="button" class="chip" data-v="cash" aria-pressed="false">현금으로</button></span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="q">
+    <h2>1. <span id="q1T">무엇으로 시작하나요?</span></h2>
+    <div class="opts" id="qStart">
+      <button type="button" class="opt" data-v="anubis" aria-pressed="true"><b>Anubis LGNS</b><span id="sA">HELIX에 소각</span></button>
+      <button type="button" class="opt" data-v="polygon" aria-pressed="false"><b>Polygon LGNS</b><span id="sP">HELIX에 소각</span></button>
+      <button type="button" class="opt" data-v="dai" aria-pressed="false"><b>DAI</b><span>HELIX에 바로 참여</span></button>
+      <button type="button" class="opt" data-v="turbo" aria-pressed="false"><b>DAI → 일반 터보</b><span>쌓인 터보 수량이 있는 분</span></button>
+      <button type="button" class="opt" data-v="newturbo" aria-pressed="false"><b>DAI → 신생태 터보</b><span>12시간마다 나눠 받기</span></button>
+    </div>
+  </section>
+
+  <section class="q">
+    <h2 id="amtT">2. 몇 개 넣을까요?</h2>
+    <div class="amt"><input id="amt" type="number" min="0" inputmode="decimal" value="10000" aria-label="수량"><span id="unit">개</span></div>
+    <div class="row" id="chips"></div>
+    <p class="sub" style="margin:0" id="amtHint" hidden></p>
+    <div class="more" id="moreTurbo" hidden>
+      <div class="field"><label for="pend">일반 터보에 쌓인 LGNS 수량 (Anubis 터보 화면의 ‘터보차저’ 수량)</label><input id="pend" type="number" min="0" inputmode="decimal" value="10000"></div>
+    </div>
+    <div class="more" id="moreNT" hidden>
+      <div class="row"><span class="lb">신생태 터보 상품</span><span id="gNtProd"><button type="button" class="chip" data-v="2.5|300" aria-pressed="true">2.5배 · 300일</button> <button type="button" class="chip" data-v="4|500" aria-pressed="false">4배 · 500일</button></span></div>
+      <div class="row"><span class="lb">풀려서 판 돈은 어디에?</span><span data-key="ntUse"><button type="button" class="chip" data-v="turbo" aria-pressed="false">일반 터보 → 소각</button> <button type="button" class="chip" data-v="lgns" aria-pressed="true">LGNS 사서 소각</button> <button type="button" class="chip" data-v="helix" aria-pressed="false">HELIX에 DAI 참여</button> <button type="button" class="chip" data-v="cash" aria-pressed="false">현금으로</button></span></div>
+    </div>
+  </section>
+
+  <section class="q" id="goalSec">
+    <h2>3. 무엇이 가장 중요해요?</h2>
+    <div class="opts" id="qGoal">
+      <button type="button" class="opt" data-v="C" aria-pressed="true"><b>원금 먼저</b><span>C · 들인 돈부터 찾기</span></button>
+      <button type="button" class="opt" data-v="A" aria-pressed="false"><b>많이 모으기</b><span>A · 매일 다시 넣어 불리기</span></button>
+      <button type="button" class="opt" data-v="B" aria-pressed="false"><b>편하게</b><span>B · AiLGNS 모아두기</span></button>
+    </div>
+    <div class="more" id="moreAC">
+      <div class="row"><span class="lb" id="reinvLb">판 돈 중 다시 넣는 비율</span><span id="gReinv"><button type="button" class="chip" data-v="0.5" aria-pressed="false">50%</button> <button type="button" class="chip" data-v="0.8" aria-pressed="true">80%</button> <button type="button" class="chip" data-v="1" aria-pressed="false">100%</button></span></div>
+      <div class="row"><span class="lb">다시 넣는 방법</span><span id="gRoute"><button type="button" class="chip" data-v="lgns" aria-pressed="true">LGNS 사서 소각 (0%)</button> <button type="button" class="chip" data-v="old" aria-pressed="false">일반 터보 → 소각 (5%)</button> <button type="button" class="chip" data-v="turbo" aria-pressed="false">신생태 → 일반 터보 → 소각</button> <button type="button" class="chip" data-v="dai" aria-pressed="false">DAI로 참여</button></span></div>
+      <div class="row" id="cashRow"><span class="lb">현금으로 남긴 몫은?</span><span id="gCash"><button type="button" class="chip" data-v="now" aria-pressed="true">바로 현금</button> <button type="button" class="chip" data-v="nt" aria-pressed="false">신생태 터보에 넣어 나눠 받기</button></span></div>
+      <div class="field" id="pendField2" hidden><label for="pend2">일반 터보에 쌓인 LGNS 수량</label><input id="pend2" type="number" min="0" inputmode="decimal" value="10000"></div>
+    </div>
+    <div class="more" id="moreB" hidden>
+      <div class="row"><span class="lb">AiLGNS 터빈 비용은 어떻게?</span><span id="gBFund"><button type="button" class="chip" data-v="self" aria-pressed="true">AiLGNS 조금 팔기</button> <button type="button" class="chip" data-v="ext" aria-pressed="false">매일 내 DAI 넣기</button> <button type="button" class="chip" data-v="nt" aria-pressed="false">신생태 터보 DAI로</button></span></div>
+      <p class="sub" id="ntFundHint" hidden></p>
+    </div>
+    <div class="more">
+      <div class="row"><span class="lb">직급도 준비할까요? (받은 AiLGNS의 30%를 ve로 잠가요)</span><span id="gRank"><button type="button" class="chip" data-v="0" aria-pressed="true">아니요</button> <button type="button" class="chip" data-v="1000" aria-pressed="false">P1</button> <button type="button" class="chip" data-v="3000" aria-pressed="false">P2</button> <button type="button" class="chip" data-v="5000" aria-pressed="false">P3</button></span></div>
+    </div>
+  </section>
+
+  <section class="q">
+    <h2>4. 기간과 시장 가정</h2>
+    <div class="row" id="gDays"><button type="button" class="chip" data-v="30" aria-pressed="false">1개월</button> <button type="button" class="chip" data-v="90" aria-pressed="false">3개월</button> <button type="button" class="chip" data-v="180" aria-pressed="true">6개월</button> <button type="button" class="chip" data-v="365" aria-pressed="false">1년</button></div>
+    <div class="opts" id="qScen">
+      <button type="button" class="opt" data-v="keep" aria-pressed="false"><b>지금처럼</b><span>받는 속도·가격 그대로</span></button>
+      <button type="button" class="opt" data-v="mid" aria-pressed="true"><b>조금 나빠짐</b><span>받는 속도 월 -25%, AiLGNS 월 -10%</span></button>
+      <button type="button" class="opt" data-v="low" aria-pressed="false"><b>많이 나빠짐</b><span>받는 속도 월 -50%, AiLGNS 월 -25%</span></button>
+    </div>
+  </section>
+
+  <section class="answer" aria-live="polite">
+    <p class="say" id="say"></p>
+    <div class="nums" id="nums"></div>
+    <p class="small">⚠️ 가정에 따른 시뮬레이션일 뿐이에요. 실제 결과는 시장과 규칙 변경에 따라 크게 달라질 수 있고, 수익을 보장하지 않아요.</p>
+  </section>
+
+  <section class="sec" id="perWallet" hidden>
+    <h2>지갑별로 보면</h2>
+    <p class="small" style="color:var(--muted);opacity:1;margin:-4px 0 10px" id="perSub"></p>
+    <div class="tblwrap"><table class="tbl" id="perTbl"></table></div>
+    <p class="small" style="color:var(--muted);opacity:1;margin-top:8px">⚠️ 지갑마다 추가로 넣는 돈 없이 지금 현황만으로 계산했어요. 수익을 보장하지 않아요.</p>
+  </section>
+
+  <section class="sec" id="guideSec">
+    <h2>운용 가이드</h2>
+    <p class="small" style="color:var(--muted);opacity:1;margin:-4px 0 4px" id="guideSub"></p>
+    <div class="h3">지금 할 일</div>
+    <ul class="todo" id="todo"></ul>
+    <div class="h3">이 상태에 맞는 방식</div>
+    <div class="pick" id="pick"></div>
+    <div class="h3">매일 루틴 <span class="legend3" id="rtDate"></span></div>
+    <ul class="routine" id="routine"></ul>
+    <p class="small" style="color:var(--muted);opacity:1;margin-top:10px">⚠️ 가이드는 위 가정으로 계산한 비교일 뿐 투자 권유가 아니에요. 수익을 보장하지 않아요.</p>
+  </section>
+
+  <section class="sec" id="flySec">
+    <h2>운용 경로</h2>
+    <div class="fly" id="fly" role="img" aria-label="운용 경로 순환도"></div>
+    <p class="flynote" id="flynote"></p>
+    <details class="steps" style="margin-top:8px"><summary style="cursor:pointer;color:var(--muted)">단계별로 자세히 보기</summary><ol class="path" id="path" style="margin-top:10px"></ol></details>
+  </section>
+
+  <div class="note" id="note"></div>
+
+  <section class="sec" id="cmpSec">
+    <h2>세 방식 비교</h2>
+    <p class="small" style="color:var(--muted);opacity:1;margin:-4px 0 10px" id="cmpSub"></p>
+    <div class="bars" id="bars"></div>
+    <div class="legend"><span><i style="background:var(--acc)"></i>현금으로 꺼낼 수 있는 금액 (AiLGNS는 지금 시세)</span><span><i style="background:var(--b);opacity:.45"></i>남은 Power</span><span><i style="background:var(--muted)"></i>들인 돈</span></div>
+  </section>
+
+  <details class="ref">
+    <summary>세부 가정 바꾸기</summary>
+    <div class="grid2">
+      <div class="field"><label for="pL">Anubis LGNS 가격 (DAI)</label><input id="pL" type="number" step="0.01" value="0.20"></div>
+      <div class="field"><label for="pLP">Polygon LGNS 가격 (DAI)</label><input id="pLP" type="number" step="0.01" value="0.28"></div>
+      <div class="field"><label for="pA">AiLGNS 가격 (DAI)</label><input id="pA" type="number" step="1" value="793"></div>
+      <div class="field"><label for="R0in">새로 준비할 터빈용 DAI (비우면 자동)</label><input id="R0in" type="number" min="0" step="10" placeholder="자동"></div>
+      <div class="field"><label for="fee">AiLGNS 매도세 (%)</label><input id="fee" type="number" min="3" max="28" step="1" value="3"></div>
+      <div class="field"><label for="slip">슬리피지·기타 (%)</label><input id="slip" type="number" min="0" step="0.5" value="1"></div>
+      <div class="field"><label for="r0">하루에 받는 비율 (%)</label><input id="r0" type="number" min="0.01" step="0.001" value="0.279"></div>
+      <div class="field"><label for="ntFund">B의 신생태 터보 터빈 자금 DAI (비우면 자동)</label><input id="ntFund" type="number" min="0" step="100" placeholder="자동"></div>
+    </div>
+    <p class="small" style="color:var(--muted);opacity:1;margin-top:8px" id="rateMeta"></p>
+    <p class="small" style="color:var(--muted);opacity:1;margin-top:6px">수수료는 디앱 컨트랙트 값이에요 ✅: AiLGNS 터빈 2.5% · 일반 터보 5% · 신생태 터보 판매 5% + 활성화 1% · Anubis LGNS 매수 0% · Anubis에서 LGNS를 바로 팔면 약 50%.</p>
+  </details>
+
+  <details class="ref">
+    <summary>직급 계산</summary>
+    <div class="row" id="gRk"><button type="button" class="chip" data-v="0" aria-pressed="true">P1</button> <button type="button" class="chip" data-v="1" aria-pressed="false">P2</button> <button type="button" class="chip" data-v="2" aria-pressed="false">P3</button> <button type="button" class="chip" data-v="3" aria-pressed="false">P4</button> <button type="button" class="chip" data-v="4" aria-pressed="false">P5</button></div>
+    <div class="grid2" style="margin-top:10px">
+      <div class="field"><label for="rkAvg">신규 1명 평균 참여금 (DAI)</label><input id="rkAvg" type="number" min="100" step="100" value="1000"></div>
+      <div class="field"><label for="rkLine">지금 세 번째로 큰 팀 실적 (DAI)</label><input id="rkLine" type="number" min="0" step="1000" value="0"></div>
+    </div>
+    <div class="rk" id="rkOut"></div>
+    <p class="small" style="color:var(--muted);opacity:1;margin-top:8px">10/19 팀 분석 자료(디앱 규칙 문구·공식 API·NFT 컨트랙트 확인) 기준이에요. 공식 보상 플랜 문서가 없어서 바뀔 수 있어요.</p>
+  </details>
+
+  <details class="ref">
+    <summary>용어 풀이와 계산 기준</summary>
+    <div class="gl">
+      <div><b>Power</b>AiLGNS를 받을 권리예요. 출금할 수 없고, 1 Power ≈ 앞으로 받을 1 DAI어치예요.</div>
+      <div><b>하루에 받는 비율</b>Power가 매일 약 0.279%씩 줄고 그만큼 AiLGNS로 나와요 ✅ (10/22 실제 지갑 Power를 하루 간격으로 읽어 0.2795% 확인). 참여자가 늘면 낮아질 수 있어요.</div>
+      <div><b>AiLGNS 터빈</b>나온 AiLGNS만큼 시장에서 사야(2.5%) 산 몫과 함께 받아요. 못 돌린 날의 몫은 쌓여 있다가 나중에 터보로 받아요 (디앱의 커뮤니티 볼트 ‘대기’ 수량 ✅).</div>
+      <div><b>일반 터보</b>Anubis에 쌓인 LGNS 보상을 같은 수량의 DAI(시세+5%)로 사서 1+1로 받아요. 24시간 잠겨요 ✅.</div>
+      <div><b>신생태 터보</b>넣은 DAI의 2.5배(300일)·4배(500일) 가치를 정해 두고 12시간마다 LGNS로 나눠 줘요. 금고에서 5%로 팔 수 있어요 ✅.</div>
+      <div><b>LGNS 소각 1 DAI 인정</b>LGNS 가격이 1달러 아래여도 1개 = 1 DAI × 2배 Power (📢 운영 측 안내, 소각 탭 오픈 전).</div>
+      <div><b>현금으로 꺼낼 수 있는 금액</b>그동안 꺼낸 현금 + 터빈용 DAI + 모은 AiLGNS를 지금 시세로 판 금액(수수료 뺀 값)이에요.</div>
+      <div><b>지갑 현황에서 시작</b>이미 가진 Power·AiLGNS·DAI·진행 중인 신생태 터보를 시작값으로 넣어요. ‘들인 돈’에는 새로 넣는 돈 + 지갑의 현금성 자산(DAI, AiLGNS 지금 시세) + 직접 적은 원금이 들어가요.</div>
+      <div><b>여러 지갑 합계</b>지갑마다 터빈이 따로 돌아가는데, 합계는 하나로 합쳐서 계산한 근사치예요 (❓).</div>
+      <div><b>시장 가정</b>예측이 아니라 가정이에요 (❓). 원금 회수 시점은 가정한 가격으로 계산해요.</div>
+    </div>
+  </details>
+
+  <footer>교육용 시뮬레이터예요. 재무 자문이 아니며, DAI 참여와 LGNS 소각은 되돌릴 수 없어요. 지갑 조회는 읽기 전용이고 주소는 이 브라우저에만 저장돼요. · CANON</footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="engine.js"></script>
+<script src="chain.js"></script>
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const fmt=(n,d=0)=>isFinite(n)?n.toLocaleString('ko-KR',{maximumFractionDigits:d,minimumFractionDigits:d}):'-';
+const fq=n=>!isFinite(n)?'-':n===0?'0':Math.abs(n)<1?fmt(n,4):Math.abs(n)<100?fmt(n,2):fmt(n);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const {FEE,autoFund,simulate}=window.HelixEngine;
+const C=window.HelixChain;
+
+// ===== 저장 (이 브라우저에만) =====
+const store={get(k,d){try{const v=localStorage.getItem('helixsim.'+k);return v?JSON.parse(v):d;}catch(e){return d;}},set(k,v){try{localStorage.setItem('helixsim.'+k,JSON.stringify(v));}catch(e){}}};
+const COLORS=['#0F7A63','#3B5BA9','#C2557F','#B98A2B','#7B5CD6','#2E93A8','#D06A33','#6B7385'];
+const W={list:store.get('wallets',[]),data:{},loading:false,at:null,rate:null};
+
+const SCEN={keep:[0,0,0],mid:[.25,-.10,.10],low:[.50,-.25,.25]};
+const S={start:'anubis',goal:'C',days:180,scen:'mid',reinv:.8,route:'lgns',cashVia:'now',bFund:'self',rank:0,ntProd:'2.5|300',ntUse:'lgns',
+  mode:store.get('mode','new'),scope:store.get('scope','all')};
+const GOALN={C:'원금 먼저',A:'많이 모으기',B:'편하게'};
+const PT={30:'1개월',90:'3개월',180:'6개월',365:'1년'};
+const span=d=>d<30?`약 ${d}일`:`약 ${fmt(d/30,1).replace(/\.0$/,'')}개월`;
+const num=id=>parseFloat($(id).value);
+const nv=id=>{const v=parseFloat($(id).value);return isFinite(v)&&v>0?v:0;};
+const walletMode=()=>S.mode==='wallet';
+
+// ===== 지갑 현황 → 시작값 =====
+// 지갑 하나(또는 전체 합계)의 조회 결과를 시작 상태 칸에 채울 값으로 바꿔요
+function scopeWallets(){return S.scope==='all'?W.list:W.list.filter(w=>w.address===S.scope);}
+function sumState(ws){
+  const o={power:0,ai:0,unc:0,dai:0,pend:0,ve:0,ntRem:0,ntDaily:0,ntNowL:0,lgnsA:0,lgnsP:0,turbLocked:0,turbClaim:0,ntSell:0,ntLocked:0,ntClaim:0,orders:[],n:0,fail:[]};
+  ws.forEach(w=>{const d=W.data[w.address.toLowerCase()];if(!d)return;o.n++;
+    const v=k=>d.v[k]?.ok?d.v[k].x:0;
+    o.power+=v('power');o.ai+=v('ai')+v('turbLocked')+v('turbClaim');o.unc+=v('unc');o.dai+=v('dai');o.pend+=v('pend');o.ve+=v('ve');
+    o.lgnsA+=v('lgnsA');o.lgnsP+=v('lgnsP');o.turbLocked+=v('turbLocked');o.turbClaim+=v('turbClaim');
+    (d.orders||[]).forEach(x=>o.orders.push({...x,wallet:w.name}));
+    ['nt25','nt4'].forEach(k=>{const z=d.nt?.[k];if(z){o.ntSell+=z.sellable;o.ntLocked+=z.locked;}});
+    Object.entries(d.v).forEach(([k,x])=>{if(!x.ok)o.fail.push(w.name+' '+C.LABEL[k]);});
+  });
+  o.orders.filter(x=>!x.completed).forEach(x=>{o.ntRem+=x.pending;o.ntDaily+=x.daily;o.ntClaim+=x.claimable;});
+  o.ntNowL=o.ntSell+o.ntLocked+o.ntClaim;
+  return o;
+}
+function fillStart(){
+  const o=sumState(scopeWallets());
+  const set=(id,x,d=4)=>{$(id).value=x?+x.toFixed(d):0;};
+  set('exPower',o.power,2);set('exAi',o.ai,6);set('exUnc',o.unc,6);set('exDai',o.dai,2);set('exPend',o.pend,4);set('exVe',o.ve,6);
+  set('exNtRem',o.ntRem,2);set('exNtDaily',o.ntDaily,4);set('exNtNow',o.ntNowL,4);
+  $('exBasis').value=store.get('basis',{})[S.scope]||''; // 원금은 지갑(또는 합계)마다 따로 기억해요
+  $('exMeta').textContent=o.n?`${S.scope==='all'?'전체 지갑 '+o.n+'개 합계':walletLabel(S.scope)} · ${W.at?W.at.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})+' 조회':''} · 모든 칸은 고칠 수 있어요`:'아직 조회한 지갑이 없어요. 위에서 지갑을 추가해 주세요.';
+  if(o.fail.length)$('exMeta').textContent+=` · 못 읽은 값: ${o.fail.slice(0,4).join(', ')}${o.fail.length>4?' 외':''} (0으로 채움)`;
+}
+// 시작 상태 칸 → 엔진 입력 p.ex
+function exFromFields(p){
+  if(!walletMode())return null;
+  const daily=nv('exNtDaily'),rem=nv('exNtRem');
+  const ntNowL=nv('exNtNow');
+  return {power:nv('exPower'),ai:nv('exAi'),unc:nv('exUnc'),dai:nv('exDai'),ve:nv('exVe'),basis:nv('exBasis'),
+    nt:daily>0&&rem>0?[{d:daily,left:rem/daily}]:[],
+    // 금고 LGNS는 지금 시세로 팔아 DAI로 (판매 5% + 슬리피지). 활성화 전 몫의 1%는 따로 빼지 않은 근사치예요.
+    ntNow:ntNowL*p.pL0*(1-FEE.ntSell-p.slip)};
+}
+// 추가 투입 없이 지갑 현황만 계산하는데 원금도 안 적었으면 ‘원금 회수’는 의미가 없어요
+const noBasis=p=>!!(p.ex&&p.startAmt<=0&&!p.ex.basis);
+const walletLabel=a=>{const w=W.list.find(x=>x.address===a);return w?w.name:'지갑';};
+
+// ===== 레퍼런스 화면 로직 (지갑 입력만 더함) =====
+function base(){
+  const st=S.start,lg=st==='anubis'||st==='polygon';const [m,d]=S.ntProd.split('|');const sc=SCEN[S.scen];
+  const p={startType:lg?'lgns':st,lgnsChain:st==='polygon'?'polygon':'anubis',startAmt:+$('amt').value||0,
+    pL0:Math.max(.0001,num('pL')||.2),pLP0:Math.max(.0001,num('pLP')||.28),pA0:Math.max(1,num('pA')||793),
+    days:S.days,r0:(num('r0')||.279)/100,rDecl:sc[0],aChg:sc[1],lChg:sc[2],fee:(num('fee')||3)/100,slip:(isNaN(num('slip'))?1:num('slip'))/100,
+    reinv:S.reinv,route:S.route,cashVia:S.cashVia,bFund:S.bFund,ntFundIn:$('ntFund').value,rankOn:S.rank>0,veTarget:S.rank,veRatio:.3,
+    pend:+(st==='turbo'?$('pend').value:$('pend2').value)||0,ntMult:+m,ntDays:+d,ntUse:S.ntUse==='lgns'?'lgnsbuy':S.ntUse};
+  const ex=exFromFields(p);if(ex){p.ex=ex;p.pend=nv('exPend');} // 지갑 모드: 일반 터보 쌓인 수량은 지갑 값으로
+  return p;
+}
+// 시작 Power 추정 (터빈용 DAI 자동 계산과 화면 표시용)
+function startPower(p){
+  const pc=p.lgnsChain==='polygon'?p.pLP0:p.pL0;
+  if(p.startType==='lgns')return p.startAmt*2*Math.max(pc,1);
+  if(p.startType==='dai')return p.startAmt*2.5;
+  if(p.startType==='turbo'){const unit=p.pL0*1.05,m=Math.min(p.startAmt/unit,p.pend);return 4*m*Math.max(p.pL0,1)+(p.startAmt-m*unit)*2.5;}
+  const daily=p.startAmt*p.ntMult/p.ntDays*(1-.06-p.slip);const f={turbo:4/(p.pL0*1.05),lgnsbuy:2/p.pL0,helix:2.5,cash:0}[p.ntUse];return daily*f*14;
+}
+function params(pOver){
+  const p=pOver||base();const P0=startPower(p)+(p.ex?p.ex.power:0);const firstCost=P0*p.r0*(1+.025+p.slip);
+  const auto=Math.max(20,Math.ceil(firstCost*2/10)*10);
+  // 지갑 모드: 지갑 DAI로 2일치가 되면 새로 준비할 DAI는 0이에요
+  p.R0=$('R0in').value!==''?Math.max(0,+$('R0in').value):p.ex?Math.max(0,Math.ceil((firstCost*2-p.ex.dai)/10)*10):auto;
+  return {p,P0,firstCost};
+}
+function ntStartLabel(){return S.start==='newturbo'?{turbo:'신생태 → 일반 터보',lgnsbuy:'신생태 → LGNS 소각',lgns:'신생태 → LGNS 소각',helix:'신생태 → DAI 참여',cash:'신생태 → 현금'}[S.ntUse]:'';}
+function drawFlyG(cfg){
+  lastFly=cfg;const {nodes,branch:b0,hub,start,note}=cfg;
+  const sm=($('fly').clientWidth||Math.min(window.innerWidth,900))<560;
+  const W=1080,H=1040,CX=540,CY=500,R=sm?330:320,CW=sm?340:290,CH=sm?118:128,FT=sm?40:29,FS=sm?31:22,LH=sm?38:30;
+  const BRP={6:[3,[175,960]],4:[2,[905,960]],5:[4,[170,90]]};
+  const n=nodes.length,ang=i=>-Math.PI/2+i*2*Math.PI/n,pos=i=>[CX+R*Math.cos(ang(i)),CY+R*Math.sin(ang(i))];
+  const tx=(x,y,str,cls,size,w)=>{const parts=String(str).split('*');return `<text x="${x}" y="${y}" text-anchor="middle" font-size="${size}" font-weight="${w||400}" class="${cls}">${parts.map((pt,j)=>j%2?`<tspan class="fee2" font-weight="700">${pt}</tspan>`:pt).join('')}</text>`;};
+  let g=`<circle cx="${CX}" cy="${CY}" r="${R}" class="ring" stroke-width="22"/>`;
+  const gap=n>=6?0.34:n===5?0.38:0.40;
+  for(let i=0;i<n;i++){const a1=ang(i)+gap,a2=ang(i+1)-gap-0.05;const x1=CX+R*Math.cos(a1),y1=CY+R*Math.sin(a1),x2=CX+R*Math.cos(a2),y2=CY+R*Math.sin(a2);
+    g+=`<path d="M${x1.toFixed(1)},${y1.toFixed(1)} A${R},${R} 0 ${(a2-a1)>Math.PI?1:0} 1 ${x2.toFixed(1)},${y2.toFixed(1)}" class="arc" stroke-width="11" stroke-linecap="round" marker-end="url(#fah)"/>`;}
+  g+=`<circle cx="${CX}" cy="${CY}" r="150" class="hub"/>`+tx(CX,CY-14,hub,'hubt',sm?46:40,900)+tx(CX,CY+30,'시작:','hubs',sm?28:24)+tx(CX,CY+(sm?66:62),start,'hubs',sm?30:24);
+  const bp=BRP[n]||[n-1,[170,90]];const b={from:bp[0],at:bp[1],t:b0.t,l:b0.l};const [bx,by]=pos(b.from),[ox,oy]=b.at,bw=sm?310:270,bh=sm?70:48+b.l.length*30;const nrows=sm?2:nodes[b.from].length;const nh=nrows>2?CH+20:CH;
+  const trim=(cx,cy,hw,hh,X,Y,pad)=>{const dx=X-cx,dy=Y-cy;const t=Math.min(Math.abs(dx)>1e-6?hw/Math.abs(dx):1e9,Math.abs(dy)>1e-6?hh/Math.abs(dy):1e9);const l=Math.hypot(dx,dy);return [cx+dx*t+dx/l*pad,cy+dy*t+dy/l*pad];};
+  const [sx,sy]=trim(bx,by,CW/2,nh/2,ox,oy,6),[ex,ey]=trim(ox,oy,bw/2,bh/2,bx,by,18);
+  g+=`<line x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}" class="bline" stroke-width="7" stroke-dasharray="13 10" marker-end="url(#fahw)"/>`;
+  g+=`<rect x="${ox-bw/2}" y="${oy-bh/2}" width="${bw}" height="${bh}" rx="20" class="bcard" stroke-width="2.5"/>`+tx(ox,oy-bh/2+(sm?44:36),b.t,'fee2',sm?34:26,800);
+  if(!sm)b.l.forEach((l,j)=>g+=tx(ox,oy-bh/2+70+j*30,l,'t1',21));
+  nodes.forEach((nd0,i)=>{const nd=sm?nd0.slice(0,2):nd0;const [x,y]=pos(i);const h=nd.length>2?CH+20:CH;
+    g+=`<rect x="${x-CW/2}" y="${y-h/2}" width="${CW}" height="${h}" rx="22" class="card" stroke-width="3.5"/>`;
+    g+=`<circle cx="${x-CW/2+10}" cy="${y-h/2+10}" r="24" class="num"/>`+tx(x-CW/2+10,y-h/2+19,i+1,'numt',24,900);
+    g+=tx(x,y-h/2+(sm?52:48),nd[0],'t1',FT,900);nd.slice(1).forEach((l,j)=>g+=tx(x,y-h/2+(sm?96:84)+j*LH,l,'t2',FS));});
+  $('fly').innerHTML=`<svg viewBox="0 0 ${W} ${H}" font-family="Noto Sans KR, Noto Sans CJK KR, sans-serif"><defs><marker id="fah" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="3.2" markerHeight="3.2" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ahead"/></marker><marker id="fahw" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="3.6" markerHeight="3.6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="bhead"/></marker></defs>${g}</svg>`;
+  $('flynote').textContent=note;
+}
+
+function render(){
+  const st=S.start,lg=st==='anubis'||st==='polygon',wm=walletMode();
+  const o=wm?sumState(scopeWallets()):null;
+  $('gMode').querySelectorAll('[data-v]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===S.mode));
+  $('walletStart').hidden=!wm;
+  renderScope();
+  $('q1T').textContent=wm?'더 넣을 게 있다면, 무엇으로?':'무엇으로 시작하나요?';
+  $('amtT').textContent=(wm?'2. 추가로 ':'2. ')+(lg?'LGNS를 몇 개 넣을까요?':'DAI를 얼마 넣을까요?');$('unit').textContent=lg?'개':'DAI';
+  const list=lg?[1000,5000,10000,50000]:[500,1000,3000,10000];
+  let chips=(wm?[0]:[]).concat(list);
+  const mine=wm&&o?(st==='anubis'?o.lgnsA:st==='polygon'?o.lgnsP:0):0;
+  $('chips').innerHTML=chips.map(n=>`<button type="button" class="chip" data-n="${n}">${n===0?'추가 없이':fmt(n)+' '+(lg?'개':'DAI')}</button>`).join('')+(mine>=1?`<button type="button" class="chip" data-n="${Math.floor(mine)}">지갑 LGNS 전부 ${fmt(Math.floor(mine))}개</button>`:'');
+  $('chips').querySelectorAll('.chip').forEach(b=>b.addEventListener('click',()=>{$('amt').value=b.dataset.n;render();}));
+  $('sA').textContent=`HELIX에 소각 · 시세 ${$('pL').value}`;$('sP').textContent=`HELIX에 소각 · 시세 ${$('pLP').value}`;
+  $('moreTurbo').hidden=st!=='turbo';$('moreNT').hidden=st!=='newturbo';
+  $('moreExNt').hidden=!(wm&&nv('exNtRem')+nv('exNtNow')>0&&st!=='newturbo');
+  const {p,P0,firstCost}=params();
+  const hasHelix=!!(p.ex&&(p.ex.power>0||p.ex.unc>0));
+  const ntCash=st==='newturbo'&&S.ntUse==='cash'&&!hasHelix;
+  $('goalSec').hidden=ntCash;
+  $('moreAC').hidden=S.goal==='B';$('moreB').hidden=S.goal!=='B';
+  $('reinvLb').textContent=S.goal==='C'?'원금을 찾은 뒤, 판 돈 중 다시 넣는 비율':'판 돈 중 다시 넣는 비율';
+  $('cashRow').hidden=!(S.goal==='A'&&S.reinv<1);
+  $('pendField2').hidden=wm||!((S.route==='old'||S.route==='turbo')&&st!=='turbo');
+  if(wm)$('moreTurbo').hidden=true;
+  const amtHint=[];
+  if(wm&&o&&(st==='dai'||st==='turbo'||st==='newturbo')&&p.startAmt+nv('exDai')>o.dai+1e-6)amtHint.push(`지갑 DAI(${fmt(o.dai,2)})보다 많아요. 터빈용 DAI 칸과 합쳐서 보세요.`);
+  $('amtHint').hidden=!amtHint.length;$('amtHint').textContent=amtHint.join(' ');
+
+  const r=simulate(p,S.goal),L=r.last;
+  const aiNow=L.ai*p.pA0*(1-p.fee-p.slip),liqNow=L.cash+L.R+aiNow;
+  if(S.goal==='B'&&S.bFund==='nt'){$('ntFundHint').hidden=false;$('ntFundHint').textContent=`처음에 신생태 터보에 약 ${fmt(r.fundInv)} DAI를 넣어, 매일 나오는 DAI로 터빈 비용을 내요 (세부 가정에서 금액을 바꿀 수 있어요).`;}else $('ntFundHint').hidden=true;
+  const newWhat=lg?`${st==='polygon'?'Polygon':'Anubis'} LGNS ${fmt(p.startAmt)}개`:st==='turbo'?`${fmt(p.startAmt)} DAI(일반 터보)`:st==='newturbo'?`${fmt(p.startAmt)} DAI(신생태 터보 ${p.ntMult}배)`:`${fmt(p.startAmt)} DAI`;
+  const scopeName=S.scope==='all'?(W.list.length>1?`지갑 ${W.list.length}개 합계`:'내 지갑'):walletLabel(S.scope);
+  const what=wm?(p.startAmt>0?`${scopeName} 현황 + ${newWhat}`:`${scopeName} 현황(추가 없이)`):newWhat;
+  let s;
+  if(ntCash){s=`${what}를 신생태 터보에 넣고 판 돈을 현금으로 모으면, ${PT[S.days]} 뒤 약 <b>${fmt(liqNow)} DAI</b>를 꺼낼 수 있어요. ${r.ntLeft>1?`그 뒤로도 약 <b>${fmt(r.ntLeft*(1-.06-p.slip))} DAI</b>를 더 받아요.`:''}`;}
+  else{
+    const rec=noBasis(p)?'':r.cashDay?`<b>${span(r.cashDay)} 뒤 원금을 찾고</b>, `:`${PT[S.days]} 안에 원금을 다 찾지는 못하지만, `;
+    s=`${what}로 ‘${GOALN[S.goal]}’ 방식을 하면, ${rec}${PT[S.days]} 뒤 약 <b>${fmt(liqNow)} DAI</b>를 꺼낼 수 있어요${L.ai>0.0001?` (DAI ${fmt(L.cash+L.R)} + AiLGNS ${fmt(L.ai,2)}개, AiLGNS는 지금 시세로 계산)`:''}. 그 뒤로도 약 <b>${fmt(L.P)} DAI어치</b>를 천천히 더 받아요.`;
+  }
+  $('say').innerHTML=s;
+  const net=1-FEE.ntSell-FEE.ntAct-p.slip;
+  const exCash=S.ntUse==='cash'?r.exNtLeft*net:0,exPow=S.ntUse!=='cash'?r.exNtLeft*net:0;
+  const ntC=(st==='newturbo'&&S.ntUse==='cash'?r.ntLeft*net:0)+r.csLeft+(r.fundLeft||0)+exCash;
+  const ntP=((st==='newturbo'&&S.ntUse!=='cash'?r.ntLeft:0)+r.streamsLeft)*net+exPow;
+  const extra=[];if(L.veVal>1)extra.push(`ve 잠금 $${fmt(L.veVal)}`);if(r.missed>1)extra.push(`터빈 안 돌린 몫 ${fmt(r.missed)} DAI어치`);
+  let nb=`<div class="nb"><div class="l">${PT[S.days]} 뒤 현금으로 꺼낼 수 있는 금액</div><div class="v">${fmt(liqNow)} DAI</div><div class="s">DAI ${fmt(L.cash+L.R)} (꺼낸 현금 ${fmt(L.cash)} + 터빈용 ${fmt(L.R)})${L.ai>0.0001?`<br>AiLGNS ${fmt(L.ai,2)}개 × 지금 시세 ${fmt(p.pA0)} → 약 ${fmt(aiNow)} DAI`:''}</div></div>`;
+  if(!ntCash)nb+=`<div class="nb"><div class="l">남은 Power (앞으로 받을 예정)</div><div class="v">${fmt(L.P)} Power</div><div class="s">${p.ex?`지금 ${fmt(r.startP)} Power에서 시작 · `:''}약 ${fmt(L.P)} DAI어치를 천천히 AiLGNS로 받아요 · 출금 불가${extra.length?'<br>'+extra.join(' · '):''}</div></div>`;
+  if(ntC+ntP>1)nb+=`<div class="nb"><div class="l">신생태 터보 남은 양 (받을 예정)</div><div class="v">약 ${fmt(ntC+ntP)} DAI</div><div class="s">${[ntC>1?`현금으로 받을 몫 ${fmt(ntC)}`:'',ntP>1?`소각해 Power로 바꿀 몫 ${fmt(ntP)}`:''].filter(Boolean).join(' · ')} · 수수료 뺀 금액</div></div>`;
+  const exIn=p.ex?(p.ex.basis+p.ex.dai+p.ex.ai*p.pA0*(1-p.fee-p.slip)):0;
+  nb+=`<div class="nb"><div class="l">들인 돈</div><div class="v">${fmt(L.invested)} DAI</div><div class="s">${lg?`LGNS 시세 기준 ${fmt(r.startValue)}`:`DAI ${fmt(r.startValue)}`} + 터빈용 ${fmt(p.R0)}${r.fundInv?` + 신생태 터빈 자금 ${fmt(r.fundInv)}`:''}${r.ext?` + 추가 DAI ${fmt(r.ext)}`:''}${p.ex?`<br>+ 지갑 자산 ${fmt(exIn-p.ex.basis)} (DAI·AiLGNS)${p.ex.basis?` + 이미 들인 원금 ${fmt(p.ex.basis)}`:''}`:''}</div></div>`;
+  if(noBasis(p))nb+=`<div class="nb"><div class="l">원금 찾는 시점</div><div class="v">원금을 적어 주세요</div><div class="s">추가로 넣는 돈이 없어서, ‘이미 들인 원금’ 칸을 채우면 언제 되찾는지 계산해요</div></div>`;
+  else nb+=`<div class="nb"><div class="l">원금 찾는 시점</div><div class="v">${r.cashDay?span(r.cashDay)+' 뒤':'기간 안엔 어려워요'}</div><div class="s">${r.cashDay?r.cashDay+'일째 (가정한 가격 기준)':'기간을 늘려 보세요'}</div></div>`;
+  $('nums').innerHTML=nb;
+
+  steps(p,P0,firstCost,r,ntCash);
+  if(ntCash){$('fly').hidden=true;$('flynote').hidden=true;}else{$('fly').hidden=false;$('flynote').hidden=false;flyFor(p,P0,firstCost);}
+
+  const w=[];
+  if(lg||p.route==='lgns'||p.route==='old'||st==='turbo'||(st==='newturbo'&&S.ntUse!=='cash'&&S.ntUse!=='helix'))w.push('<b>LGNS 소각은 아직 열리지 않았어요.</b> 1개를 1 DAI로 인정한다는 건 운영 측 안내 기준이에요 📢.');
+  if(st==='polygon')w.push('Polygon LGNS를 HELIX 소각에 바로 쓸 수 있는지는 소각 탭이 열리면 확인이 필요해요 ❓.');
+  if(st==='newturbo'||p.route==='turbo'||p.cashVia==='nt'||(S.goal==='B'&&S.bFund==='nt')||(p.ex&&p.ex.nt.length))w.push('신생태 터보는 관리자가 지급 속도·한도를 바꾸거나 멈출 수 있는 기능이 컨트랙트에 있어요.');
+  if((st==='turbo'||p.route==='old'||S.ntUse==='turbo')&&r.pendLeft<1)w.push('일반 터보에 쌓인 수량을 다 써서, 그 뒤 DAI는 HELIX에 DAI로 참여한 걸로 계산했어요.');
+  if(r.missed>1)w.push(`터빈용 DAI가 모자라 아직 안 받은 AiLGNS가 ${fmt(r.uncQty,3)}개 쌓여 있어요. 같은 수량을 사서 터빈을 돌리면 언제든 받을 수 있어요.`);
+  if(wm&&S.scope==='all'&&W.list.length>1)w.push('여러 지갑 합계는 지갑마다 따로 도는 터빈을 하나로 합친 근사치예요 ❓. 지갑별 결과는 아래 표에서 봐요.');
+  w.push('LGNS를 Anubis에서 바로 팔면 수수료가 약 50%예요. 현금은 AiLGNS 매도(3%)나 신생태 터보 금고(5%)로 만들어요.');
+  $('note').innerHTML='<ul>'+w.map(x=>`<li>${x}</li>`).join('')+'</ul>';
+
+  $('cmpSec').hidden=ntCash;
+  let R3=null;
+  if(!ntCash){
+    R3={};['A','B','C'].forEach(k=>{const x=simulate(p,k);const l=x.last;R3[k]={x,l,now:l.cash+l.R+l.ai*p.pA0*(1-p.fee-p.slip)};});
+    const mx=Math.max(...Object.values(R3).map(o=>Math.max(o.now+o.l.P,o.l.invested)))||1;
+    $('cmpSub').textContent=`같은 ${what}, ${PT[S.days]}, 같은 가정으로 계산했어요.`;
+    $('bars').innerHTML=['C','A','B'].map(k=>{const o=R3[k];const a=o.now/mx*100,b=o.l.P/mx*100,iv=o.l.invested/mx*100;
+      return `<div><div class="bar-h"><b>${GOALN[k]}${k===S.goal?' (선택)':''}</b><span>꺼낼 수 있는 금액 ${fmt(o.now)} · 남은 Power ${fmt(o.l.P)}${noBasis(p)?'':` · 원금 ${o.x.cashDay?o.x.cashDay+'일째':'기간 내 미회수'}`}</span></div>
+      <div style="position:relative"><div class="track"><i style="width:${a}%;background:var(--acc)"></i><i style="width:${b}%;background:var(--b);opacity:.45"></i></div><span style="position:absolute;top:-3px;left:calc(${iv}% - 1px);width:2px;height:18px;background:var(--muted)"></span></div></div>`;}).join('');
+  }
+  renderPerWallet(p);
+  renderGuide(p,P0,firstCost,r,R3,o);
+  renderRank();
+}
+function steps(p,P0,firstCost,r,ntCash){
+  const F=f=>`<i class="fee">${f}</i>`;const out=[];const add=(t,d,loop)=>out.push(`<li${loop?' class="loop"':''}><b>${t}</b><span>${d}</span></li>`);
+  const st=S.start;const oldT=`DAI로 LGNS 매수(시세 + 5%)${F('5%')} → 쌓인 수량과 합쳐 1+1 LGNS, 24시간 잠금`;
+  if(p.ex)add('내 지갑 현황에서 시작',`활성 Power ${fmt(p.ex.power)} · 보유 AiLGNS ${fq(p.ex.ai)}개 · 터빈 대기 ${fq(p.ex.unc)}개 · 터빈용 DAI ${fmt(p.ex.dai+p.R0)}`);
+  if(p.ex&&p.startAmt<=0){}
+  else if(st==='anubis'||st==='polygon')add('LGNS를 HELIX에 소각',`1개 = 1 DAI 인정 × 2배 → ${fmt(startPower(p))} Power (소각 탭 오픈 후)`);
+  else if(st==='dai')add('DAI로 HELIX 참여',`1 DAI = 2.5 Power → ${fmt(startPower(p))} Power`);
+  else if(st==='turbo'){add('DAI로 일반 터보 돌리기',oldT);add('받은 LGNS를 HELIX에 소각',`1개 = 1 DAI 인정 × 2배 → 약 ${fmt(startPower(p))} Power`);}
+  else{add(`DAI를 신생태 터보에 참여 (${p.ntMult}배 · ${p.ntDays}일)`,'받을 DAI 가치 확정 → 12시간마다 그 가치만큼 LGNS로 지급');add('12시간마다 풀린 LGNS 팔기',`활성화${F('1%')} → 24시간 잠금 → 금고에서 판매${F('5%')} → DAI`);
+    if(S.ntUse==='turbo'){add('그 DAI로 일반 터보',oldT);add('받은 LGNS를 HELIX에 소각','1개 = 1 DAI 인정 × 2배');}
+    else if(S.ntUse==='lgns')add('그 DAI로 LGNS 사서 소각',`매수${F('0%')} → HELIX에 소각`);
+    else if(S.ntUse==='helix')add('그 DAI로 HELIX 참여','1 DAI = 2.5 Power');
+    else if(ntCash){add('DAI를 현금으로 보관','12시간마다 반복돼요',true);$('path').innerHTML=out.join('');return;}}
+  add('매일 AiLGNS가 나와요',`Power가 하루 약 ${fmt(p.r0*100,3)}%씩 줄고, 줄어든 만큼 AiLGNS로 나와요`);
+  add('AiLGNS 터빈 돌리기',`나온 만큼 시장에서 사요${F('2.5%')} → 산 몫과 나온 AiLGNS를 함께 받아요. 터빈용 DAI ${fmt(p.R0+(p.ex?p.ex.dai:0))} 정도를 따로 준비해요 (첫날 약 ${fmt(firstCost,1)} DAI). 못 돌린 날의 몫은 쌓여 있다가 나중에 터보로 받아요.`);
+  if(p.rankOn)add(`받은 AiLGNS의 30%는 ve로 잠그기`,`목표 $${fmt(p.veTarget)}에 닿을 때까지 · 잠근 기간에는 못 빼요`);
+  const rr={lgns:`LGNS를 사서${F('0%')} HELIX에 소각`,old:`일반 터보${F('5%')} → 1+1 LGNS → HELIX에 소각`,turbo:`신생태 터보${F('1%+5%')} → 일반 터보${F('5%')} → HELIX에 소각`,dai:'DAI로 HELIX 참여 (2.5배)'}[p.route];
+  if(S.goal==='A'){add(p.rankOn?'잠그고 남은 AiLGNS 전부 팔기':'받은 AiLGNS 전부 팔기',`${F('3%')} 다음 날 터빈용 DAI를 먼저 채워요`);add(`남은 돈의 ${fmt(p.reinv*100)}% 다시 넣기`,rr);
+    if(p.reinv<1)add(`나머지 ${fmt(100-p.reinv*100)}%는 ${p.cashVia==='nt'?'신생태 터보에':'현금으로'}`,p.cashVia==='nt'?`300일 동안 2.5배 가치를 나눠 받아요${F('1%+5%')}`:'꺼내서 보관해요');
+    add('매일 반복','늘어난 Power로 다음 날 더 많이 나와요',true);}
+  else if(S.goal==='B'){
+    if(p.bFund==='self')add('터빈 비용만큼만 팔기',`${F('3%')} 터빈용 DAI만 채워요`);
+    else if(p.bFund==='ext')add('터빈 비용은 내 DAI로','매일 터빈에 필요한 DAI를 따로 넣어요');
+    else add('터빈 비용은 신생태 터보 DAI로',`처음에 약 ${fmt(r.fundInv)} DAI 참여 → 매일 나오는 DAI${F('1%+5%')}로 터빈을 돌리고, 모자란 날만 AiLGNS를 조금 팔아요`);
+    add('나머지 AiLGNS는 모아두기','원할 때 일부만 팔거나 ve로 잠가요');add('매일 반복','Power는 다시 넣지 않아 서서히 줄어요',true);}
+  else{add('받은 AiLGNS 전부 팔기',`${F('3%')} 터빈용 DAI를 먼저 채워요`);add('남은 돈은 전부 현금으로','들인 돈만큼 모일 때까지 다시 넣지 않아요');add('원금을 찾은 뒤에는 불리기',`남은 돈의 ${fmt(p.reinv*100)}%: ${rr}`);add('매일 반복','',true);}
+  $('path').innerHTML=out.join('');
+}
+let lastFly=null;
+function flyFor(p,P0,firstCost){
+  const st=S.start;
+  let start={anubis:'LGNS 소각',polygon:'LGNS 소각',dai:'DAI 참여',turbo:'일반 터보 → 소각',newturbo:'신생태 터보'}[st];
+  if(p.ex)start=p.startAmt>0?'지갑 + '+start:'내 지갑 현황';
+  const T=['AiLGNS 터빈','같은 수량 매수 *2.5%*',`첫날 약 ${fmt(firstCost,1)} DAI`];
+  const base0=[['Power',`시작 ${fmt(P0)}`,`매일 약 ${fmt(p.r0*100,3)}% 줄어요`],['AiLGNS 배출','줄어든 만큼 나와요'],T];
+  const rr={old:'일반 터보 *5%* → 소각',lgns:'LGNS 사서 소각 *0%*',dai:'DAI로 참여 (2.5배)',turbo:'신생태 → 터보 → 소각'}[p.route];
+  let nodes,branch,note;
+  if(S.goal==='A'){nodes=[...base0,[p.rankOn?'남은 AiLGNS 매도':'전부 매도','매도세 *3%*','터빈용 DAI 먼저 채우기'],[`${fmt(p.reinv*100)}% 다시 넣기`,rr],['Power 증가','1개 = 1 DAI × 2배']];
+    branch=p.reinv>=1?{t:'현금 없음',l:['전부 다시 넣어요']}:p.cashVia==='nt'?{t:`${fmt(100-p.reinv*100)}% 신생태 터보`,l:['300일 동안 현금으로']}:{t:`${fmt(100-p.reinv*100)}% 현금`,l:['꺼내서 보관']};note='↻ 매일 반복할수록 Power가 커져요';}
+  else if(S.goal==='B'){const fd={self:['터빈 비용만 매도','매도세 *3%*','다음 날 터빈 준비'],ext:['터빈 비용은 내 DAI','매일 DAI 추가','AiLGNS는 안 팔아요'],nt:['신생태 DAI 사용','12시간마다 *1%+5%*','모자란 날만 조금 매도']}[p.bFund];
+    nodes=[...base0,fd];branch={t:'나머지 AiLGNS 보유',l:['매일 쌓여요']};note='↻ 다시 넣지 않아 Power는 서서히 줄어요';}
+  else{nodes=[...base0,['전부 매도','매도세 *3%*'],['터빈 DAI 채우기','다음 날 터빈 준비']];branch={t:'남은 돈 전부 현금',l:['원금을 찾을 때까지']};note='↻ 원금을 찾은 뒤에는 ‘많이 모으기’처럼 다시 넣어요';}
+  if(p.rankOn)note+=' · 받은 AiLGNS의 30%는 ve 잠금';
+  drawFlyG({nodes,branch,hub:GOALN[S.goal],start,note});
+}
+let rtf;window.addEventListener('resize',()=>{clearTimeout(rtf);rtf=setTimeout(()=>{if(lastFly)drawFlyG(lastFly);},150);});
+// 직급
+const RK=[{ve:1000,line:50000},{ve:3000,line:150000},{ve:5000,line:500000},{ve:8000,line:1500000},{ve:10000,line:4000000}];let rk=0;
+function renderRank(){
+  const g=RK[rk],pA=Math.max(1,num('pA')||793),avg=Math.max(1,num('rkAvg')||1000),cur=num('rkLine')||0;const vq=g.ve/pA,lack=Math.max(0,g.line-cur);
+  const have=walletMode()?nv('exVe'):0;
+  $('rkOut').innerHTML=`<div>① AiLGNS <b>${fmt(vq,2)}개</b>를 ve로 잠그기 ($${fmt(g.ve)})<small>15% 여유를 두면 ${fmt(vq*1.15,2)}개 · AiLGNS가 ${fmt(g.ve/(vq*1.15))} DAI 아래로 내리면 기준 미달${have>0?` · 지금 잠근 양 ${fq(have)}개 ($${fmt(have*pA)}) ✅${have>=vq?' — 기준 충족':` — ${fmt(vq-have,2)}개 더 필요`}`:''}</small></div><div>② 직접 소개한 사람 <b>3명</b> 이상<small>이 3명이 각각 하나의 팀(라인)이 돼요</small></div><div>③ 세 팀 모두 <b>$${fmt(g.line)}</b> 이상<small>평균 ${fmt(avg)} DAI면 팀마다 약 ${fmt(Math.ceil(g.line/avg))}명 · 세 번째 팀은 지금 $${fmt(lack)} 모자라요${lack>0?` (약 ${fmt(Math.ceil(lack/avg))}명)`:''}</small></div>`;
+}
+
+// ===== 지갑별 결과 표 =====
+function renderPerWallet(p0){
+  const show=walletMode()&&W.list.length>1&&W.list.some(w=>W.data[w.address.toLowerCase()]);
+  $('perWallet').hidden=!show;if(!show)return;
+  $('perSub').textContent=`‘${GOALN[S.goal]}’ · ${PT[S.days]} · 같은 가정으로 지갑마다 따로 계산했어요.`;
+  const rows=W.list.map((w,i)=>{
+    const o=sumState([w]);if(!o.n)return `<tr><td><span style="color:${COLORS[i%COLORS.length]}">●</span> ${esc(w.name)}</td><td colspan="4" style="text-align:left;color:var(--muted)">조회 전이에요</td></tr>`;
+    const p=JSON.parse(JSON.stringify(p0));p.startAmt=0;p.pend=o.pend;
+    p.ex={power:o.power,ai:o.ai,unc:o.unc,dai:o.dai,ve:o.ve,basis:0,nt:o.ntDaily>0&&o.ntRem>0?[{d:o.ntDaily,left:o.ntRem/o.ntDaily}]:[],ntNow:o.ntNowL*p.pL0*(1-FEE.ntSell-p.slip)};
+    const x=params(p);
+    const r=simulate(x.p,S.goal),L=r.last,liq=L.cash+L.R+L.ai*p.pA0*(1-p.fee-p.slip);
+    const cost=o.power*p.r0*(1.025+p.slip);
+    return `<tr><td><span style="color:${COLORS[i%COLORS.length]}">●</span> ${esc(w.name)}</td><td>${fmt(o.power)}</td><td>${cost>0?fmt(cost,2):'-'}</td><td>${fmt(liq)}</td><td>${fmt(L.P)}</td></tr>`;
+  });
+  $('perTbl').innerHTML=`<thead><tr><th>지갑</th><th>지금 Power</th><th>하루 터빈 DAI</th><th>${PT[S.days]} 뒤 꺼낼 금액</th><th>남은 Power</th></tr></thead><tbody>${rows.join('')}</tbody>`;
+}
+
+// ===== 운용 가이드 =====
+function renderGuide(p,P0,firstCost,r,R3,o){
+  const wm=walletMode();
+  const pA=p.pA0,pL=p.pL0,ex=p.ex;
+  const todo=[];const T=(t,d,hot,tag)=>todo.push(`<li${hot?' class="hot"':''}><b>${t}</b>${tag?` <i class="tag">${tag}</i>`:''}${d?`<small>${d}</small>`:''}</li>`);
+  $('guideSub').textContent=wm?`${S.scope==='all'?'등록한 지갑 전체':walletLabel(S.scope)} 현황과 위에서 고른 선택을 바탕으로 정리했어요.`:'지갑을 연결하면 지금 상태에 맞춰 할 일을 알려 줘요. 지금은 새로 시작하는 경우로 보여 드려요.';
+  if(wm&&o&&o.n){
+    const cost=ex.power*p.r0*(1+.025+p.slip);
+    if(ex.unc>1e-9)T(`터빈 대기 AiLGNS ${fq(ex.unc)}개 받기`,`같은 수량을 시장에서 사서(2.5%) 터빈을 돌리면 ${fq(ex.unc*2)}개를 받아요 · 필요한 DAI 약 ${fmt(ex.unc*pA*(1.025+p.slip),2)}`,true,'✅');
+    if(o.turbClaim>1e-9)T(`터빈에서 AiLGNS ${fq(o.turbClaim)}개 수령`,'24시간 잠금이 끝난 몫이에요. 디앱 터빈 화면에서 받을 수 있어요.',false,'✅');
+    if(o.turbLocked>1e-9)T(`터빈 잠김 AiLGNS ${fq(o.turbLocked)}개`,'24시간 잠금이 끝나면 수령해요.',false,'✅');
+    if(ex.power>0){const days=cost>0?(ex.dai)/cost:Infinity;
+      if(days<2)T(`터빈용 DAI가 ${days<1?'하루치도 안 돼요':'2일치가 안 돼요'}`,`하루 터빈 비용 약 ${fmt(cost,2)} DAI · 지갑 DAI ${fmt(ex.dai,2)} → 최소 2~3일치(${fmt(cost*3,0)} DAI)를 준비하거나 ‘편하게 · AiLGNS 조금 팔기’로 돌려요.${p.R0>0?` 계산에는 새로 준비할 터빈용 DAI ${fmt(p.R0)}를 넣었어요.`:''}`,true,'✅');
+      else T(`터빈용 DAI 약 ${fmt(Math.min(days,999))}일치 있어요`,`하루 터빈 비용 약 ${fmt(cost,2)} DAI (Power ${fmt(ex.power)} × ${fmt(p.r0*100,3)}% × 1.035)`,false,'✅');}
+    else T('아직 HELIX Power가 없어요','위 1번에서 시작 방법을 골라 추가로 넣는 경우를 계산해 보세요.',false,'✅');
+    if(nv('exPend')>1e-6){const pe=nv('exPend');T(`일반 터보에 쌓인 LGNS ${fq(pe)}개`,`DAI 약 ${fmt(pe*pL*1.05,2)}(시세+5%)로 같은 수량을 사면 1+1로 ${fq(pe*2)}개 · 소각하면 약 ${fmt(4*pe*Math.max(pL,1))} Power (📢 소각 탭 오픈 후)`,false,'✅');}
+    if(o.ntClaim>1e-6)T(`신생태 터보에서 풀린 LGNS ${fq(o.ntClaim)}개 활성화`,'활성화(1%) → 24시간 잠금 → 금고에서 판매(5%)',false,'✅');
+    if(o.ntSell>1e-6)T(`신생태 금고에서 팔 수 있는 LGNS ${fq(o.ntSell)}개`,`지금 팔면 약 ${fmt(o.ntSell*pL*(1-.05-p.slip),2)} DAI · ${S.ntUse==='cash'?'현금으로 보관':'위에서 고른 대로 다시 넣기'}`,false,'✅');
+    if(o.ntLocked>1e-6)T(`신생태 금고 잠김 LGNS ${fq(o.ntLocked)}개`,'24시간 잠금이 끝나면 팔 수 있어요.',false,'✅');
+    o.orders.filter(x=>!x.completed).forEach(x=>T(`신생태 터보 ${x.mult}배 주문 #${x.id} (${esc(x.wallet)})`,`남은 지급 ${fmt(x.pending,2)} DAI 가치 · 하루 ${fmt(x.daily,2)} DAI · 약 ${fmt(x.pending/x.daily)}일 남음`,false,'✅'));
+    if(o.lgnsA>=1)T(`지갑의 Anubis LGNS ${fmt(o.lgnsA,2)}개`,`Anubis에서 바로 팔면 약 50%가 수수료예요. 소각 탭이 열리면 1개 = 1 DAI × 2배 → 약 ${fmt(o.lgnsA*2*Math.max(pL,1))} Power (📢)`,false,'✅');
+    if(o.lgnsP>=1)T(`지갑의 Polygon LGNS ${fmt(o.lgnsP,2)}개`,'HELIX 소각에 바로 쓸 수 있는지는 소각 탭이 열리면 확인이 필요해요 (❓)',false,'✅');
+    if(o.fail.length)T('일부 값을 못 읽었어요',o.fail.slice(0,6).join(', ')+' — 0으로 채웠어요. 칸에 직접 적거나 다시 조회해 보세요.',true);
+  }else{
+    T('지갑 주소를 추가해 보세요','Power, 터빈 대기 몫, 터빈용 DAI, 신생태 터보 남은 지급을 읽어 와서 할 일을 알려 줘요.',false);
+    T(`터빈용 DAI를 2일치 이상 준비`,`첫날 터빈 비용 약 ${fmt(firstCost,1)} DAI → ${fmt(p.R0)} DAI 준비로 계산했어요.`,false);
+  }
+  $('todo').innerHTML=todo.join('');
+
+  // 이 상태에 맞는 방식: 같은 입력으로 세 방식 + 많이 나빠짐 가정까지 비교
+  if(!R3){$('pick').innerHTML='신생태 터보를 현금으로만 받는 선택이라 세 방식 비교가 없어요.';}
+  else{
+    const ks=['C','A','B'];
+    const fastest=ks.filter(k=>R3[k].x.cashDay).sort((a,b)=>R3[a].x.cashDay-R3[b].x.cashDay)[0];
+    const most=ks.slice().sort((a,b)=>R3[b].now-R3[a].now)[0];
+    const pow=ks.slice().sort((a,b)=>(R3[b].now+R3[b].l.P)-(R3[a].now+R3[a].l.P))[0];
+    const pl=JSON.parse(JSON.stringify(p));const sc=SCEN.low;pl.rDecl=sc[0];pl.aChg=sc[1];pl.lChg=sc[2];
+    const low={};ks.forEach(k=>{const x=simulate(pl,k),l=x.last;low[k]={now:l.cash+l.R+l.ai*p.pA0*(1-p.fee-p.slip),day:x.cashDay};});
+    const safe=ks.slice().sort((a,b)=>low[b].now-low[a].now)[0];
+    const lines=[];
+    lines.push(`${PT[S.days]} 기준으로 ${noBasis(p)?'':`<b>원금을 가장 빨리</b> 찾는 건 ${fastest?`‘${GOALN[fastest]}’(${R3[fastest].x.cashDay}일째)`:'세 방식 모두 기간 안엔 어려워요'}, `}<b>꺼낼 수 있는 금액이 가장 큰</b> 건 ‘${GOALN[most]}’(${fmt(R3[most].now)} DAI), <b>남은 Power까지 합친 크기</b>는 ‘${GOALN[pow]}’가 가장 커요.`);
+    lines.push(`시장이 <b>많이 나빠지면</b>(받는 속도 월 −50%, AiLGNS 월 −25%) ‘${GOALN[safe]}’가 가장 많이 남아요 (${fmt(low[safe].now)} DAI${low[safe].day&&!noBasis(p)?`, 원금 ${low[safe].day}일째`:''}).`);
+    if(noBasis(p))lines.push('‘이미 들인 원금’을 적으면 원금을 언제 되찾는지도 같이 비교해요.');
+    let tip;
+    const lowDai=wm&&ex&&ex.power>0&&ex.dai<ex.power*p.r0*1.035*2;
+    if(lowDai)tip='터빈용 DAI가 적으니, 따로 DAI를 넣지 않아도 도는 <b>‘편하게 · AiLGNS 조금 팔기’</b>로 먼저 터빈을 끊기지 않게 하는 게 좋아요.';
+    else if(S.goal==='A'&&safe!=='A')tip=`‘많이 모으기’는 시장이 버틸 때 가장 커지지만, 나빠질 때 ‘${GOALN[safe]}’보다 덜 남아요. 다시 넣는 비율을 50~80%로 두고 원금이 회수되는지 보면서 늘려 보세요.`;
+    else if(S.goal==='C')tip='‘원금 먼저’는 원금을 찾은 뒤 다시 넣기 시작해서, 위험을 먼저 줄이고 싶을 때 맞아요.';
+    else if(S.goal==='B')tip='‘편하게’는 매일 손이 덜 가지만 Power를 다시 넣지 않아 받는 양이 서서히 줄어요. 모은 AiLGNS는 가격을 보며 나눠 파세요.';
+    else tip='지금 고른 방식이 이 가정에서는 잘 버텨요. 기간·시장 가정을 바꿔 가며 확인해 보세요.';
+    lines.push(tip);
+    $('pick').innerHTML=lines.map(x=>`<p style="margin:0 0 6px">${x}</p>`).join('')+'<p class="legend3" style="margin:0">❓ 시장 가정에 따른 비교예요. 실제 결과는 달라질 수 있어요.</p>';
+  }
+
+  // 매일 루틴 (이 브라우저에만 오늘 체크를 기억)
+  const R=[];const add=(t,d)=>R.push([t,d]);
+  add('HELIX에서 오늘 나온 AiLGNS 확인',`Power × ${fmt(p.r0*100,3)}% 만큼 나와요 · 커뮤니티 볼트 ‘대기’ 수량`);
+  add('AiLGNS 터빈 돌리기',`나온 수량만큼 사서(2.5%) 2배로 받기 · 오늘 약 ${fmt((ex&&ex.power>0?ex.power:P0)*p.r0*(1.035),2)} DAI`);
+  add('어제 터빈 몫 수령','24시간 잠금이 끝난 AiLGNS');
+  if(S.goal==='A')add('받은 AiLGNS 팔고 다시 넣기',`매도(3%) → 터빈용 DAI 먼저 채우고 → ${fmt(p.reinv*100)}% 다시 넣기`);
+  else if(S.goal==='C')add('받은 AiLGNS 팔아 현금으로','매도(3%) → 터빈용 DAI를 남기고 나머지는 원금 회수용으로 보관');
+  else add(p.bFund==='self'?'터빈 비용만큼만 AiLGNS 팔기':p.bFund==='ext'?'터빈 비용 DAI 넣기':'신생태 DAI로 터빈 비용 내기','나머지 AiLGNS는 모아두기');
+  if(wm&&(nv('exNtRem')>0||nv('exNtNow')>0)||S.start==='newturbo')add('신생태 터보 12시간마다','풀린 LGNS 활성화(1%) → 24시간 뒤 금고에서 판매(5%)');
+  if(p.rankOn)add('받은 AiLGNS의 30% ve 잠그기',`목표 $${fmt(p.veTarget)}까지`);
+  add('터빈용 DAI 남은 일수 확인','2일치 아래로 내려가면 먼저 채워요');
+  const today=new Date().toLocaleDateString('ko-KR');let ck=store.get('routine',{});if(ck.d!==today)ck={d:today,v:{}};
+  $('rtDate').textContent=`· ${today} (체크는 이 브라우저에만 남아요)`;
+  $('routine').innerHTML=R.map(([t,d],i)=>`<li><label><input type="checkbox" data-i="${i}"${ck.v[t]?' checked':''}><span><b>${t}</b><small>${d}</small></span></label></li>`).join('');
+  $('routine').querySelectorAll('input').forEach((c,i)=>c.addEventListener('change',()=>{const k=R[i][0];ck.v[k]=c.checked;store.set('routine',ck);}));
+}
+
+// ===== 지갑 목록 =====
+function renderScope(){
+  const g=$('gScope');
+  const opts=[['all',W.list.length>1?`전체 합계 (${W.list.length}개)`:'내 지갑']].concat(W.list.length>1?W.list.map(w=>[w.address,w.name]):[]);
+  if(!opts.some(x=>x[0]===S.scope))S.scope='all';
+  g.innerHTML=opts.map(([v,t])=>`<button type="button" class="chip" data-v="${esc(v)}" aria-pressed="${v===S.scope}">${esc(t)}</button>`).join('');
+  g.querySelectorAll('[data-v]').forEach(b=>b.addEventListener('click',()=>{S.scope=b.dataset.v;store.set('scope',S.scope);fillStart();render();renderWallets();}));
+  $('scopeHint').textContent=W.list.length?'조회한 값이 아래 칸에 채워져요. 고친 값으로 계산하려면 ‘이 현황으로 계산’을 눌러요.':'위에서 지갑을 먼저 추가해 주세요.';
+}
+function cell(d,k,unit,dg){const x=d.v[k];if(!x)return '<b>-</b>';if(!x.ok)return `<b class="err" title="${esc(x.err)}">못 읽음</b>`;return `<b>${dg==null?fq(x.x):fmt(x.x,dg)}${unit?' '+unit:''}</b>`;}
+function renderWallets(){
+  $('loadBtn').hidden=!W.list.length;
+  const tot=W.list.length>1?sumState(W.list):null;
+  const card=(w,i)=>{
+    const d=W.data[w.address.toLowerCase()];const sel=walletMode()&&(S.scope===w.address||(S.scope==='all'&&W.list.length===1));
+    let body;
+    if(!d)body=`<p class="msg">${W.loading?'조회 중…':'아직 조회하지 않았어요.'}</p>`;
+    else{const nt=(d.orders||[]).filter(x=>!x.completed);
+      body=`<div class="kv">
+        <div><span>활성 Power ✅</span>${cell(d,'power','',0)}</div>
+        <div><span>보유 AiLGNS ✅</span>${cell(d,'ai')}</div>
+        <div><span>터빈 대기 AiLGNS ✅</span>${cell(d,'unc')}</div>
+        <div><span>터빈 잠김·수령 ✅</span><b>${fq((d.v.turbLocked?.x||0)+(d.v.turbClaim?.x||0))}</b></div>
+        <div><span>DAI ✅</span>${cell(d,'dai','',2)}</div>
+        <div><span>LGNS Anubis ✅</span>${cell(d,'lgnsA','',2)}</div>
+        <div><span>LGNS Polygon ✅</span>${cell(d,'lgnsP','',2)}</div>
+        <div><span>일반 터보 쌓인 LGNS ✅</span>${cell(d,'pend')}</div>
+        <div><span>신생태 남은 지급 ✅</span><b>${d.v.nt25?.ok===false&&d.v.nt4?.ok===false?'<span class="err">못 읽음</span>':nt.length?fmt(nt.reduce((a,x)=>a+x.pending,0),2)+' DAI · '+nt.length+'건':'없음'}</b></div>
+        <div><span>ve 잠금 AiLGNS ✅</span>${cell(d,'ve')}</div>
+        ${d.v.totalPower?.ok&&d.v.totalPower.x>0?`<div><span>누적 Power ✅</span>${cell(d,'totalPower','',0)}</div>`:''}
+        ${d.rate!=null?`<div><span>하루 비율 (실측) ✅</span><b>${fmt(d.rate*100,4)}%</b></div>`:''}
+      </div>`;
+      // 지갑이 여러 개면 한 줄 요약만 보이고 눌러서 펼쳐요
+      if(W.list.length>1){const pw=d.v.power?.ok?d.v.power.x:0;
+        body=`<details><summary class="msg" style="cursor:pointer">Power ${fmt(pw)} · AiLGNS ${fq((d.v.ai?.x||0)+(d.v.turbLocked?.x||0)+(d.v.turbClaim?.x||0))} · DAI ${fmt(d.v.dai?.x||0,2)}${nt.length?` · 신생태 ${nt.length}건`:''}${Object.values(d.v).some(x=>!x.ok)?' · <span class="err">못 읽은 값 있음</span>':''}</summary><div style="margin-top:6px">${body}</div></details>`;}}
+    return `<div class="wc${sel?' sel':''}"><div class="hd"><div class="nm"><span class="dot" style="background:${COLORS[i%COLORS.length]}"></span><span style="overflow-wrap:anywhere">${esc(w.name)}</span></div><div class="act"><a class="ad" href="https://browser.anubispace.org/address/${w.address}" target="_blank" rel="noopener">${w.address.slice(0,6)}…${w.address.slice(-4)}</a>
+      ${W.list.length>1?`<button type="button" class="linkbtn" data-use="${w.address}">이 지갑으로 계산</button>`:''}<button type="button" class="linkbtn" data-ren="${w.address}">이름</button><button type="button" class="linkbtn danger" data-del="${w.address}">삭제</button></div></div>${body}</div>`;
+  };
+  let h='';
+  if(tot&&tot.n){h+=`<div class="wc${walletMode()&&S.scope==='all'?' sel':''}"><div class="hd"><div class="nm">전체 합계 · 지갑 ${W.list.length}개</div><div class="act"><button type="button" class="linkbtn" data-use="all">합계로 계산</button></div></div><div class="kv">
+    <div><span>활성 Power</span><b>${fmt(tot.power)}</b></div><div><span>보유 AiLGNS</span><b>${fq(tot.ai)}</b></div><div><span>터빈 대기 AiLGNS</span><b>${fq(tot.unc)}</b></div><div><span>DAI</span><b>${fmt(tot.dai,2)}</b></div>
+    <div><span>LGNS Anubis</span><b>${fmt(tot.lgnsA,2)}</b></div><div><span>LGNS Polygon</span><b>${fmt(tot.lgnsP,2)}</b></div><div><span>일반 터보 쌓인 LGNS</span><b>${fq(tot.pend)}</b></div><div><span>신생태 남은 지급</span><b>${fmt(tot.ntRem,2)} DAI</b></div>
+    <div><span>하루 터빈 비용</span><b>${fmt(tot.power*(num('r0')||.279)/100*1.035,2)} DAI</b></div><div><span>AiLGNS 지금 가치</span><b>${fmt(tot.ai*(num('pA')||793))} DAI</b></div></div></div>`;}
+  h+=W.list.map(card).join('');
+  $('wl').innerHTML=h;
+  $('wl').querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{const a=b.dataset.del;if(b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='한 번 더 누르면 삭제';return;}
+    W.list=W.list.filter(w=>w.address!==a);delete W.data[a.toLowerCase()];store.set('wallets',W.list);if(S.scope===a)S.scope='all';fillStart();renderWallets();render();}));
+  $('wl').querySelectorAll('[data-ren]').forEach(b=>b.addEventListener('click',()=>{const w=W.list.find(x=>x.address===b.dataset.ren);const n=prompt('지갑 이름',w.name);if(n&&n.trim()){w.name=n.trim().slice(0,30);store.set('wallets',W.list);renderWallets();render();}}));
+  $('wl').querySelectorAll('[data-use]').forEach(b=>b.addEventListener('click',()=>{S.scope=b.dataset.use;S.mode='wallet';store.set('scope',S.scope);store.set('mode','wallet');fillStart();renderWallets();render();$('startSec').scrollIntoView({behavior:'smooth',block:'start'});}));
+}
+function addWallets(arr){
+  let added=0,dup=0,bad=0;
+  arr.forEach(({name,address})=>{
+    if(!C.isAddr(address)){bad++;return;}
+    if(W.list.some(w=>w.address.toLowerCase()===address.toLowerCase())){dup++;return;}
+    W.list.push({name:(name||'').trim().slice(0,30)||'지갑 '+(W.list.length+1),address});added++;
+  });
+  store.set('wallets',W.list);
+  if(added){if(S.mode!=='wallet'){S.mode='wallet';store.set('mode','wallet');$('amt').value=0;}loadAll();}
+  renderWallets();render();
+  return {added,dup,bad};
+}
+$('addForm').addEventListener('submit',e=>{
+  e.preventDefault();const addr=$('wAddr').value.trim(),msg=$('addMsg');
+  if(!C.isAddr(addr)){const words=addr.split(/\s+/).filter(Boolean).length;msg.className='msg bad';
+    msg.textContent=words>=12?'시드 문구처럼 보여요. 시드 문구는 절대 넣지 마세요. 0x로 시작하는 지갑 주소만 넣으면 돼요.':/^(0x)?[0-9a-fA-F]{64}$/.test(addr)?'개인키처럼 보여요. 개인키는 절대 넣지 마세요. 0x 다음에 40자리인 지갑 주소만 넣어요.':'주소 형식이 맞지 않아요. 0x 다음에 40자리 영문·숫자인지 확인해 주세요.';
+    if(words>=12||/^(0x)?[0-9a-fA-F]{64}$/.test(addr))$('wAddr').value='';return;}
+  const r=addWallets([{name:$('wName').value,address:addr}]);
+  msg.className=r.added?'msg ok':'msg bad';msg.textContent=r.added?'추가했어요. 지갑 현황을 읽어 오는 중이에요.':'이미 등록된 주소예요.';
+  if(r.added){$('wName').value='';$('wAddr').value='';}
+});
+// 옮기기 코드: HS1:base64({w:[[이름,주소]], b:{지갑주소|all: 원금}}). 지갑 대시보드의 DW1:base64([[이름,주소]])도 받아요. 서버를 거치지 않아요.
+const b64=s=>btoa(String.fromCharCode(...new TextEncoder().encode(s)));
+const unb64=s=>new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s+/g,'')),c=>c.charCodeAt(0)));
+function encodeSync(){const b={};Object.entries(store.get('basis',{})).forEach(([k,v])=>{if(v!==''&&v!=null)b[k]=v;});return 'HS1:'+b64(JSON.stringify({w:W.list.map(w=>[w.name,w.address]),b}));}
+function decodeWallets(text){
+  const t=text.trim();
+  const pairs=a=>a.map(([name,address])=>({name:String(name||''),address:String(address||'')}));
+  if(t.startsWith('HS1:')){const j=JSON.parse(unb64(t.slice(4)));return {list:pairs(j.w||[]),basis:j.b||{}};}
+  if(t.startsWith('DW1:'))return {list:pairs(JSON.parse(unb64(t.slice(4)))),basis:{}};
+  return {list:(t.match(/0x[0-9a-fA-F]{40}/g)||[]).map(address=>({name:'',address})),basis:{}};
+}
+// 받은 원금은 이 기기에 아직 적지 않은 칸만 채워요
+function mergeBasis(b){const cur=store.get('basis',{});let n=0;Object.entries(b||{}).forEach(([k,v])=>{if(!cur[k]){cur[k]=v;n++;}});store.set('basis',cur);if(n)fillStart();return n;}
+const impReport=(r,el)=>{el.className=r.added?'msg ok':'msg bad';el.textContent=r.added?`${r.added}개를 추가했어요${r.dup?` (이미 있던 ${r.dup}개는 건너뜀)`:''}.`:r.dup?'모두 이미 등록된 지갑이에요.':'추가할 주소를 찾지 못했어요.';};
+$('impBtn').addEventListener('click',()=>{let d={list:[],basis:{}};try{d=decodeWallets($('impText').value);}catch(e){}mergeBasis(d.basis);impReport(addWallets(d.list),$('impMsg'));if(d.list.length)$('impText').value='';});
+// QR은 이 페이지 주소 + #import=코드. # 뒤는 브라우저가 서버로 보내지 않고, 받은 쪽은 읽자마자 주소창에서 지워요.
+const SITE='https://oga55535-hub.github.io/defi-wallet/helix/';
+const pageUrl=()=>location.protocol.startsWith('http')?location.origin+location.pathname:SITE;
+$('qrBtn').addEventListener('click',()=>{
+  const msg=$('syncMsg');
+  if(!W.list.length){msg.className='msg bad';msg.textContent='옮길 지갑이 없어요. 먼저 지갑을 추가해 주세요.';return;}
+  if(!window.QRCode){msg.className='msg bad';msg.textContent='QR 도구를 불러오지 못했어요. 인터넷 연결을 확인하거나 ‘옮기기 코드 복사’를 써 주세요.';return;}
+  const box=$('qrOut');box.innerHTML='';box.hidden=false;
+  new QRCode(box,{text:pageUrl()+'#import='+encodeURIComponent(encodeSync()),width:440,height:440,correctLevel:QRCode.CorrectLevel.M});
+  msg.className='msg ok';msg.textContent=`지갑 ${W.list.length}개가 담긴 QR이에요. 휴대폰 카메라로 찍고 뜨는 링크를 열면 바로 들어가요.`;
+});
+$('codeBtn').addEventListener('click',()=>{
+  const out=$('codeOut'),msg=$('syncMsg');
+  if(!W.list.length){msg.className='msg bad';msg.textContent='옮길 지갑이 없어요. 먼저 지갑을 추가해 주세요.';return;}
+  const code=encodeSync();out.value=code;out.hidden=false;
+  const done=()=>{msg.className='msg ok';msg.textContent='코드를 복사했어요. 다른 기기에서 ‘붙여 넣은 지갑 추가’ 칸에 붙여 넣어요.';};
+  const fallback=()=>{out.focus();out.select();msg.className='msg';msg.textContent='자동 복사가 안 돼서 코드를 선택해 두었어요. 직접 복사해 주세요.';};
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(code).then(done,fallback);else fallback();
+});
+function importFromHash(){
+  const h=location.hash;if(!h.startsWith('#import='))return;
+  try{history.replaceState(null,'',location.pathname+location.search);}catch(e){}
+  let d=null;try{d=decodeWallets(decodeURIComponent(h.slice(8)));}catch(e){}
+  $('moreBox').open=true;
+  if(!d||!d.list.length){$('impMsg').className='msg bad';$('impMsg').textContent='QR에서 지갑을 읽지 못했어요. PC에서 QR을 다시 만들어 주세요.';return;}
+  mergeBasis(d.basis);impReport(addWallets(d.list),$('impMsg'));
+}
+$('fromDash').addEventListener('click',()=>{let arr=[];/* 대시보드와 같은 사이트에서 열었을 때만 보여요 */try{arr=JSON.parse(localStorage.getItem('walletdash.wallets')||'[]').filter(w=>!w.example).map(w=>({name:w.name,address:w.address}));}catch(e){}
+  if(!arr.length){$('impMsg').className='msg bad';$('impMsg').textContent='이 브라우저에서 대시보드 지갑을 찾지 못했어요. 대시보드의 ‘내보내기’ 코드를 아래에 붙여 넣어 주세요.';return;}
+  impReport(addWallets(arr),$('impMsg'));});
+
+async function loadAll(){
+  if(!W.list.length)return;
+  if(W.loading){W.again=true;return;} // 조회 중에 지갑이 추가되면 끝난 뒤 한 번 더
+  W.loading=true;$('loadBtn').disabled=true;$('loadMeta').textContent=`지갑 ${W.list.length}개를 조회하는 중…`;renderWallets();
+  try{
+    const res=await C.loadWallets(W.list.map(w=>w.address),{withRate:true});
+    res.forEach(d=>W.data[d.address.toLowerCase()]=d);
+    W.at=new Date();
+    // 하루 비율: 지난 24시간 동안 Power 입금이 없던 지갑만 써서 Power 가중 평균
+    let a=0,b=0;res.forEach(d=>{if(d.rate!=null&&d.v.power.ok){a+=d.rate*d.v.power.x;b+=d.v.power.x;}});
+    W.rate=b>0?a/b:null;
+    const bad=res.reduce((n,d)=>n+Object.values(d.v).filter(x=>!x.ok).length,0);
+    $('loadMeta').textContent=`${W.at.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})} 조회 ✅${bad?` · 못 읽은 값 ${bad}개 (칸에 표시)`:''}`;
+    showRate();
+  }catch(e){$('loadMeta').textContent='조회하지 못했어요: '+(e.message||e)+' · 잠시 뒤 다시 눌러 주세요.';}
+  finally{W.loading=false;$('loadBtn').disabled=false;fillStart();renderWallets();render();if(W.again){W.again=false;loadAll();}}
+}
+$('loadBtn').addEventListener('click',loadAll);
+$('applyBtn').addEventListener('click',()=>{S.mode='wallet';store.set('mode','wallet');render();$('say').scrollIntoView({behavior:'smooth',block:'center'});});
+function showRate(){
+  if(W.rate==null){$('rateMeta').textContent='';return;}
+  $('rateMeta').innerHTML=`내 지갑 Power를 하루 간격으로 읽어 잰 하루 비율: <b>${fmt(W.rate*100,4)}%</b> ✅ <button type="button" class="linkbtn" id="rateUse">이 값 쓰기</button>`;
+  $('rateUse').addEventListener('click',()=>{$('r0').value=+(W.rate*100).toFixed(4);render();});
+}
+['exPower','exAi','exUnc','exDai','exPend','exVe','exNtRem','exNtDaily','exNtNow','exBasis'].forEach(id=>$(id).addEventListener('input',render));
+$('exBasis').addEventListener('input',()=>{const b=store.get('basis',{});b[S.scope]=$('exBasis').value;store.set('basis',b);});
+
+// 선택 버튼
+function group(id,key,conv){const bs=document.querySelectorAll('#'+id+' [data-v]');bs.forEach(b=>b.addEventListener('click',()=>{bs.forEach(x=>x.setAttribute('aria-pressed',x===b));const v=conv?conv(b.dataset.v):b.dataset.v;if(key)S[key]=v;else if(id==='gRk')rk=+v;render();}));}
+group('qGoal','goal');group('gDays','days',Number);group('qScen','scen');group('gReinv','reinv',Number);group('gRoute','route');group('gCash','cashVia');group('gBFund','bFund');group('gRank','rank',Number);group('gNtProd','ntProd');group('gRk',null);
+// 같은 값을 두 곳에서 고르는 버튼(신생태 터보 판 돈 쓰임)은 서로 맞춰요
+(function(){const bs=document.querySelectorAll('[data-key="ntUse"] [data-v]');bs.forEach(b=>b.addEventListener('click',()=>{S.ntUse=b.dataset.v;bs.forEach(x=>x.setAttribute('aria-pressed',x.dataset.v===S.ntUse));render();}));})();
+$('gMode').querySelectorAll('[data-v]').forEach(b=>b.addEventListener('click',()=>{S.mode=b.dataset.v;store.set('mode',S.mode);if(S.mode==='wallet'){fillStart();if(+$('amt').value>0&&W.list.length)$('amt').value=0;}renderWallets();render();}));
+(function(){const bs=document.querySelectorAll('#qStart [data-v]');bs.forEach(b=>b.addEventListener('click',()=>{const was=S.start;bs.forEach(x=>x.setAttribute('aria-pressed',x===b));S.start=b.dataset.v;
+  const wasL=was==='anubis'||was==='polygon',isL=S.start==='anubis'||S.start==='polygon';if(wasL!==isL&&!(walletMode()&&+$('amt').value===0))$('amt').value=isL?10000:1000;render();}));})();
+['amt','pend','pend2','pL','pLP','pA','R0in','fee','slip','r0','ntFund','rkAvg','rkLine'].forEach(id=>$(id).addEventListener('input',()=>{render();if(['pA','r0'].includes(id))renderWallets();}));
+
+// ===== 시세 (온체인 풀 잔고로 계산) =====
+let live=null,manual={pL:false,pLP:false,pA:false};
+function showLive(note){
+  if(!live)return;
+  $('priceVals').textContent=`LGNS Anubis $${fmt(live.lgns,4)} · Polygon ${live.lgnsPoly?'$'+fmt(live.lgnsPoly,4):'—'} · AiLGNS $${fmt(live.ailgns,2)}`;
+  $('priceMeta').className='pm';
+  $('priceMeta').textContent=(note?note+' · ':'')+`${live.at.toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})} 기준 · ✅ 온체인 DAI 풀 잔고로 계산${manual.pL||manual.pLP||manual.pA?' · 직접 고친 값으로 계산 중':''}`;
+  $('priceRevert').hidden=!(manual.pL||manual.pLP||manual.pA);
+}
+function applyLive(d){
+  live=d;
+  if(!manual.pL&&d.lgns)$('pL').value=+d.lgns.toFixed(4);
+  if(!manual.pLP&&d.lgnsPoly)$('pLP').value=+d.lgnsPoly.toFixed(4);
+  if(!manual.pA&&d.ailgns)$('pA').value=+d.ailgns.toFixed(2);
+  render();renderWallets();showLive();
+}
+$('pL').addEventListener('input',()=>{manual.pL=true;showLive();});
+$('pLP').addEventListener('input',()=>{manual.pLP=true;showLive();});
+$('pA').addEventListener('input',()=>{manual.pA=true;showLive();});
+$('priceRevert').addEventListener('click',()=>{manual={pL:false,pLP:false,pA:false};applyLive(live);});
+async function refreshPrices(){
+  const btn=$('priceBtn');btn.disabled=true;btn.textContent='불러오는 중…';
+  try{const m=await C.loadPrices();if(!m.lgns||!m.ailgns)throw new Error('풀 잔고를 읽지 못했어요');applyLive({...m,at:new Date()});}
+  catch(e){$('priceMeta').className='pm stale';$('priceMeta').textContent='시세를 불러오지 못했어요 ('+(e.message||e)+'). 10/22 기준 기본값을 쓰고 있어요.';}
+  finally{btn.disabled=false;btn.textContent='시세 새로고침';}
+}
+$('priceBtn').addEventListener('click',refreshPrices);
+
+if(S.mode==='wallet'&&W.list.length)$('amt').value=0;
+renderWallets();fillStart();render();
+refreshPrices();
+const hadImport=location.hash.startsWith('#import=');
+importFromHash();
+if(W.list.length&&!hadImport)loadAll();
+})();
+</script>
+</body>
+</html>
