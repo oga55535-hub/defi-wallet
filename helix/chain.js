@@ -28,9 +28,11 @@ const SEL={balanceOf:'0x70a08231',getReserves:'0x0902f1ac',token0:'0x0dfe1681',
   positionsOf:'0xf867d46b',positions:'0x99fbab88',
   getUserOrderCount:'0x2cc75967',getUserOrders:'0xc7efbe36',sellableBalance:'0x3bbb623b',lockedBalance:'0x9ae697bf',ratePerEpoch:'0xd8e2219c',
   // 장기 스테이킹: stakes(user,i)[0]=원금 LGNS, [7]=진행 중 / pendingPayout=받을 이자 / extraInterest=터보로 받는 추가 이자
-  getUserStakesCount:'0x98dc8dea',stakes:'0x584b62a1',pendingPayout:'0xda709204',extraInterest:'0xb01d3563'};
+  getUserStakesCount:'0x98dc8dea',stakes:'0x584b62a1',pendingPayout:'0xda709204',extraInterest:'0xb01d3563',
+  // 일반 터보: 터보란 LGNS 수량을 넣으면 그만큼 LGNS를 사는 DAI 견적. 실제로는 여기에 burnExtraBps(5%)를 더 내요 (10/22 실제 거래로 확인)
+  getSilenceDAIAmount:'0x5c083dc6',burnExtraBps:'0x2d5ec9b9'};
 const LABEL={power:'활성 Power',totalPower:'누적 Power',queued:'대기 Power',ai:'AiLGNS',unc:'터빈 대기',turbLocked:'터빈 잠김',turbClaim:'터빈 수령 가능',
-  dai:'DAI',lgnsA:'LGNS(Anubis)',lgnsP:'LGNS(Polygon)',pend:'일반 터보',ve:'ve 잠금',nt25:'신생태 2.5배',nt4:'신생태 4배',long:'장기 스테이킹'};
+  dai:'DAI',lgnsA:'LGNS(Anubis)',lgnsP:'LGNS(Polygon)',pend:'일반 터보',ve:'ve 잠금',nt25:'신생태 2.5배',nt4:'신생태 4배',long:'장기 스테이킹',turboDai:'터보 DAI 견적'};
 
 const isAddr=a=>/^0x[0-9a-fA-F]{40}$/.test(a);
 const word=v=>BigInt(v).toString(16).padStart(64,'0');
@@ -139,6 +141,18 @@ async function loadWallets(addrs,opt={}){
   });
   const r2=R2.length?await batch(ANUBIS,R2):{};
 
+  // 3차: 지갑마다 ‘터보란 LGNS + 아직 안 옮긴 추가이자’를 전부 터보로 돌리는 DAI 견적 (풀 가격 영향 포함)
+  const turboQty=addrs.map((a,i)=>{
+    const t=r1[i+':pend'];let q=t&&!errOf(t)?words(t.result)[0]||0n:0n;
+    ['long360','long600'].forEach(k=>{const nx=r1[i+':'+k+'n'];const n=nx&&!errOf(nx)?Math.min(Number(words(nx.result)[0]||0n),30):0;
+      for(let j=0;j<n;j++){const xx=r2[`${i}:${k}x${j}`],s=r2[`${i}:${k}s${j}`];if(xx&&!errOf(xx)&&s&&!errOf(s)&&words(s.result)[7]!==0n)q+=words(xx.result)[0]||0n;}});
+    return q;
+  });
+  const R3=[callReq('bx',A.turbine,SEL.burnExtraBps,[])];
+  turboQty.forEach((q,i)=>{if(q>0n)R3.push(callReq(i+':sq',A.turbine,SEL.getSilenceDAIAmount,[q]));});
+  const r3=await batch(ANUBIS,R3);
+  const extraBps=r3.bx&&!errOf(r3.bx)?Number(words(r3.bx.result)[0]||0n):500;
+
   return addrs.map((a,i)=>{
     const v={},g=(k,res,dec)=>{const e=errOf(res);v[k]=e?{ok:false,err:e}:{ok:true,x:units(words(res.result)[0]||0n,dec)};};
     g('lgnsA',r1[i+':lgnsA'],9);g('dai',r1[i+':dai'],18);g('ai',r1[i+':ai'],18);
@@ -182,7 +196,10 @@ async function loadWallets(addrs,opt={}){
       const a0=units(words(p0.result)[0]||0n,18),tt=units(words(t0.result)[0]||0n,18);
       if(a0>0&&Math.abs(tt-v.totalPower.x)<1e-9&&v.power.x<a0){const r=1-Math.pow(v.power.x/a0,86400/dayAgo.sec);if(r>0&&r<.05)rate1=r;}
     }
-    return {address:a,v,nt,orders,stakes,rate:rate1,block:bn};
+    // 터보 전부 돌리는 DAI = 견적 × (1 + burnExtraBps)
+    const sq=r3[i+':sq'];
+    v.turboDai=turboQty[i]===0n?{ok:true,x:0}:errOf(sq)?{ok:false,err:errOf(sq)}:{ok:true,x:units(words(sq.result)[0]||0n,18)*(1+extraBps/10000)};
+    return {address:a,v,nt,orders,stakes,rate:rate1,block:bn,turboQty:units(turboQty[i],9),extraBps};
   });
 }
 root.HelixChain={isAddr,loadPrices,loadWallets,LABEL,ADDR:{anubis:A,polygon:P},CHAIN_ID};

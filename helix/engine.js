@@ -14,6 +14,11 @@
 //   p.route='auto'   다시 넣는 DAI를 이득 순서대로: 일반 터보(쌓인 수량까지) → 남은 DAI로 LGNS 사서 소각
 //   p.route='aiburn' 받은 AiLGNS를 팔지 않고 소각 (AiLGNS 소각 2.5배, 비교용)
 //   p.ntShare        다시 넣는 돈 중 신생태 터보(p.ntMult배 · p.ntDays일)에 넣는 비율. 풀린 DAI는 p.route 대로 다시 넣어요
+//   p.xFirst         터보란(쌓인 수량 + 추가이자)을 매일 가장 먼저 돌려요: 남는 DAI를 원금 회수·현금·다시 넣기보다 먼저 쓰고,
+//                    ‘편하게’는 모자란 만큼 받은 AiLGNS를 팔아서 내요
+//   p.ex.xNow        첫날 지갑 DAI 중 이만큼으로 터보란을 바로 돌려요
+// 일반 터보 (10/22 실제 거래로 확인): DAI를 내면 그 값으로 산 LGNS는 바로 지갑에 오고, 터보란의 같은 수량은 24시간 뒤 청구 → 1+1.
+//   내는 DAI = 시세(견적) × 1.05. 터보란 수량은 사라지지 않고 남아 있다가 DAI와 함께 돌릴 때 줄어요.
 (function(root){
 // 디앱 컨트랙트에서 읽은 수수료 (2026-10-21): 일반 터보 burnExtraBps 500, 신생태 터보 activationFeeBps 100, LGNS feeRatio 5%, 매수 0%
 const FEE={oldTurbo:.05,ntSell:.05,ntAct:.01};
@@ -38,6 +43,9 @@ function simulate(p,pl){
   let fs=fundInv>0?[{d:fundInv*2.5/300*(1-FEE.ntSell-FEE.ntAct-p.slip),left:300}]:[];
   let R=p.R0,cash=0,ai=0,ve=0,ext=0,unc=0,pending=0,streams=[],cashDay=null,veDay=null,ntOut=0,cs=[],ntIn=0;
   if(ex.dai)R+=ex.dai;
+  let xDai=0,xLgns=0,xDay=null; // 터보란을 돌리는 데 쓴 DAI, 1+1로 받은 LGNS, 처음 쌓여 있던 양을 다 돌린 날
+  const xRun=(dai,pL)=>{const before=pend,o=oldTurbo(dai,pL),m=before-pend;xDai+=dai-o.left;xLgns+=2*m;return o;};
+  if(ex.xNow>0&&pend>0){const d0=Math.min(ex.xNow,R),o=xRun(d0,p.pL0);R-=d0-o.left;pending+=o.pow;} // 받은 LGNS는 첫날 소각
   if(ex.ai)ai+=ex.ai;
   if(ex.unc)unc+=ex.unc;
   if(ex.ve)ve+=ex.ve;
@@ -50,11 +58,11 @@ function simulate(p,pl){
     const pA=p.pA0*Math.pow(1+p.aChg,t/30), pL=p.pL0*Math.pow(1+p.lChg,t/30), r=p.r0*Math.pow(1-p.rDecl,t/30);
     const lgPow=x=>x*2*Math.max(pL,1)/pL;
     // auto: 쌓인 터보 수량까지 일반 터보, 남은 DAI는 LGNS 사서 소각
-    const autoPow=dai=>{const o=oldTurbo(dai,pL);return o.pow+lgPow(o.left*(1-p.slip));};
+    const autoPow=dai=>{const o=xRun(dai,pL);return o.pow+lgPow(o.left*(1-p.slip));};
     if(ex.pendDaily)pend+=ex.pendDaily;
     P+=pending;pending=0;
     if(streams.length){let V=0;streams.forEach(s=>{V+=s.d;s.left--;});streams=streams.filter(s=>s.left>0);
-      if(p.route==='auto')P+=autoPow(V*ntNet);else{const o=oldTurbo(V*ntNet,pL);P+=o.pow+o.left*2.5;}}
+      if(p.route==='auto')P+=autoPow(V*ntNet);else{const o=xRun(V*ntNet,pL);P+=o.pow+o.left*2.5;}}
     let ntDai=t<=ntDays?ntDaily*ntNet:0;
     if(exNt.length){let V=0;exNt.forEach(s=>{V+=s.d;s.left--;});exNt=exNt.filter(s=>s.left>0);ntDai+=V*ntNet;}
     if(t===1&&ex.ntNow)ntDai+=ex.ntNow;
@@ -62,7 +70,7 @@ function simulate(p,pl){
       if(p.ntUse==='cash')cash+=dai;
       else if(p.ntUse==='helix')P+=dai*2.5;
       else if(p.ntUse==='lgnsbuy')P+=lgPow(dai*(1-p.slip));
-      else{const o=oldTurbo(dai,pL);P+=o.pow+o.left*2.5;}}
+      else{const o=xRun(dai,pL);P+=o.pow+o.left*2.5;}}
     if(fs.length){let V=0;fs.forEach(x=>{V+=x.d;x.left--;});fs=fs.filter(x=>x.left>0);R+=V;}
     if(cs.length){let V=0;cs.forEach(s=>{V+=s.d;s.left--;});cs=cs.filter(s=>s.left>0);cash+=V;}
     const D=P*r;P-=D;
@@ -80,10 +88,15 @@ function simulate(p,pl){
       if(p.bFund==='self'){const need=cost;const sq=Math.min(rest,need/net);R+=sq*net;ai+=rest-sq;}
       else if(p.bFund==='nt'){const sq=Math.min(rest,Math.max(0,cost-R)/net);R+=sq*net;ai+=rest-sq;const tg=Math.max(p.R0,cost*1.2);if(R>tg){cash+=R-tg;R=tg;}}
       else ai+=rest;
+      // 터보란 먼저: 남는 DAI → 모자라면 받은 AiLGNS를 팔아서
+      if(p.xFirst&&pend>0){const need=pend*pL*(1+FEE.oldTurbo);let dai=Math.min(need,Math.max(0,R-Math.max(p.R0,cost*1.2)));R-=dai;
+        if(dai<need&&ai>0){const q=Math.min(ai,(need-dai)/net);ai-=q;dai+=q*net;}
+        if(dai>0){const o=xRun(dai,pL);pending+=o.pow;R+=o.left;}}
     }else{
       R+=rest*net;
       const target=Math.max(p.R0,cost*1.2);
-      const sur=Math.max(0,R-target);R-=sur;
+      let sur=Math.max(0,R-target);R-=sur;
+      if(p.xFirst&&pend>0&&sur>0){const o=xRun(sur,pL);pending+=o.pow;sur=o.left;}
       let inv=0;
       if(pl==='C'&&cash<goalC){const toCash=Math.min(sur,goalC-cash);cash+=toCash;inv=(sur-toCash)*p.reinv;cash+=sur-toCash-inv;}
       else{inv=sur*p.reinv;const c=sur-inv;if(pl==='A'&&p.cashVia==='nt'&&c>0)cs.push({d:c*2.5/300*ntNet,left:300});else cash+=c;}
@@ -92,7 +105,7 @@ function simulate(p,pl){
         if(p.route==='auto')pending+=autoPow(inv);
         else if(p.route==='aiburn')pending+=inv*2.5/(1-p.fee-p.slip); // 판 만큼의 AiLGNS를 소각했을 때 (수수료 안 냄)
         else if(p.route==='dai')pending+=inv*2.5;
-        else if(p.route==='old'){const o=oldTurbo(inv,pL);pending+=o.pow+o.left*2.5;}
+        else if(p.route==='old'){const o=xRun(inv,pL);pending+=o.pow+o.left*2.5;}
         else if(p.route==='lgns')pending+=lgPow(inv*(1-p.slip));
         else streams.push({d:inv*2.5/300,left:300});
       }
@@ -101,9 +114,10 @@ function simulate(p,pl){
     const liquid=cash+R+ai*net;
     if(cashDay===null&&liquid>=invested)cashDay=t;
     if(p.rankOn&&veDay===null&&ve*pA>=p.veTarget)veDay=t;
+    if(xDay===null&&pend<=(ex.pendDaily||0)+1e-9)xDay=t;
     series.push({t,P,D,cost,cash,R,ai,ve,veVal:ve*pA,pA,pL,r,invested,liquid});
   }
-  return {series,last:series[series.length-1],startValue,startP,missed:unc*series[series.length-1].pA,uncQty:unc,pendLeft:pend,ntOut,ntLeft:ntDays>p.days?(ntDays-p.days)*ntDaily:0,csLeft:cs.reduce((a,s)=>a+s.d*s.left,0),fundLeft:fs.reduce((a,x)=>a+x.d*x.left,0),fundInv,cashDay,veDay,ext,streamsLeft:streams.reduce((a,s)=>a+s.d*s.left,0),exNtLeft:exNt.reduce((a,s)=>a+s.d*s.left,0),ntIn};
+  return {series,last:series[series.length-1],startValue,startP,missed:unc*series[series.length-1].pA,uncQty:unc,pendLeft:pend,ntOut,ntLeft:ntDays>p.days?(ntDays-p.days)*ntDaily:0,csLeft:cs.reduce((a,s)=>a+s.d*s.left,0),fundLeft:fs.reduce((a,x)=>a+x.d*x.left,0),fundInv,cashDay,veDay,ext,streamsLeft:streams.reduce((a,s)=>a+s.d*s.left,0),exNtLeft:exNt.reduce((a,s)=>a+s.d*s.left,0),ntIn,xDai,xLgns,xDay};
 }
 root.HelixEngine={FEE,autoFund,simulate};
 })(typeof window!=='undefined'?window:globalThis);
