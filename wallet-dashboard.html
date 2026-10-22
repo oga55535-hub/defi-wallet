@@ -208,7 +208,7 @@ details.recs td, details.recs th { padding: 5px 6px; }
       <div class="mark" aria-hidden="true"></div>
       <div>
         <h1>내 디파이 지갑</h1>
-        <div class="sub">폴리곤 · 아누비스 · 오리진 디앱 · 주소만 쓰는 읽기 전용</div>
+        <div class="sub">폴리곤 · 아누비스 · 오리진 · 헬릭스 · 주소만 쓰는 읽기 전용</div>
       </div>
     </div>
     <div class="controls">
@@ -487,6 +487,15 @@ const ORIGIN = {
     genesis: "0x030590921E9841e1d2104642ED285C83B5F0ddB5",
     points: "0x943C6462d9A5A3CcadC12ef6AD34b9518e6128f6",
   },
+  // 헬릭스(awakehelix.io)도 아누비스 체인 위의 오리진 생태계 디앱
+  helix: {
+    ailgns: "0x256EdB652db43E721EC6A12B6b51b6967D3bb8cB",
+    ailgnsPair: "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0",
+    power: "0x9E68F61E2615cc1D2C4a2D0026bFc1EBFdf68C1b",
+    vault: "0x3DEea5f638cA0dFb03A0873CF4c0b90BA50E1aA2",
+    turbine: "0xE884A336550a4482Ca6A17A3F93aa30Ed4eD9BaD",
+    productionNft: "0x77E6ab1C5557FD456b0656304E0e5c02a6d7DcCA",
+  },
   polygon: {
     lgns: "0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01",
     slgns: "0x99a57E6C8558BC6689f894e068733ADf83C19725",
@@ -501,6 +510,8 @@ const SEL = {
   getUserStakesCount: "0x98dc8dea", stakes: "0x584b62a1", pendingPayout: "0xda709204", extraInterest: "0xb01d3563",
   claimable: "0x402914f5", rewardOf: "0x1d62ebd9", totalDaiOf: "0xe6746345", activityPoints: "0x5a43f789",
   getReserves: "0x0902f1ac", token0: "0x0dfe1681", epoch: "0x900cf0cf", circulatingSupply: "0x9358928b", balanceOf: "0x70a08231",
+  activePowerOf: "0x6cf2fa36", pendingPowerOf: "0xaa81a38f", totalPowerOf: "0x4f343040", queuedPowerOf: "0x4029c12c",
+  pendingOf: "0xf44136a1", lockedBalanceOf: "0x59355736", claimableOf: "0x8903ab9d", claimedBalance: "0x9886c2a5",
 };
 const POLYGON_BLOCK_SEC = 2;
 const word = v => (typeof v === "bigint" ? v : BigInt(v)).toString(16).padStart(64, "0");
@@ -521,16 +532,20 @@ async function multiCall(urls, calls) {
   return r;
 }
 
-function pairPrice(res, t0, lgns) {
+// DAI 짝 유동성 풀에서 토큰 가격(DAI)을 계산
+function pairPrice(res, t0, token, decimals = 9) {
   if (!res || res.length < 2 || !t0.length) return null;
   const token0 = "0x" + t0[0].toString(16).padStart(40, "0");
-  const [l, d] = token0.toLowerCase() === lgns.toLowerCase() ? [res[0], res[1]] : [res[1], res[0]];
-  return l > 0n ? D(d) / L(l) : null;
+  const [l, d] = token0.toLowerCase() === token.toLowerCase() ? [res[0], res[1]] : [res[1], res[0]];
+  return l > 0n ? D(d) / units(l, decimals) : null;
 }
 
 async function loadMarket() {
   const [a, p, bn] = await Promise.all([
-    multiCall(ANUBIS_RPCS, [{ id: "r", to: ORIGIN.anubis.pair, fn: "getReserves" }, { id: "t", to: ORIGIN.anubis.pair, fn: "token0" }]),
+    multiCall(ANUBIS_RPCS, [
+      { id: "r", to: ORIGIN.anubis.pair, fn: "getReserves" }, { id: "t", to: ORIGIN.anubis.pair, fn: "token0" },
+      { id: "hr", to: ORIGIN.helix.ailgnsPair, fn: "getReserves" }, { id: "ht", to: ORIGIN.helix.ailgnsPair, fn: "token0" },
+    ]),
     multiCall(POLYGON_RPCS, [
       { id: "r", to: ORIGIN.polygon.pair, fn: "getReserves" }, { id: "t", to: ORIGIN.polygon.pair, fn: "token0" },
       { id: "e", to: ORIGIN.polygon.staking, fn: "epoch" }, { id: "c", to: ORIGIN.polygon.slgns, fn: "circulatingSupply" },
@@ -547,6 +562,7 @@ async function loadMarket() {
   return {
     lgnsAnubis: pairPrice(a.r, a.t, ORIGIN.anubis.lgns),
     lgnsPolygon: pairPrice(p.r, p.t, ORIGIN.polygon.lgns),
+    ailgns: pairPrice(a.hr, a.ht, ORIGIN.helix.ailgns, 18),
     rebase, perDay,
     apy: rebase != null ? Math.pow(1 + rebase, perDay * 365) - 1 : null,
     polygonBlock: bn.bn ? parseInt(bn.bn, 16) : null,
@@ -576,7 +592,7 @@ const flowOf = (flows, c) => flows?.[c.toLowerCase()] || { out: 0, in: 0 };
 //   value: 카드 큰 숫자(unit 단위), countValue: 합계에 넣을 양(없으면 value), reward: 지금 받을 수 있는 보상(unit 단위)
 //   nums: [[이름, 숫자, 단위]] 지갑 합산 가능한 세부 값, texts: [[이름, 글]] 지갑 하나일 때만 보이는 세부 값
 async function loadOriginWallet(w, mk) {
-  const A = ORIGIN.anubis, P = ORIGIN.polygon, me = w.address;
+  const A = ORIGIN.anubis, P = ORIGIN.polygon, H = ORIGIN.helix, me = w.address;
   const now = Date.now() / 1000;
   const [a1, p1, flows] = await Promise.all([
     multiCall(ANUBIS_RPCS, [
@@ -587,6 +603,9 @@ async function loadOriginWallet(w, mk) {
       ["mc", A.long600, "getUserStakesCount"], ["mb", A.long600, "getDepositorBalance"],
       ["cc", A.cobweb, "claimable"], ["cr", A.cobweb, "rewardOf"],
       ["gd", A.genesis, "totalDaiOf"], ["pt", A.points, "activityPoints"],
+      ["hpa", H.power, "activePowerOf"], ["hpt", H.power, "totalPowerOf"], ["hpp", H.power, "pendingPowerOf"], ["hpq", H.power, "queuedPowerOf"],
+      ["hvp", H.vault, "pendingOf"], ["htl", H.turbine, "lockedBalanceOf"], ["htc", H.turbine, "claimableOf"], ["htd", H.turbine, "claimedBalance"],
+      ["hnft", H.productionNft, "balanceOf"],
     ].map(([id, to, fn]) => ({ id, to, fn, addr: me }))),
     multiCall(POLYGON_RPCS, [
       { id: "sb", to: P.slgns, fn: "balanceOf", addr: me },
@@ -703,12 +722,29 @@ async function loadOriginWallet(w, mk) {
       principal: null, earned: null, nums: [["총 보상", L(cr[0]), "LGNS"], ["받은 보상", L(cr[1]), "LGNS"]], rate: "—" });
   }
 
-  // 7. 창세 계획 (DAI 참여)
+  // 7. 헬릭스 파워: 창세 계획 등에 DAI로 참여하면 Power를 받고, Power가 매일 AiLGNS 배출을 나눠 받음
   const gd = D(a1.gd?.[0]);
-  if (gd > 0) {
-    items.push({ ...base, chain: "anubis", key: "genesis", name: "창세 계획 참여", unit: "DAI", value: gd, valueLabel: "참여 금액", countValue: 0, reward: 0,
-      principal: null, earned: null, rate: "—",
-      note: "보상 조건을 계약에서 읽을 수 없어 참여 금액만 표시하고 합계에는 넣지 않았습니다." });
+  const hpa = D(a1.hpa?.[0]), hpt = D(a1.hpt?.[0]), hpp = D(a1.hpp?.[0]) + D(a1.hpq?.[0]);
+  const nft = n(a1, "hnft");
+  if (gd > 0 || hpt > 0 || hpa > 0) {
+    const nums = [];
+    if (gd > 0) nums.push(["창세 계획 참여", gd, "DAI"]);
+    nums.push(["총 Power", hpt, "Power"]);
+    if (hpp > 0) nums.push(["대기 중 Power", hpp, "Power"]);
+    if (nft > 0) nums.push(["생산 NFT", nft, "개"]);
+    items.push({ ...base, chain: "anubis", dapp: "헬릭스", key: "helixPower", name: "헬릭스 파워", unit: "Power", value: hpa, valueLabel: "활성 Power",
+      moneyNote: gd > 0 ? `참여 ${fmtAmount(gd)} DAI` : "", countValue: 0, reward: 0, principal: null, earned: null, nums,
+      rate: "정적·동적 배출 하루 0.7% 기준", rateNote: "디앱 안내 수치이며 보장 아님 · 정산마다 감쇠",
+      note: "Power는 사고팔 수 있는 자산이 아니라 배출 보상을 나눠 받는 몫이라 합계에 넣지 않았습니다." });
+  }
+
+  // 8. 헬릭스 보상: 커뮤니티 볼트에 쌓인 AiLGNS + 터빈에 잠긴/수령 가능한 AiLGNS
+  const hvp = D(a1.hvp?.[0]), htl = D(a1.htl?.[0]), htc = D(a1.htc?.[0]), htd = D(a1.htd?.[0]);
+  if (hvp > 0 || htl > 0 || htc > 0 || htd > 0) {
+    items.push({ ...base, chain: "anubis", dapp: "헬릭스", key: "helixReward", name: "헬릭스 보상", unit: "AiLGNS", value: hvp + htl + htc,
+      valueLabel: "볼트·터빈에 있는 AiLGNS", reward: hvp + htc, principal: null, earned: null,
+      nums: [["볼트 수령 가능", hvp, "AiLGNS"], ["터빈 잠김", htl, "AiLGNS"], ["터빈 수령 가능", htc, "AiLGNS"], ["터빈에서 받은 누적", htd, "AiLGNS"]],
+      rate: "Power 몫만큼 매일 배출", rateNote: "터빈은 24시간 잠금 후 수령" });
   }
 
   // 8. 폴리곤 유연 스테이킹 (sLGNS)
@@ -757,10 +793,11 @@ async function loadOrigin(wallets, errors) {
   })));
   const items = per.flatMap(p => p.items);
   for (const it of items) {
-    const price = it.unit === "DAI" ? 1 : it.chain === "anubis" ? mk.lgnsAnubis : mk.lgnsPolygon;
+    const price = it.unit === "DAI" ? 1 : it.unit === "AiLGNS" ? mk.ailgns : it.unit === "Power" ? null
+      : it.chain === "anubis" ? mk.lgnsAnubis : mk.lgnsPolygon;
     it.price = price;
     const counted = it.countValue != null ? it.countValue : it.value;
-    it.valueUsd = price != null ? counted * price : null;
+    it.valueUsd = price != null ? counted * price : counted === 0 ? 0 : null;
     it.rewardUsd = price != null ? (it.reward || 0) * price : null;
   }
   const points = {};
@@ -780,7 +817,7 @@ async function refresh() {
     loadPolygon(wallets).catch(e => { errors.push("폴리곤 잔고를 불러오지 못했습니다 (" + e.message + "). 잠시 후 새로고침하세요."); return null; }),
     Promise.all(wallets.map(w => loadAnubisWallet(w).catch(e => { errors.push(`아누비스: ${w.name} 잔고를 불러오지 못했습니다 (${e.message}).`); return null; }))),
     loadPrices([...new Set(POLYGON_TOKENS.map(t => t.cg).filter(Boolean).concat(state.customTokens.map(t => t.cg).filter(Boolean)))]).catch(() => { errors.push("시세를 불러오지 못해 일부 평가액이 빠졌습니다. 원화 환산도 달러로 표시됩니다."); return null; }),
-    loadOrigin(wallets, errors).catch(e => { errors.push("오리진 디앱 상품을 불러오지 못했습니다 (" + e.message + "). 잠시 후 새로고침하세요."); return null; }),
+    loadOrigin(wallets, errors).catch(e => { errors.push("디앱 상품을 불러오지 못했습니다 (" + e.message + "). 잠시 후 새로고침하세요."); return null; }),
   ]);
   if (origin) state.origin = origin;
   // 이전 결과를 유지하되, 이번에 성공한 부분만 교체
@@ -877,7 +914,7 @@ function render() {
   // 범위 머리말
   const cur = state.wallets.find(w => w.address === state.scope);
   if (!has) {
-    $("scope-head").innerHTML = `<div><h2>시작하기</h2><div class="small muted">TokenPocket 지갑 주소를 추가하면 지갑 토큰과 오리진 디앱 예치 상품을 한눈에 보여 드립니다.</div></div><button type="button" class="primary" id="try-example">예시 지갑으로 둘러보기</button>`;
+    $("scope-head").innerHTML = `<div><h2>시작하기</h2><div class="small muted">TokenPocket 지갑 주소를 추가하면 지갑 토큰과 오리진·헬릭스 디앱 예치 상품을 한눈에 보여 드립니다.</div></div><button type="button" class="primary" id="try-example">예시 지갑으로 둘러보기</button>`;
   } else if (!cur) {
     $("scope-head").innerHTML = `<div><h2>전체 지갑</h2><div class="small muted">지갑 ${state.wallets.length}개를 합친 자산입니다.</div></div>`;
   } else {
@@ -943,28 +980,30 @@ function renderProducts() {
   $("market").innerHTML = mk ? [
     `LGNS 아누비스 <b>${fmtPrice(mk.lgnsAnubis)}</b>`,
     `LGNS 폴리곤 <b>${fmtPrice(mk.lgnsPolygon)}</b>`,
+    mk.ailgns != null ? `AiLGNS <b>${fmtPrice(mk.ailgns)}</b>` : "",
     mk.rebase != null ? `리베이스 <b>${(mk.rebase * 100).toFixed(4)}%</b> / ${Math.round(24 / mk.perDay)}시간 · 연 <b>${(mk.apy * 100).toFixed(1)}%</b>` : "",
   ].filter(Boolean).map(s => `<span>${s}</span>`).join("") : "";
   const raw = (o?.items || []).filter(inScope);
   const list = state.scope === "all" ? aggregateProducts(raw) : raw.slice().sort((a, b) => (b.valueUsd ?? 0) - (a.valueUsd ?? 0));
   $("cnt-dapp").textContent = list.length || "";
-  if (!state.wallets.length) { $("prods").innerHTML = '<div class="empty">지갑을 추가하면 오리진 디앱 상품을 찾아 보여 드립니다.</div>'; $("prod-note").textContent = ""; return; }
-  if (!list.length) { $("prods").innerHTML = `<div class="empty">${state.loading ? '<span class="spin"></span> 디앱 상품을 확인하는 중입니다' : "이 범위에는 오리진 디앱 상품이 없습니다."}</div>`; $("prod-note").textContent = ""; return; }
+  if (!state.wallets.length) { $("prods").innerHTML = '<div class="empty">지갑을 추가하면 오리진·헬릭스 디앱 상품을 찾아 보여 드립니다.</div>'; $("prod-note").textContent = ""; return; }
+  if (!list.length) { $("prods").innerHTML = `<div class="empty">${state.loading ? '<span class="spin"></span> 디앱 상품을 확인하는 중입니다' : "이 범위에는 디앱 상품이 없습니다."}</div>`; $("prod-note").textContent = ""; return; }
   const amt = (v, u) => v == null ? "—" : `${fmtAmount(v)} ${u}`;
   $("prods").innerHTML = list.map(it => {
     const ch = CHAINS[it.chain];
-    const sub = it.wallets ? it.wallets.map(walletName).join(", ") : state.scope === "all" ? walletName(it.wallet) : "";
+    const who = it.wallets ? it.wallets.map(walletName).join(", ") : state.scope === "all" ? walletName(it.wallet) : "";
+    const sub = [it.dapp || "오리진", who].filter(Boolean).join(" · ");
     const rows = [];
     if (it.principal != null) rows.push(["원금", amt(it.principal, it.principalUnit || it.unit)]);
     if (it.earned != null) rows.push(["누적 이자", (it.earned >= 0 ? "+" : "") + amt(it.earned, it.unit) + (it.earnedEst ? '<span class="est">추정</span>' : ""), it.earned > 0]);
-    for (const [k, v, u] of it.nums || []) rows.push([k, u === "건" ? `${v}건` : amt(v, u), k.includes("예상 이자") && v > 0]);
+    for (const [k, v, u] of it.nums || []) rows.push([k, u === "건" || u === "개" ? `${v}${u}` : amt(v, u), k.includes("예상 이자") && v > 0]);
     for (const [k, v] of it.texts || []) rows.push([k, esc(v)]);
     rows.push(["이자율", esc(it.rate) + (it.rateNote ? `<br><span class="est">${esc(it.rateNote)}</span>` : "")]);
     const prog = it.progressNums && it.progressNums[1] > 0 ? it.progressNums[0] / it.progressNums[1] : null;
     const recs = it.records && it.records.rows.length ? `<details class="recs"><summary>건별 보기 (${it.records.rows.length}건)</summary><div class="tbl-wrap"><table><thead><tr>${it.records.head.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${it.records.rows.map(r => `<tr>${r.map((c, i) => `<td class="${i && !(it.wallets && i === 1) ? "r num" : ""}">${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div></details>` : "";
     return `<article class="prod">
       <div class="top"><div style="min-width:0"><h3>${esc(it.name)}</h3>${sub ? `<div class="sub">${esc(sub)}</div>` : ""}</div><span class="pill"><span class="dot" style="background:${ch.color}"></span>${ch.name}</span></div>
-      <div class="big">${amt(it.value, it.unit)}<small>${esc(it.valueLabel || "현재 잔액")} · ${fmtMoney(it.price != null ? it.value * it.price : null)}</small></div>
+      <div class="big">${amt(it.value, it.unit)}<small>${esc(it.valueLabel || "현재 잔액")} · ${it.price != null ? fmtMoney(it.value * it.price) : esc(it.moneyNote || "—")}</small></div>
       ${prog != null ? `<div><div class="progress"><b style="width:${(prog * 100).toFixed(1)}%"></b></div><div class="sub" style="margin-top:4px">보상 진행률 ${(prog * 100).toFixed(1)}%</div></div>` : ""}
       <dl class="kv">${rows.map(([k, v, pos]) => `<dt>${k}</dt><dd class="${pos ? "pos" : ""}">${v}</dd>`).join("")}</dl>
       ${recs}
