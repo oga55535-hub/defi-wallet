@@ -261,6 +261,7 @@ details.recs td, details.recs th { padding: 5px 6px; }
         <div>
           <div class="label">총 평가액</div>
           <div class="total num" id="total">—</div>
+          <div class="small muted num" id="total-alt" style="margin-top:4px"></div>
           <div class="metrics">
             <div class="metric"><div class="label">지갑 보유</div><div class="v" id="m-wallet">—</div></div>
             <div class="metric"><div class="label">디앱 예치</div><div class="v" id="m-dapp">—</div></div>
@@ -280,6 +281,19 @@ details.recs td, details.recs th { padding: 5px 6px; }
             <div class="cmp" id="cmp"></div>
           </div>
         </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-label="토큰 합계">
+      <div class="tools">
+        <div><h2 style="font-size:16px">토큰 합계</h2><div class="small muted">지갑에 있는 토큰과 디앱에 예치된 토큰을 합친 개수입니다.</div></div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>토큰</th><th class="r hide-sm">지갑</th><th class="r hide-sm">디앱 예치</th><th class="r">총 개수</th><th class="r">원화</th><th class="r">달러</th></tr></thead>
+          <tbody id="sum-rows"></tbody>
+          <tfoot id="sum-foot"></tfoot>
+        </table>
       </div>
     </section>
 
@@ -390,6 +404,9 @@ function fmtMoney(usd) {
   if (state.currency === "krw" && state.usdKrw) return "₩" + Math.round(usd * state.usdKrw).toLocaleString("ko-KR");
   return "$" + usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: Math.abs(usd) < 1 ? 4 : 2 });
 }
+// 통화 선택과 상관없이 원화·달러를 각각 표시
+const fmtKrw = usd => usd == null || !isFinite(usd) || !state.usdKrw ? "—" : "₩" + Math.round(usd * state.usdKrw).toLocaleString("ko-KR");
+const fmtUsd = usd => usd == null || !isFinite(usd) ? "—" : "$" + usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: Math.abs(usd) < 1 ? 4 : 2 });
 function fmtPrice(usd) {
   if (usd == null) return "—";
   if (state.currency === "krw" && state.usdKrw) {
@@ -994,6 +1011,7 @@ function render() {
   // 요약
   const t = state.scope === "all" ? allT : scopeTotals(inScope);
   $("total").textContent = has ? fmtMoney(t.total) : "—";
+  $("total-alt").textContent = has ? (state.currency === "krw" ? fmtUsd(t.total) : fmtKrw(t.total)) : "";
   $("m-wallet").textContent = has ? fmtMoney(t.wallet) : "—";
   $("m-dapp").textContent = has ? fmtMoney(t.dapp) : "—";
   $("m-reward").textContent = has ? fmtMoney(t.reward) : "—";
@@ -1016,6 +1034,7 @@ function render() {
     (perWallet.length ? '<div class="small muted" style="margin-top:6px">진한 부분은 디앱 예치, 옅은 부분은 지갑 보유입니다.</div>' : "");
 
   renderProducts();
+  renderTokenSummary();
   renderTokens();
 
   // 탭
@@ -1066,6 +1085,51 @@ function renderProducts() {
   const pts = o ? sum(Object.entries(o.points).filter(([a]) => state.scope === "all" || a === state.scope), ([, v]) => v) : 0;
   $("prod-note").textContent = (pts > 0 ? `기여 포인트 ${fmtAmount(pts)} · ` : "") +
     "평가액은 각 체인의 LGNS/DAI 유동성 풀 가격으로 계산합니다. 디앱이 화면에 표시하는 이자율은 보장된 수익이 아니며, 블록체인에서 읽을 수 없는 조건은 반영하지 못했습니다.";
+}
+
+// 같은 체인의 같은 토큰을 지갑 보유분 + 디앱 예치분으로 합산
+function renderTokenSummary() {
+  const rows = new Map();
+  const row = (chain, symbol) => {
+    const k = chain + ":" + symbol;
+    if (!rows.has(k)) rows.set(k, { chain, symbol, wallet: 0, dapp: 0, valueUsd: 0, priced: false });
+    return rows.get(k);
+  };
+  for (const h of state.holdings.filter(inScope)) {
+    if (h.flagged || h.valueUsd == null) continue;
+    const r = row(h.chain, h.symbol);
+    r.wallet += h.amount; r.valueUsd += h.valueUsd; r.priced = true;
+  }
+  for (const it of (state.origin?.items || []).filter(inScope)) {
+    if (it.unit === "Power") continue;
+    const amount = it.countValue != null ? it.countValue : it.value;
+    if (!amount) continue;
+    const r = row(it.chain, it.unit);
+    r.dapp += amount;
+    if (it.valueUsd != null) { r.valueUsd += it.valueUsd; r.priced = true; }
+  }
+  const list = [...rows.values()].filter(r => r.wallet + r.dapp > 0).sort((a, b) => b.valueUsd - a.valueUsd);
+  const total = sum(list, r => r.valueUsd);
+  if (!state.wallets.length) {
+    $("sum-rows").innerHTML = `<tr><td colspan="6"><div class="empty">지갑을 추가하면 토큰별 개수와 금액이 나옵니다.</div></td></tr>`;
+    $("sum-foot").innerHTML = ""; return;
+  }
+  if (!list.length) {
+    $("sum-rows").innerHTML = `<tr><td colspan="6"><div class="empty">${state.loading ? '<span class="spin"></span> 불러오는 중입니다' : "표시할 토큰이 없습니다."}</div></td></tr>`;
+    $("sum-foot").innerHTML = ""; return;
+  }
+  $("sum-rows").innerHTML = list.map(r => {
+    const ch = CHAINS[r.chain];
+    return `<tr>
+      <td><div class="tok"><b>${esc(r.symbol)}</b><small><span class="dot" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${ch.color};margin-right:4px"></span>${ch.name}</small></div></td>
+      <td class="r num hide-sm">${r.wallet ? fmtAmount(r.wallet) : "—"}</td>
+      <td class="r num hide-sm">${r.dapp ? fmtAmount(r.dapp) : "—"}</td>
+      <td class="r num"><b>${fmtAmount(r.wallet + r.dapp)}</b></td>
+      <td class="r num">${r.priced ? fmtKrw(r.valueUsd) : "—"}</td>
+      <td class="r num">${r.priced ? fmtUsd(r.valueUsd) : "—"}</td>
+    </tr>`;
+  }).join("");
+  $("sum-foot").innerHTML = `<tr><td><b>합계</b></td><td class="hide-sm"></td><td class="hide-sm"></td><td class="r small muted">토큰 ${list.length}종</td><td class="r num"><b>${fmtKrw(total)}</b></td><td class="r num"><b>${fmtUsd(total)}</b></td></tr>`;
 }
 
 function renderTokens() {
