@@ -1445,7 +1445,7 @@ function renderNtDone(p){
   // 오늘 기준 받을 예정: 진행 중 주문 + (새로 참여한다면) 그 주문
   const nowRem=(ex.nt||[]).reduce((a,s)=>a+s.d*s.left,0)+(startDays?p.startAmt*p.ntMult:0);
   const net=1-FEE.ntSell-FEE.ntAct-p.slip,when=new Date(Date.now()+D*864e5).toLocaleDateString('ko-KR',{year:'numeric',month:'numeric',day:'numeric'});
-  const cashNow=L.cash+L.R+L.ai*L.pA*(1-p.fee-p.slip);
+  const cashNow=L.cash+L.R+L.ai*p.pA0*(1-p.fee-p.slip); // 화면의 ‘꺼낼 현금’은 AiLGNS를 지금 시세로
   // 시뮬레이션에 안 들어간 LGNS (장기 스테이킹 원금·이자, 소각 안 한 지갑 LGNS 등)
   let other=0,otherTxt='';
   if(walletMode()){const o=sumState(scopeWallets());other=Math.max(0,lgnsTotal(o)-(ex.burnA||0)-(ex.burnP||0)-(o.pend+o.extra+o.cw+o.cw2)-o.ntNowL-o.bondNow);
@@ -1513,14 +1513,15 @@ function runPlan(c,scen,obj){
   Object.assign(S,c);S.scen=scen;
   try{
     const {p}=params(),r=simulate(p,S.goal),L=r.last,net=1-FEE.ntSell-FEE.ntAct-p.slip;
-    const liq=L.cash+L.R+L.ai*L.pA*(1-p.fee-p.slip); // 남긴 AiLGNS는 기간 끝 시세로
+    // 플랜 비교 점수는 남긴 AiLGNS를 기간 끝 시세로(시장 가정대로), 화면에 보이는 ‘꺼낼 현금’은 지금 시세로
+    const liq=L.cash+L.R+L.ai*L.pA*(1-p.fee-p.slip),liqShow=L.cash+L.R+L.ai*p.pA0*(1-p.fee-p.slip);
     const ntLater=(r.ntLeft+(r.exNtLeft||0))*net;
     const cashLater=r.csLeft+(r.fundLeft||0)+(p.ntUse==='cash'?ntLater:0);
     const daiLater=r.streamsLeft*net+(p.ntUse!=='cash'?ntLater:0);
     const pv=obj==='cash'?0:POW_VAL;
     // LGNS·본드 자산(보유 LGNS · 본드에서 받을 몫 · 안 돌린 터보란)도 사라지지 않으니 시세로 넣어요. ‘현금’ 목표는 Anubis에서 팔 때(약 52%)로
     const lgv=obj==='cash'?L.lgAssets*.95*.55:L.lgAssets;
-    return {score:liq+cashLater+(obj==='cash'?0:daiLater)+pv*L.P+lgv-L.invested,liq,P:L.P,lg:L.lgAssets,invested:L.invested,cashDay:r.cashDay,xDai:r.xDai,
+    return {liqShow,score:liq+cashLater+(obj==='cash'?0:daiLater)+pv*L.P+lgv-L.invested,liq,P:L.P,lg:L.lgAssets,invested:L.invested,cashDay:r.cashDay,xDai:r.xDai,
       newDai:p.R0+(r.ext||0)+(r.fundInv||0)+(r.startValue||0),ext:r.ext||0,fundInv:r.fundInv||0,R0:p.R0};
   }finally{Object.assign(S,keep);}
 }
@@ -1623,7 +1624,7 @@ function renderAi(){
   box.innerHTML=`<div class="aibest">
     <div class="t">추천: ${describe(b.c)[0]}</div>
     <ul>${describe(b.c).slice(1).map(x=>`<li>${x}</li>`).join('')}</ul>
-    <div class="ainums"><div><span>${objN}</span><b>${fmt(b.score)} DAI</b></div><div><span>${PT[S.days]} 뒤 꺼낼 현금</span><b>${fmt(Math.max(0,m.liq))} DAI</b></div><div><span>남은 Power</span><b>${fmt(m.P)}</b></div></div>
+    <div class="ainums"><div><span>${objN}</span><b>${fmt(b.score)} DAI</b></div><div><span>${PT[S.days]} 뒤 꺼낼 현금</span><b>${fmt(Math.max(0,m.liqShow))} DAI</b></div><div><span>남은 Power</span><b>${fmt(m.P)}</b></div></div>
     <p class="msg" style="margin:0;color:var(--ink)">${m.newDai>0.5?`이 플랜에 새로 넣는 내 DAI: 약 <b>${fmt(m.newDai)} DAI</b> (${[m.R0>0.5?`처음 터빈용 ${fmt(m.R0)}`:'',m.ext>0.5?`매일 터빈 비용 합계 ${fmt(m.ext)} (하루 평균 ${fmt(m.ext/S.days,1)})`:'',m.fundInv>0.5?`신생태 터보 ${fmt(m.fundInv)}`:''].filter(Boolean).join(' · ')}) · 이득은 이 돈을 뺀 값이에요`:'지갑 밖에서 새로 넣는 DAI 없이 돌아가요'}</p>
     <p class="msg" style="margin:0;color:var(--ink)">${same?'이 플랜이 적용돼 있어요 — 아래 결과와 ‘오늘 할 일’이 이 플랜 기준이에요.':`지금 고른 플랜보다 약 <b>${fmt(gain)} DAI</b> 더 이득이에요.`}${m.cashDay&&!noBasis(params().p)?` · 원금은 ${m.cashDay}일째에 찾아요`:''}</p>
     <p class="msg" style="margin:0">시장이 지금처럼 ${fmt(a.all3.keep.score)} · 조금 나빠지면 ${fmt(a.all3.mid.score)} · 많이 나빠지면 ${fmt(a.all3.low.score)} DAI</p>
@@ -1632,7 +1633,7 @@ function renderAi(){
   ${a.extHint?`<div class="note" style="margin-top:8px">지금 지갑 DAI로는 쌓이는 추가이자·터보란을 거의 못 돌려요. <b>매일 내 DAI를 약 ${fmt(a.extHint.main.ext/S.days,1)}씩 (${PT[S.days]} 동안 ${fmt(a.extHint.main.ext)} DAI) 터빈 비용으로 넣으면</b> 이득이 약 ${fmt(a.extHint.score)} DAI까지 커져요 (‘${GOALN.B}’ · ${LBL.xFund(a.extHint.c.xFund)}). 위 조건에서 ‘새 DAI를 더 넣어도 돼요’에 체크하면 이 플랜도 함께 비교해요.</div>`:''}
   <div class="h3" style="margin-top:10px">왜 이 플랜인가요?</div>
   <ul class="why">${whyLines(a).map(x=>`<li>${x.t}</li>`).join('')}${runner?`<li>2등은 ${describe(runner.c).slice(0,3).join(' · ')} (약 ${fmt(b.score-runner.score)} DAI 차이)</li>`:''}</ul>
-  <p class="legend3" style="margin:6px 0 0">❓ 남은 Power는 출금할 수 없어서 1개를 ${POW_VAL} DAI로 쳤어요 (‘꺼낼 수 있는 현금’ 목표는 0). 보유 LGNS·본드에서 받을 몫·안 돌린 터보란은 시세로 넣었어요 (‘현금’ 목표는 Anubis에서 팔 때 약 52%로). ${S.burnOpen?'LGNS 소각은 1개 = 1 DAI × 2배 인정 기준(📢, 아직 안 열림)이에요.':'HELIX LGNS 소각은 아직 안 열린 걸로 계산했어요.'} 하루 한도 경쟁이 심한 ‘DAI로 참여’는 조합에서 뺐어요. 가정에 따른 시뮬레이션이고 수익을 보장하지 않아요.</p>`;
+  <p class="legend3" style="margin:6px 0 0">❓ 남은 Power는 출금할 수 없어서 1개를 ${POW_VAL} DAI로 쳤어요 (‘꺼낼 수 있는 현금’ 목표는 0). ‘꺼낼 현금’의 AiLGNS는 지금 시세로 보여 주지만, 플랜끼리 비교할 때(총 이득)는 시장 가정대로 바뀐 기간 끝 시세로 쳐요. 보유 LGNS·본드에서 받을 몫·안 돌린 터보란은 시세로 넣었어요 (‘현금’ 목표는 Anubis에서 팔 때 약 52%로). ${S.burnOpen?'LGNS 소각은 1개 = 1 DAI × 2배 인정 기준(📢, 아직 안 열림)이에요.':'HELIX LGNS 소각은 아직 안 열린 걸로 계산했어요.'} 하루 한도 경쟁이 심한 ‘DAI로 참여’는 조합에서 뺐어요. 가정에 따른 시뮬레이션이고 수익을 보장하지 않아요.</p>`;
   const ap=$('aiApply');if(ap&&!same)ap.addEventListener('click',()=>applyPlan(b.c));
 }
 // 위쪽 내용 높이가 바뀌어도 보고 있던 곳이 밀리지 않게 해요 (iPhone Safari는 브라우저가 스스로 잡아 주지 않아요)
