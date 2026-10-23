@@ -419,6 +419,7 @@ body.hasbar{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
             <button type="button" class="opt" data-v="mid" aria-pressed="true"><b>조금 나빠짐</b><span>받는 속도 월 -25%, AiLGNS 월 -10%</span></button>
             <button type="button" class="opt" data-v="low" aria-pressed="false"><b>많이 나빠짐</b><span>받는 속도 월 -50%, AiLGNS 월 -25%</span></button>
           </div>
+          <label class="msg" style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;color:var(--ink)"><input type="checkbox" id="ammOn" checked style="margin-top:4px;accent-color:var(--acc)"><span>내가 사고파는 양만큼 가격 움직이기 — LGNS를 살수록 오르고 AiLGNS를 팔수록 내려요 (풀 잔고 기준 · 스왑 수수료 0.3%)<br><small id="ammMeta" style="color:var(--muted)"></small></span></label>
           <div class="grid2">
             <div class="field"><label for="pL">Anubis LGNS 가격 (DAI)</label><input id="pL" type="number" step="0.01" value="0.20"></div>
             <div class="field"><label for="pLP">Polygon LGNS 가격 (DAI)</label><input id="pLP" type="number" step="0.01" value="0.28"></div>
@@ -511,6 +512,8 @@ const COLORS=['#0F7A63','#3B5BA9','#C2557F','#B98A2B','#7B5CD6','#2E93A8','#D06A
 const W={list:store.get('wallets',[]),data:{},loading:false,at:null,rate:null};
 
 const SCEN={keep:[0,0,0],mid:[.25,-.10,.10],low:[.50,-.25,.25]};
+// 10/23 온체인에서 읽은 풀 DAI 잔고 (시세를 못 불러올 때 대신 써요)
+const POOL_DEFAULT={l:32994826,a:18652841};
 // 처음 쓰는 사람도 고를 게 없도록: 다시 넣기는 ‘자동 · 이득 순’, 터보란은 ‘매일 가장 먼저’
 const S={start:'anubis',goal:'C',days:180,scen:'mid',reinv:.8,route:'auto',ntShare:0,xFund:'first',cashVia:'now',bFund:'self',rank:0,ntProd:'2.5|300',ntUse:'lgns',
   mode:store.get('mode',W.list.length?'wallet':'new'),scope:store.get('scope','all'),tab:store.get('tab',W.list.length?'today':'assets')};
@@ -590,6 +593,8 @@ function base(){
     ex.burnA=nv('exBurnA');ex.burnP=nv('exBurnP');}
   if(S.ntShare>0)p.ntShare=S.ntShare;
   if(nv('xCap')>0)p.xCap=nv('xCap');
+  // 풀 가격 영향: 온체인에서 읽은 풀 DAI 잔고 (못 읽었으면 10/23에 읽은 값)
+  if($('ammOn').checked)p.amm={l:(live&&live.lgnsDepth)||POOL_DEFAULT.l,a:(live&&live.aiDepth)||POOL_DEFAULT.a};
   if(S.xFund==='first')p.xFirst=true;
   // 안 돌림: 터보란은 그대로 남겨 두고 계산에서만 빼요
   if(S.xFund==='none'){p.pend=0;if(ex){ex.pendDaily=0;ex.xNow=0;}}
@@ -737,6 +742,7 @@ function render(){
   }
   renderPerWallet(p);
   renderGrow(p);
+  $('ammMeta').textContent=$('ammOn').checked?`LGNS 풀 DAI 약 ${fmt(p.amm.l/1e6,1)}백만 · AiLGNS 풀 DAI 약 ${fmt(p.amm.a/1e6,1)}백만 ${live&&live.lgnsDepth?'✅ '+live.at.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})+' 온체인':'(10/23 값)'} · 다른 사람이 되돌리지 않는다고 보고 내 거래 영향이 다음 날로 이어져요 ❓`:'꺼져 있어요: 사고파는 양과 상관없이 시세(와 시장 가정)대로 계산해요.';
   renderGuide(p,P0,firstCost,r,R3,o);
   renderRank();
 }
@@ -1238,6 +1244,8 @@ async function loadAll(){
 }
 $('loadBtn').addEventListener('click',loadAll);
 $('applyBtn').addEventListener('click',()=>{S.mode='wallet';store.set('mode','wallet');render();$('say').scrollIntoView({behavior:'smooth',block:'center'});});
+$('ammOn').checked=store.get('amm',true);
+$('ammOn').addEventListener('change',()=>{store.set('amm',$('ammOn').checked);aiLast=null;renderAi();render();});
 $('xCap').value=store.get('xCap','');
 $('xCap').addEventListener('input',()=>{store.set('xCap',$('xCap').value);render();});
 function showRate(){
@@ -1260,7 +1268,7 @@ $('xNowMax').addEventListener('click',()=>{const t=turboNeed();$('xNow').value=t
 ['amt','pend','pend2','pL','pLP','pA','R0in','fee','slip','r0','ntFund','rkAvg','rkLine','xNow'].forEach(id=>$(id).addEventListener('input',()=>{render();if(['pA','r0'].includes(id))renderWallets();}));
 
 // ===== 시세 (온체인 풀 잔고로 계산) =====
-let live=null,manual={pL:false,pLP:false,pA:false};
+var live=null,manual={pL:false,pLP:false,pA:false};
 function showLive(note){
   if(!live)return;
   $('priceVals').textContent=`LGNS Anubis $${fmt(live.lgns,4)} · Polygon ${live.lgnsPoly?'$'+fmt(live.lgnsPoly,4):'—'} · AiLGNS $${fmt(live.ailgns,2)}`;
@@ -1304,13 +1312,16 @@ function renderGrow(p){
   $('growLead').innerHTML=`지금 Power <b>${fmt(a.startP)}</b> · 하루 AiLGNS 약 <b>${fq(a.startP*p.r0/pA)}</b>개에서 시작해요 (‘${GOALN[S.goal]}’${S.goal!=='B'?` · 판 돈의 ${fmt(p.reinv*100)}% 다시 넣기`:''} · ${S.grow==='keep'?'시세·비율 그대로':'시장 가정 ‘'+SCN[S.scen]+'’'}).`;
   // 시세가 그대로라는 가정은 다시 넣을수록 끝없이 불어나서, 시장 가정 결과보다 훨씬 크면 경고해요
   if(S.grow==='keep'){const m=simulate(Object.assign({},p,{days}),S.goal).last.P;
-    if(a.last.P>Math.max(3*m,1000))$('growLead').innerHTML+=`<br><span style="color:var(--warn)"><b>참고용 숫자예요.</b> 시세가 1년 내내 그대로라고 보면 다시 넣을 때마다 계속 불어나서 실제보다 훨씬 크게 나와요 (시장 가정 ‘${SCN[S.scen]}’이면 1년 뒤 Power 약 ${fmt(m)}). 실제로는 매일 파는 AiLGNS가 많아질수록 시세가 내리고, 사는 LGNS가 많아질수록 값이 올라요.</span>`;}
+    if(a.last.P>Math.max(3*m,1000))$('growLead').innerHTML+=`<br><span style="color:var(--warn)"><b>참고용 숫자예요.</b> 시세가 1년 내내 그대로라고 보면 다시 넣을 때마다 계속 불어나서 실제보다 훨씬 크게 나와요 (시장 가정 ‘${SCN[S.scen]}’이면 1년 뒤 Power 약 ${fmt(m)}). 풀이 깊어서 내 거래만으로는 가격이 조금밖에 안 움직여요. 실제로 크게 줄이는 건 다른 참여자들도 같이 사고파는 것, 하루 소각·배출 한도, 전체 Power가 늘수록 낮아지는 받는 비율이에요 — 이건 시장 가정으로 봐요.</span>`;}
   $('growTbl').innerHTML=`<thead><tr><th>시점</th><th>Power</th><th>하루 AiLGNS</th><th>소각한 LGNS 누적</th><th>꺼낼 현금 DAI</th><th>신생태 남은 지급</th></tr></thead><tbody>${GROW_AT.map(row).join('')}</tbody>`;
   const A=a.last,N=n.last;
   if(ntCashOnly)$('growNote').textContent='신생태 터보를 현금으로만 받는 선택이라 Power가 쌓이지 않아요.';
   else{const morePow=A.P-N.P,lessCash=N.liquid-A.liquid;
-    $('growNote').innerHTML=morePow>1?`다시 넣으면 1년 뒤 Power가 <b>${fmt(morePow)}</b> 더 많고, 하루에 받는 AiLGNS는 <b>${fmt(N.aiDaily>0?A.aiDaily/N.aiDaily:0,1)}배</b>예요. 대신 그때 꺼낼 현금은 ${lessCash>0?`<b>${fmt(lessCash)} DAI</b> 적어요`:`${fmt(-lessCash)} DAI 더 많아요`}.`
-      :A.P<a.startP?`이 방식에서는 다시 넣는 양보다 매일 나오는 양(0.279%)이 커서 Power가 1년 동안 ${fmt(a.startP)} → ${fmt(A.P)}로 줄어요.`:'다시 넣는 효과가 거의 없어요.';}
+    $('growNote').innerHTML=morePow>1?`다시 넣으면 1년 뒤 Power가 <b>${fmt(morePow)}</b> 더 많고, ${N.aiDaily>1e-9?`하루에 받는 AiLGNS는 <b>${fmt(A.aiDaily/N.aiDaily,1)}배</b>예요`:`다시 안 넣으면 Power가 없어서 받는 AiLGNS도 없어요`}. 대신 그때 꺼낼 현금은 ${lessCash>0?`<b>${fmt(lessCash)} DAI</b> 적어요`:`${fmt(-lessCash)} DAI 더 많아요`}.`
+      :A.P<a.startP?`이 방식에서는 다시 넣는 양보다 매일 나오는 양(0.279%)이 커서 Power가 1년 동안 ${fmt(a.startP)} → ${fmt(A.P)}로 줄어요.`:'다시 넣는 효과가 거의 없어요.';
+    // 내 거래만으로 움직인 가격 (시장 가정 몫은 빼고)
+    if(pb.amm){const mt=x=>Math.pow(1+x,days/30),iL=A.pLnow/(pb.pL0*mt(pb.lChg))-1,iA=A.pAnow/(pb.pA0*mt(pb.aChg))-1;
+      $('growNote').innerHTML+=` 1년 동안 내 거래만으로 LGNS 가격은 <b>${iL>=0?'+':''}${fmt(iL*100,1)}%</b>, AiLGNS 가격은 <b>${iA>=0?'+':''}${fmt(iA*100,1)}%</b> 움직여요 (풀 잔고 기준).`;}}
   renderNtDone(p);
 }
 function renderNtDone(p){

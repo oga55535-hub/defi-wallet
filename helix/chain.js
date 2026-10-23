@@ -94,7 +94,11 @@ async function loadPrices(){
   ]);
   const cid=a.cid&&a.cid.result?parseInt(a.cid.result,16):null;
   if(cid!==null&&cid!==CHAIN_ID)throw new Error(`체인 ID가 ${cid}예요 (기대값 ${CHAIN_ID})`);
-  return {lgns:pairPrice(a.lr,a.lt,A.lgns,9),ailgns:pairPrice(a.ar,a.at,A.ailgns,18),lgnsPoly:pairPrice(p.r,p.t,P.lgns,9),chainId:cid};
+  // 풀의 DAI 잔고 (가격 영향 계산용)
+  const depth=(res,t0,token)=>{if(errOf(res)||errOf(t0))return null;const r=words(res.result),z=words(t0.result);if(r.length<2||!z.length)return null;
+    const tok0='0x'+z[0].toString(16).padStart(40,'0');return units(tok0.toLowerCase()===token.toLowerCase()?r[1]:r[0],18);};
+  return {lgns:pairPrice(a.lr,a.lt,A.lgns,9),ailgns:pairPrice(a.ar,a.at,A.ailgns,18),lgnsPoly:pairPrice(p.r,p.t,P.lgns,9),chainId:cid,
+    lgnsDepth:depth(a.lr,a.lt,A.lgns),aiDepth:depth(a.ar,a.at,A.ailgns)};
 }
 
 // 신생태 터보 OrderView (17칸, 모두 고정 길이): orderId, order{user, principalDai, burnedLgns, capBps, releasedDaiValue, releasedLgns, activatedLgns,

@@ -33,7 +33,18 @@ function simulate(p,pl){
   let pend=p.pend;
   // 일반 터보: DAI로 같은 수량 LGNS를 사면 쌓인 수량과 1+1로 받고, 그 LGNS를 HELIX에 소각
   // 컨트랙트 확인(10/21): 필요한 DAI = LGNS 시세 + 5%(gLGNS 바이백 소각)
-  const oldTurbo=(dai,pL)=>{const unit=pL*(1+FEE.oldTurbo);const m=Math.min(dai/unit,pend);pend-=m;return {pow:4*m*Math.max(pL,1),left:dai-m*unit};};
+  // p.amm={l,a}: LGNS·AiLGNS 풀의 DAI 잔고. 있으면 내가 사고파는 양만큼 가격이 움직이고(상수곱 x·y=k, 스왑 수수료 0.3% — 10/23 라우터 견적으로 확인),
+  // 그 영향(m: 가격 배수)이 다음 날로 이어져요. 시장 가정(월 변화)은 그 위에 곱해요. 없으면 레퍼런스와 똑같이 가격이 거래량과 상관없어요.
+  const AMM=p.amm?{l:{D:p.amm.l,m:1},a:{D:p.amm.a,m:1}}:null,SWAP=.003;
+  let curLb=null,curAb=null; // 그날 시장 가정 가격 (풀 영향 전)
+  const ammCost=(pool,base,q)=>{const v=q*base*pool.m;return v>=pool.D*.999?Infinity:v*pool.D/(pool.D-v)/(1-SWAP);}; // 토큰 q개 사는 DAI (상태 그대로)
+  const ammBuyQty=(pool,base,q)=>{const dai=ammCost(pool,base,q),x=dai*(1-SWAP);pool.m*=Math.pow((pool.D+x)/pool.D,2);pool.D+=x;return dai;}; // q개 사고 DAI 돌려줌
+  const ammBuy=(pool,base,dai)=>{const x=dai*(1-SWAP),q=x/(base*pool.m)*pool.D/(pool.D+x);pool.m*=Math.pow((pool.D+x)/pool.D,2);pool.D+=x;return q;}; // DAI로 산 토큰 수
+  const ammSell=(pool,base,q)=>{const v=q*base*pool.m*(1-SWAP),out=v*pool.D/(pool.D+v);pool.m*=Math.pow(pool.D/(pool.D+v),2);pool.D-=out;return out;}; // 토큰 판 DAI
+  const oldTurbo=(dai,pL)=>{
+    if(AMM&&curLb!=null){const x=dai/(1+FEE.oldTurbo),q0=ammBuy({D:AMM.l.D,m:AMM.l.m},curLb,x),m=Math.min(q0,pend);if(m<=0)return {pow:0,left:dai};
+      const px=curLb*AMM.l.m,spent=ammBuyQty(AMM.l,curLb,m)*(1+FEE.oldTurbo);pend-=m;return {pow:4*m*Math.max(px,1),left:Math.max(0,dai-spent)};}
+    const unit=pL*(1+FEE.oldTurbo);const m=Math.min(dai/unit,pend);pend-=m;return {pow:4*m*Math.max(pL,1),left:dai-m*unit};};
   const ntNet=1-FEE.ntSell-FEE.ntAct-p.slip; // 신생태 터보: 판매 5% + 활성화 1% + 슬리피지
   let ntDaily=0,ntDays=0;
   if(p.startType==='lgns'){const pc=p.lgnsChain==='polygon'?p.pLP0:p.pL0;P=p.startAmt*2*Math.max(pc,1);startValue=p.startAmt*pc;}
@@ -66,8 +77,11 @@ function simulate(p,pl){
   const goalC=startValue+p.R0+(ex.basis||0);
   const series=[];const startP=P;
   for(let t=1;t<=p.days;t++){
-    const pA=p.pA0*Math.pow(1+p.aChg,t/30), pL=p.pL0*Math.pow(1+p.lChg,t/30), r=p.r0*Math.pow(1-p.rDecl,t/30);
-    const lgPow=x=>{lgBurn+=x/pL;return x*2*Math.max(pL,1)/pL;};
+    const pAb=p.pA0*Math.pow(1+p.aChg,t/30), pLb=p.pL0*Math.pow(1+p.lChg,t/30), r=p.r0*Math.pow(1-p.rDecl,t/30);
+    const pA=AMM?pAb*AMM.a.m:pAb, pL=AMM?pLb*AMM.l.m:pLb;
+    if(AMM){curLb=pLb;curAb=pAb;}
+    const lgPow=x=>{if(AMM){const px=pLb*AMM.l.m,q=ammBuy(AMM.l,pLb,x);lgBurn+=q;return q*2*Math.max(px,1);}lgBurn+=x/pL;return x*2*Math.max(pL,1)/pL;};
+    const sellAi=q=>AMM?ammSell(AMM.a,pAb,q*(1-p.fee))*(1-p.slip):q*pA*(1-p.fee-p.slip); // 받은 AiLGNS 팔기
     // auto: 쌓인 터보 수량까지 일반 터보, 남은 DAI는 LGNS 사서 소각
     const autoPow=dai=>{const o=xRun(dai,pL);return o.pow+lgPow(o.left*(1-p.slip));};
     xToday=0;
@@ -87,25 +101,25 @@ function simulate(p,pl){
     if(cs.length){let V=0;cs.forEach(s=>{V+=s.d;s.left--;});cs=cs.filter(s=>s.left>0);cash+=V;}
     const D=P*r;P-=D;
     unc+=D/pA; // 배출된 AiLGNS는 터빈을 돌릴 때까지 쌓여 있어요 (사라지지 않음)
-    const cost=unc*pA*(1+TF+p.slip);
+    const cost=AMM?ammCost(AMM.a,pAb,unc)*(1+TF+p.slip):unc*pA*(1+TF+p.slip);
     let f=1;
-    if(pl==='B'&&p.bFund==='ext'){ext+=cost;}
-    else{f=cost>0?Math.min(1,R/cost):1;R-=cost*f;}
+    if(pl==='B'&&p.bFund==='ext'){ext+=cost;if(AMM&&unc>0)ammBuyQty(AMM.a,pAb,unc);}
+    else{f=cost>0?Math.min(1,R/cost):1;if(AMM){if(unc*f>0)R-=ammBuyQty(AMM.a,pAb,unc*f)*(1+TF+p.slip);}else R-=cost*f;}
     const claimed=unc*f;unc-=claimed;
     const got=2*claimed;
     let lock=0;
     if(p.rankOn&&ve*pA<p.veTarget){lock=got*p.veRatio;ve+=lock;}
     const rest=got-lock, net=pA*(1-p.fee-p.slip);
     if(pl==='B'){
-      if(p.bFund==='self'){const need=cost;const sq=Math.min(rest,need/net);R+=sq*net;ai+=rest-sq;}
-      else if(p.bFund==='nt'){const sq=Math.min(rest,Math.max(0,cost-R)/net);R+=sq*net;ai+=rest-sq;const tg=Math.max(p.R0,cost*1.2);if(R>tg){cash+=R-tg;R=tg;}}
+      if(p.bFund==='self'){const need=cost;const sq=Math.min(rest,need/net);R+=AMM?sellAi(sq):sq*net;ai+=rest-sq;}
+      else if(p.bFund==='nt'){const sq=Math.min(rest,Math.max(0,cost-R)/net);R+=AMM?sellAi(sq):sq*net;ai+=rest-sq;const tg=Math.max(p.R0,cost*1.2);if(R>tg){cash+=R-tg;R=tg;}}
       else ai+=rest;
       // 터보란 먼저: 남는 DAI → 모자라면 받은 AiLGNS를 팔아서
       if(p.xFirst&&pend>0){const need=pend*pL*(1+FEE.oldTurbo);let dai=Math.min(need,Math.max(0,R-Math.max(p.R0,cost*1.2)));R-=dai;
-        if(dai<need&&ai>0){const q=Math.min(ai,(need-dai)/net);ai-=q;dai+=q*net;}
+        if(dai<need&&ai>0){const q=Math.min(ai,(need-dai)/net);ai-=q;dai+=AMM?sellAi(q):q*net;}
         if(dai>0){const o=xRun(dai,pL);pending+=o.pow;R+=o.left;}}
     }else{
-      R+=rest*net;
+      R+=AMM?sellAi(rest):rest*net;
       const target=Math.max(p.R0,cost*1.2);
       let sur=Math.max(0,R-target);R-=sur;
       if(p.xFirst&&pend>0&&sur>0){const o=xRun(sur,pL);pending+=o.pow;sur=o.left;}
@@ -130,7 +144,8 @@ function simulate(p,pl){
     // 신생태 터보에서 앞으로 받을 DAI 가치: 처음 참여분 + 진행 중 주문 + 다시 넣어서 생긴 주문 + 현금 몫 주문
     const sumL=a=>a.reduce((s,x)=>s+x.d*x.left,0);
     const ntRemain=(t<ntDays?ntDaily*(ntDays-t):0)+sumL(exNt)+sumL(streams)+sumL(cs)+sumL(fs);
-    series.push({t,P,D,cost,cash,R,ai,ve,veVal:ve*pA,pA,pL,r,invested,liquid,burned:lgBurn,ntRemain,aiDaily:D/pA});
+    series.push({t,P,D,cost,cash,R,ai,ve,veVal:ve*pA,pA,pL,r,invested,liquid,burned:lgBurn,ntRemain,aiDaily:D/pA,
+      pAnow:AMM?pAb*AMM.a.m:pA,pLnow:AMM?pLb*AMM.l.m:pL});
   }
   return {series,last:series[series.length-1],startValue,startP,missed:unc*series[series.length-1].pA,uncQty:unc,pendLeft:pend,ntOut,ntLeft:ntDays>p.days?(ntDays-p.days)*ntDaily:0,csLeft:cs.reduce((a,s)=>a+s.d*s.left,0),fundLeft:fs.reduce((a,x)=>a+x.d*x.left,0),fundInv,cashDay,veDay,ext,streamsLeft:streams.reduce((a,s)=>a+s.d*s.left,0),exNtLeft:exNt.reduce((a,s)=>a+s.d*s.left,0),ntIn,xDai,xLgns,xDay};
 }
