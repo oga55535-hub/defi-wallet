@@ -43,6 +43,9 @@ function simulate(p,pl){
   if(ex.power)P+=ex.power;
   if(ex.burnA)P+=ex.burnA*2*Math.max(p.pL0,1);
   if(ex.burnP)P+=ex.burnP*2*Math.max(p.pLP0,1);
+  // HELIX에 소각한 LGNS 누적 (새로 산 것 + 터보 1+1 + 지갑 LGNS). 계산 결과에는 영향 없이 세기만 해요
+  let lgBurn=(p.startType==='lgns'?p.startAmt:0)+(ex.burnA||0)+(ex.burnP||0);
+  if(p.startType==='turbo')lgBurn+=2*(p.pend-pend);
   const fundInv=(pl==='B'&&p.bFund==='nt')?(p.ntFundIn!==''&&p.ntFundIn!=null?Math.max(0,+p.ntFundIn):autoFund(p,P)):0;
   let fs=fundInv>0?[{d:fundInv*2.5/300*(1-FEE.ntSell-FEE.ntAct-p.slip),left:300}]:[];
   let R=p.R0,cash=0,ai=0,ve=0,ext=0,unc=0,pending=0,streams=[],cashDay=null,veDay=null,ntOut=0,cs=[],ntIn=0;
@@ -50,9 +53,9 @@ function simulate(p,pl){
   let xDai=0,xLgns=0,xDay=null,xToday=0; // 터보란을 돌리는 데 쓴 DAI, 1+1로 받은 LGNS, 처음 쌓여 있던 양을 다 돌린 날, 오늘 쓴 DAI
   // p.xCap: 하루에 터보란에 쓰는 DAI 최대. 넘는 DAI는 쓰지 않고 돌려줘요 (터보란은 남아 있다가 다음 날 이어서)
   const xRun=(dai,pL,noCap)=>{
-    if(!(p.xCap>0)||noCap){const before=pend,o=oldTurbo(dai,pL),m=before-pend;xDai+=dai-o.left;xToday+=dai-o.left;xLgns+=2*m;return o;}
+    if(!(p.xCap>0)||noCap){const before=pend,o=oldTurbo(dai,pL),m=before-pend;xDai+=dai-o.left;xToday+=dai-o.left;xLgns+=2*m;lgBurn+=2*m;return o;}
     const use=Math.min(dai,Math.max(0,p.xCap-xToday)),before=pend,o=oldTurbo(use,pL),m=before-pend,spent=use-o.left;
-    xDai+=spent;xToday+=spent;xLgns+=2*m;return {pow:o.pow,left:dai-spent};};
+    xDai+=spent;xToday+=spent;xLgns+=2*m;lgBurn+=2*m;return {pow:o.pow,left:dai-spent};};
   if(ex.xNow>0&&pend>0){const d0=Math.min(ex.xNow,R),o=xRun(d0,p.pL0,true);R-=d0-o.left;pending+=o.pow;} // 받은 LGNS는 첫날 소각
   if(ex.ai)ai+=ex.ai;
   if(ex.unc)unc+=ex.unc;
@@ -64,7 +67,7 @@ function simulate(p,pl){
   const series=[];const startP=P;
   for(let t=1;t<=p.days;t++){
     const pA=p.pA0*Math.pow(1+p.aChg,t/30), pL=p.pL0*Math.pow(1+p.lChg,t/30), r=p.r0*Math.pow(1-p.rDecl,t/30);
-    const lgPow=x=>x*2*Math.max(pL,1)/pL;
+    const lgPow=x=>{lgBurn+=x/pL;return x*2*Math.max(pL,1)/pL;};
     // auto: 쌓인 터보 수량까지 일반 터보, 남은 DAI는 LGNS 사서 소각
     const autoPow=dai=>{const o=xRun(dai,pL);return o.pow+lgPow(o.left*(1-p.slip));};
     xToday=0;
@@ -124,7 +127,10 @@ function simulate(p,pl){
     if(cashDay===null&&liquid>=invested)cashDay=t;
     if(p.rankOn&&veDay===null&&ve*pA>=p.veTarget)veDay=t;
     if(xDay===null&&pend<=(ex.pendDaily||0)+1e-9)xDay=t;
-    series.push({t,P,D,cost,cash,R,ai,ve,veVal:ve*pA,pA,pL,r,invested,liquid});
+    // 신생태 터보에서 앞으로 받을 DAI 가치: 처음 참여분 + 진행 중 주문 + 다시 넣어서 생긴 주문 + 현금 몫 주문
+    const sumL=a=>a.reduce((s,x)=>s+x.d*x.left,0);
+    const ntRemain=(t<ntDays?ntDaily*(ntDays-t):0)+sumL(exNt)+sumL(streams)+sumL(cs)+sumL(fs);
+    series.push({t,P,D,cost,cash,R,ai,ve,veVal:ve*pA,pA,pL,r,invested,liquid,burned:lgBurn,ntRemain,aiDaily:D/pA});
   }
   return {series,last:series[series.length-1],startValue,startP,missed:unc*series[series.length-1].pA,uncQty:unc,pendLeft:pend,ntOut,ntLeft:ntDays>p.days?(ntDays-p.days)*ntDaily:0,csLeft:cs.reduce((a,s)=>a+s.d*s.left,0),fundLeft:fs.reduce((a,x)=>a+x.d*x.left,0),fundInv,cashDay,veDay,ext,streamsLeft:streams.reduce((a,s)=>a+s.d*s.left,0),exNtLeft:exNt.reduce((a,s)=>a+s.d*s.left,0),ntIn,xDai,xLgns,xDay};
 }
