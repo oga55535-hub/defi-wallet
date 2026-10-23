@@ -185,6 +185,11 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .ainums span{display:block;font-size:12px;color:var(--muted)}
 .ainums b{font:700 15px var(--f-num);overflow-wrap:anywhere}
 @media (max-width:380px){.ainums{grid-template-columns:minmax(0,1fr)}}
+.stepn{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--acc);color:#fff;font:800 13px var(--f-num);margin-right:6px;vertical-align:2px}
+.cons{display:flex;flex-direction:column;gap:6px}
+.cons label{display:flex;gap:8px;align-items:flex-start;cursor:pointer;font-size:14.5px}
+.cons input{margin-top:4px;accent-color:var(--acc);flex:none}
+.cons small{display:block;color:var(--muted);font-size:12.5px}
 .why{font-size:13.5px;margin:0;padding-left:18px}
 .why li{margin-bottom:3px}
 .routine li.done span{opacity:.55;text-decoration:line-through}
@@ -291,9 +296,11 @@ body.hasbar{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
 
   <!-- ===== 계산해보기 ===== -->
   <div class="panel" id="pCalc" role="tabpanel" aria-labelledby="tab-calc" hidden>
+    <!-- 1. 조건: 사실과 꼭 지킬 것만 먼저 물어요 -->
     <section class="q" id="startSec">
-      <h2>무엇으로 계산할까요?</h2>
-      <div class="mode" id="gMode"><button type="button" class="chip" data-v="wallet" aria-pressed="false">내 지갑 현황</button> <button type="button" class="chip" data-v="new" aria-pressed="true">새로 시작 (지갑 없이)</button></div>
+      <h2><span class="stepn">1</span>조건</h2>
+      <p class="sub" style="margin:0">여기서 답한 조건 안에서 가장 이득인 플랜을 찾아요.</p>
+      <div class="row"><span class="lb">무엇으로 계산할까요?</span><span class="mode" id="gMode"><button type="button" class="chip" data-v="wallet" aria-pressed="false">내 지갑 현황</button> <button type="button" class="chip" data-v="new" aria-pressed="true">새로 시작 (지갑 없이)</button></span></div>
       <div id="walletStart" hidden>
         <p class="sub" style="margin:0" id="scopeHint"></p>
         <details id="exBox">
@@ -310,8 +317,8 @@ body.hasbar{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
             <div class="field"><label for="exCwDaily">옛 방식 하루 새 적립 LGNS (10/7 이후 0) <i class="tag" id="tCwD">✅</i></label><input id="exCwDaily" type="number" min="0" step="any" inputmode="decimal"></div>
             <div class="field"><label for="exCw2">거미망 보상 · 새 방식 (10/12부터 · 청구하면 새 터빈 → 활성화 1% → 24시간 → 판매 5%) <i class="tag">✅</i></label><input id="exCw2" type="number" min="0" step="any" inputmode="decimal"></div>
             <div class="field"><label for="exCw2Daily">새 방식 하루 새 적립 LGNS <i class="tag" id="tCw2D">✅</i></label><input id="exCw2Daily" type="number" min="0" step="any" inputmode="decimal"></div>
-            <div class="field"><label for="exBurnA">지갑 Anubis LGNS 중 넣을 수 (소각 열리면 HELIX, 아니면 위에서 고른 곳) <i class="tag">✅</i></label><input id="exBurnA" type="number" min="0" step="any" inputmode="decimal"></div>
-            <div class="field"><label for="exBurnP">지갑 Polygon LGNS 중 넣을 수 (아니면 픽스본드) <i class="tag">✅</i></label><input id="exBurnP" type="number" min="0" step="any" inputmode="decimal" placeholder="0"></div>
+            <div class="field"><label for="exBurnA">지갑 Anubis LGNS 중 쓸 수 <i class="tag">✅</i></label><input id="exBurnA" type="number" min="0" step="any" inputmode="decimal"></div>
+            <div class="field"><label for="exBurnP">지갑 Polygon LGNS 중 쓸 수 <i class="tag">✅</i></label><input id="exBurnP" type="number" min="0" step="any" inputmode="decimal" placeholder="0"></div>
             <div class="field"><label for="exBondRem">본드 남은 지급 (소각 본드 + 픽스본드, DAI 가치) <i class="tag">✅</i></label><input id="exBondRem" type="number" min="0" step="any" inputmode="decimal"></div>
             <div class="field"><label for="exBondDaily">본드 하루 지급 (DAI 가치) <i class="tag">✅</i></label><input id="exBondDaily" type="number" min="0" step="any" inputmode="decimal"></div>
             <div class="field"><label for="exBondNow">본드에서 지금 청구할 LGNS <i class="tag">✅</i></label><input id="exBondNow" type="number" min="0" step="any" inputmode="decimal"></div>
@@ -324,43 +331,29 @@ body.hasbar{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
           <p class="legend3" style="margin:4px 0 0">✅ 온체인에서 직접 읽은 값 · 📢 운영 측 안내 · ❓ 가정·미확인</p>
         </details>
         <div class="field" style="margin-top:6px"><label for="exBasis">이미 들인 원금 DAI (알면 적어요 · 원금 찾는 날 계산용)</label><input id="exBasis" type="number" min="0" step="any" inputmode="decimal" placeholder="모르면 비워 두세요"></div>
-        <div class="more" id="moreExNt" hidden>
-          <div class="row"><span class="lb">진행 중인 신생태 터보에서 풀려서 판 돈은 어디에?</span><span data-key="ntUse"><button type="button" class="chip" data-v="turbo" aria-pressed="false">일반 터보 → 소각</button> <button type="button" class="chip" data-v="lgns" aria-pressed="true">LGNS 사서 소각</button> <button type="button" class="chip" data-v="helix" aria-pressed="false">HELIX에 DAI 참여</button> <button type="button" class="chip" data-v="cash" aria-pressed="false">현금으로</button></span></div>
-        </div>
       </div>
+      <div class="row"><span class="lb">HELIX LGNS 소각은 열렸나요?</span><span id="gBurn"><button type="button" class="chip" data-v="closed" aria-pressed="true">아직 안 열림</button> <button type="button" class="chip" data-v="open" aria-pressed="false">열렸다고 보고 (1개 = 1 DAI × 2배 📢)</button></span></div>
+      <div class="row" id="gDays"><span class="lb">기간</span><button type="button" class="chip" data-v="30" aria-pressed="false">1개월</button> <button type="button" class="chip" data-v="90" aria-pressed="false">3개월</button> <button type="button" class="chip" data-v="180" aria-pressed="true">6개월</button> <button type="button" class="chip" data-v="365" aria-pressed="false">1년</button></div>
+      <div class="cons">
+        <span class="lb">이건 괜찮아요 (체크한 것만 추천에 넣어요)</span>
+        <label><input type="checkbox" id="okBond" checked><span>본드에 묶여도 돼요 <small>소각 본드·픽스본드는 약 290~310일 동안 나눠 받아요</small></span></label>
+        <label><input type="checkbox" id="okNt" checked><span>신생태 터보에 넣어도 돼요 <small>300~500일 동안 나눠 받아요</small></span></label>
+        <label><input type="checkbox" id="okSell"><span>LGNS를 Anubis에서 팔아도 돼요 <small>판매세 5% 뒤 45% → 약 48%가 수수료</small></span></label>
+        <label><input type="checkbox" id="aiExt"><span>지갑 밖에서 새 DAI를 더 넣어도 돼요 <small>매일 터빈 비용을 내 DAI로 · 신생태 터보에 새 DAI</small></span></label>
+      </div>
+      <div class="row"><span class="lb">무엇을 가장 크게?</span><span id="gObj"><button type="button" class="chip" data-v="total" aria-pressed="true">총 이득 (현금 + 남은 자산)</button> <button type="button" class="chip" data-v="cash" aria-pressed="false">꺼낼 수 있는 현금</button> <button type="button" class="chip" data-v="safe" aria-pressed="false">시장이 나빠져도 안전하게</button></span></div>
+      <div class="row"><button type="button" class="btn" id="aiRun">추천 플랜 찾기</button><span class="msg" id="aiMeta"></span></div>
     </section>
 
+    <!-- 2. 추천 플랜: 조건 안에서 가장 이득인 조합 (LGNS 쓰는 곳도 플랜의 일부) -->
     <section class="q" id="aiSec">
-      <h2>최적 플랜 추천</h2>
-      <p class="sub" style="margin:0">지금 현황으로 고를 수 있는 방법을 전부 시뮬레이션해서, 가장 이득인 플랜을 골라 드려요.</p>
-      <div class="row"><span class="lb">무엇을 가장 크게?</span><span id="gObj"><button type="button" class="chip" data-v="total" aria-pressed="true">총 이득 (현금 + 남은 Power)</button> <button type="button" class="chip" data-v="cash" aria-pressed="false">꺼낼 수 있는 현금</button> <button type="button" class="chip" data-v="safe" aria-pressed="false">시장이 나빠져도 안전하게</button></span></div>
-      <label class="msg" style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;color:var(--ink)"><input type="checkbox" id="aiExt" style="margin-top:4px;accent-color:var(--acc)"><span>내 DAI를 더 넣는 플랜도 비교하기 (매일 터빈 비용을 내 DAI로 · 신생태 터보에 새 DAI) — 끄면 지금 지갑에 있는 것만으로 돌려요</span></label>
-      <div class="row"><button type="button" class="btn" id="aiRun">최적 플랜 찾기</button><span class="msg" id="aiMeta"></span></div>
+      <h2><span class="stepn">2</span>추천 플랜</h2>
+      <p class="sub" style="margin:0" id="aiEmpty">위 조건으로 ‘추천 플랜 찾기’를 누르면 가장 이득인 방법을 골라서 아래 결과와 ‘오늘 할 일’에 바로 적용해요.</p>
       <div id="aiOut" hidden></div>
     </section>
 
-    <section class="q" id="lgSec">
-      <h2>LGNS는 어떻게 쓸까요?</h2>
-      <div class="row"><span class="lb">HELIX LGNS 소각</span><span id="gBurn"><button type="button" class="chip" data-v="closed" aria-pressed="true">아직 안 열림 · 지금 되는 것만</button> <button type="button" class="chip" data-v="open" aria-pressed="false">열렸다고 보고 (1개 = 1 DAI × 2배 📢)</button></span></div>
-      <div class="more" id="sinkRows" style="border:0;padding:0">
-        <div class="row"><span class="lb">Anubis LGNS (터보로 받은 것 · 지갑 LGNS · LGNS 매수)</span><span id="gLgDest"><button type="button" class="chip" data-v="bond" aria-pressed="true">소각 본드 (LGNS 230% · DAI 250%)</button> <button type="button" class="chip" data-v="hold" aria-pressed="false">그대로 보유</button></span></div>
-        <div class="row" id="polyRow"><span class="lb">Polygon LGNS</span><span id="gPolyDest"><button type="button" class="chip" data-v="fixed" aria-pressed="true">픽스본드 (1 LGNS = 1 DAI × 200%)</button> <button type="button" class="chip" data-v="hold" aria-pressed="false">그대로 보유</button></span></div>
-      </div>
-      <div class="row"><span class="lb">본드에서 매일 풀리는 LGNS</span><span id="gRel"><button type="button" class="chip" data-v="hold" aria-pressed="true">보유</button> <button type="button" class="chip" data-v="rebond" aria-pressed="false">다시 소각 본드</button> <button type="button" class="chip" data-v="sell" aria-pressed="false">Anubis에서 팔기 (약 48% 수수료)</button> <button type="button" class="chip" data-v="helix" aria-pressed="false" id="relHelix">HELIX 소각</button></span></div>
-      <p class="sub" style="margin:0" id="lgHint"></p>
-    </section>
-
-    <section class="q" id="goalSec">
-      <h2>무엇이 가장 중요해요?</h2>
-      <div class="opts" id="qGoal">
-        <button type="button" class="opt" data-v="C" aria-pressed="true"><b>원금 먼저</b><span>들인 돈부터 찾기</span></button>
-        <button type="button" class="opt" data-v="A" aria-pressed="false"><b>많이 모으기</b><span>매일 다시 넣어 불리기</span></button>
-        <button type="button" class="opt" data-v="B" aria-pressed="false"><b>편하게</b><span>AiLGNS 모아두기</span></button>
-      </div>
-      <div class="row" id="gDays"><span class="lb">기간</span><button type="button" class="chip" data-v="30" aria-pressed="false">1개월</button> <button type="button" class="chip" data-v="90" aria-pressed="false">3개월</button> <button type="button" class="chip" data-v="180" aria-pressed="true">6개월</button> <button type="button" class="chip" data-v="365" aria-pressed="false">1년</button></div>
-    </section>
-
     <section class="answer" aria-live="polite">
+      <p class="small" style="opacity:.75;margin:0" id="ansTitle">지금 플랜으로 하면</p>
       <p class="say" id="say"></p>
       <div class="nums" id="nums"></div>
       <p class="small">⚠️ 가정에 따른 시뮬레이션일 뿐이에요. 실제 결과는 시장과 규칙 변경에 따라 크게 달라질 수 있고, 수익을 보장하지 않아요.</p>
@@ -374,31 +367,33 @@ body.hasbar{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
       <p class="sub" style="margin:8px 0 0" id="growNote"></p>
       <div class="h3">신생태 터보를 다 받으면</div>
       <div id="ntDone"></div>
-      <p class="legend3" style="margin:8px 0 0">회색 작은 숫자는 판 돈을 다시 넣지 않고(터보란도 안 돌리고) 현금으로 둘 때예요. 소각은 1개 = 1 DAI × 2배 인정 기준(📢, 소각 탭 오픈 전)이고, 매일 사는 LGNS가 많으면 실제로는 매수 가격이 올라 이보다 적게 쌓여요. 수익을 보장하지 않아요.</p>
+      <p class="legend3" style="margin:8px 0 0">회색 작은 숫자는 판 돈을 다시 넣지 않고(터보란도 안 돌리고) 현금으로 둘 때예요. 매일 사는 LGNS가 많으면 실제로는 매수 가격이 올라 이보다 적게 쌓여요. 수익을 보장하지 않아요.</p>
     </section>
 
+    <!-- 3. 직접 바꿔 보기: 추천을 출발점으로 하나씩 바꾸면 결과가 바로 바뀌어요 -->
     <details class="ref" id="advBox">
-      <summary>자세히 설정 <span class="legend3">새로 더 넣기 · 다시 넣는 방법 · 터보란 · 시장 가정 · 가격</span></summary>
+      <summary><span class="stepn">3</span>직접 바꿔 보기 <span class="legend3">방식 · LGNS 쓰는 곳 · 다시 넣는 방법 · 새로 더 넣기 · 시장 가정</span></summary>
       <div class="adv">
-        <section class="q">
-          <h2><span id="q1T">무엇으로 시작하나요?</span></h2>
-          <div class="opts" id="qStart">
-            <button type="button" class="opt" data-v="anubis" aria-pressed="true"><b>Anubis LGNS</b><span id="sA">HELIX에 소각</span></button>
-            <button type="button" class="opt" data-v="polygon" aria-pressed="false"><b>Polygon LGNS</b><span id="sP">HELIX에 소각</span></button>
-            <button type="button" class="opt" data-v="dai" aria-pressed="false"><b>DAI</b><span>HELIX에 바로 참여</span></button>
-            <button type="button" class="opt" data-v="turbo" aria-pressed="false"><b>DAI → 일반 터보</b><span>터보란이 있는 분</span></button>
-            <button type="button" class="opt" data-v="newturbo" aria-pressed="false"><b>DAI → 신생태 터보</b><span>12시간마다 나눠 받기</span></button>
+        <p class="sub" style="margin:0">추천 플랜에서 하나씩 바꿔 보면 위 결과와 ‘오늘 할 일’이 바로 바뀌어요.</p>
+        <section class="q" id="goalSec">
+          <h2>방식</h2>
+          <div class="opts" id="qGoal">
+            <button type="button" class="opt" data-v="C" aria-pressed="true"><b>원금 먼저</b><span>들인 돈부터 찾기</span></button>
+            <button type="button" class="opt" data-v="A" aria-pressed="false"><b>많이 모으기</b><span>매일 다시 넣어 불리기</span></button>
+            <button type="button" class="opt" data-v="B" aria-pressed="false"><b>편하게</b><span>AiLGNS 모아두기</span></button>
           </div>
-          <h2 id="amtT" style="margin-top:6px">몇 개 넣을까요?</h2>
-          <div class="amt"><input id="amt" type="number" min="0" inputmode="decimal" value="10000" aria-label="수량"><span id="unit">개</span></div>
-          <div class="row" id="chips"></div>
-          <p class="sub" style="margin:0" id="amtHint" hidden></p>
-          <div class="more" id="moreTurbo" hidden>
-            <div class="field"><label for="pend">일반 터보에 쌓인 LGNS 수량 (Anubis 터보 화면의 ‘터보차저’ 수량)</label><input id="pend" type="number" min="0" inputmode="decimal" value="10000"></div>
+        </section>
+
+        <section class="q" id="lgSec">
+          <h2>LGNS 쓰는 곳</h2>
+          <div class="more" id="sinkRows" style="border:0;padding:0">
+            <div class="row"><span class="lb">Anubis LGNS (터보로 받은 것 · 지갑 LGNS · LGNS 매수)</span><span id="gLgDest"><button type="button" class="chip" data-v="bond" aria-pressed="true">소각 본드 (LGNS 230% · DAI 250%)</button> <button type="button" class="chip" data-v="hold" aria-pressed="false">그대로 보유</button></span></div>
+            <div class="row" id="polyRow"><span class="lb">Polygon LGNS</span><span id="gPolyDest"><button type="button" class="chip" data-v="fixed" aria-pressed="true">픽스본드 (1 LGNS = 1 DAI × 200%)</button> <button type="button" class="chip" data-v="hold" aria-pressed="false">그대로 보유</button></span></div>
           </div>
-          <div class="more" id="moreNT" hidden>
-            <div class="row"><span class="lb">신생태 터보 상품</span><span data-key="ntProd"><button type="button" class="chip" data-v="2.5|300" aria-pressed="true">2.5배 · 300일</button> <button type="button" class="chip" data-v="4|500" aria-pressed="false">4배 · 500일</button></span></div>
-            <div class="row"><span class="lb">풀려서 판 돈은 어디에?</span><span data-key="ntUse"><button type="button" class="chip" data-v="turbo" aria-pressed="false">일반 터보 → 소각</button> <button type="button" class="chip" data-v="lgns" aria-pressed="true">LGNS 사서 소각</button> <button type="button" class="chip" data-v="helix" aria-pressed="false">HELIX에 DAI 참여</button> <button type="button" class="chip" data-v="cash" aria-pressed="false">현금으로</button></span></div>
+          <div class="row"><span class="lb">본드에서 매일 풀리는 LGNS</span><span id="gRel"><button type="button" class="chip" data-v="hold" aria-pressed="true">보유</button> <button type="button" class="chip" data-v="rebond" aria-pressed="false">다시 소각 본드</button> <button type="button" class="chip" data-v="sell" aria-pressed="false">Anubis에서 팔기 (약 48% 수수료)</button> <button type="button" class="chip" data-v="helix" aria-pressed="false" id="relHelix">HELIX 소각</button></span></div>
+          <p class="sub" style="margin:0" id="lgHint"></p>
+          <div class="more" id="moreExNt" hidden>
+            <div class="row"><span class="lb">진행 중인 신생태 터보·거미망(새 방식)에서 풀려서 판 돈은 어디에?</span><span data-key="ntUse"><button type="button" class="chip" data-v="turbo" aria-pressed="false">일반 터보 → 소각</button> <button type="button" class="chip" data-v="lgns" aria-pressed="true">LGNS 사서 소각</button> <button type="button" class="chip" data-v="helix" aria-pressed="false">HELIX에 DAI 참여</button> <button type="button" class="chip" data-v="cash" aria-pressed="false">현금으로</button></span></div>
           </div>
         </section>
 
@@ -425,6 +420,28 @@ body.hasbar{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
           </div>
           <div class="more">
             <div class="row"><span class="lb">직급도 준비할까요? (받은 AiLGNS의 30%를 ve로 잠가요)</span><span id="gRank"><button type="button" class="chip" data-v="0" aria-pressed="true">아니요</button> <button type="button" class="chip" data-v="1000" aria-pressed="false">P1</button> <button type="button" class="chip" data-v="3000" aria-pressed="false">P2</button> <button type="button" class="chip" data-v="5000" aria-pressed="false">P3</button></span></div>
+          </div>
+        </section>
+
+        <section class="q">
+          <h2><span id="q1T">새로 더 넣기</span></h2>
+          <div class="opts" id="qStart">
+            <button type="button" class="opt" data-v="anubis" aria-pressed="true"><b>Anubis LGNS</b><span id="sA">HELIX에 소각</span></button>
+            <button type="button" class="opt" data-v="polygon" aria-pressed="false"><b>Polygon LGNS</b><span id="sP">HELIX에 소각</span></button>
+            <button type="button" class="opt" data-v="dai" aria-pressed="false"><b>DAI</b><span>HELIX에 바로 참여</span></button>
+            <button type="button" class="opt" data-v="turbo" aria-pressed="false"><b>DAI → 일반 터보</b><span>터보란이 있는 분</span></button>
+            <button type="button" class="opt" data-v="newturbo" aria-pressed="false"><b>DAI → 신생태 터보</b><span>12시간마다 나눠 받기</span></button>
+          </div>
+          <h2 id="amtT" style="margin-top:6px">몇 개 넣을까요?</h2>
+          <div class="amt"><input id="amt" type="number" min="0" inputmode="decimal" value="10000" aria-label="수량"><span id="unit">개</span></div>
+          <div class="row" id="chips"></div>
+          <p class="sub" style="margin:0" id="amtHint" hidden></p>
+          <div class="more" id="moreTurbo" hidden>
+            <div class="field"><label for="pend">일반 터보에 쌓인 LGNS 수량 (Anubis 터보 화면의 ‘터보차저’ 수량)</label><input id="pend" type="number" min="0" inputmode="decimal" value="10000"></div>
+          </div>
+          <div class="more" id="moreNT" hidden>
+            <div class="row"><span class="lb">신생태 터보 상품</span><span data-key="ntProd"><button type="button" class="chip" data-v="2.5|300" aria-pressed="true">2.5배 · 300일</button> <button type="button" class="chip" data-v="4|500" aria-pressed="false">4배 · 500일</button></span></div>
+            <div class="row"><span class="lb">풀려서 판 돈은 어디에?</span><span data-key="ntUse"><button type="button" class="chip" data-v="turbo" aria-pressed="false">일반 터보 → 소각</button> <button type="button" class="chip" data-v="lgns" aria-pressed="true">LGNS 사서 소각</button> <button type="button" class="chip" data-v="helix" aria-pressed="false">HELIX에 DAI 참여</button> <button type="button" class="chip" data-v="cash" aria-pressed="false">현금으로</button></span></div>
           </div>
         </section>
 
@@ -679,7 +696,7 @@ function render(){
   $('gMode').querySelectorAll('[data-v]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===S.mode));
   $('walletStart').hidden=!wm;
   renderScope();
-  $('q1T').textContent=wm?'지갑 자산 말고 새로 더 넣는다면, 무엇으로? (안 넣으면 2번에서 ‘추가 없이’)':'무엇으로 시작하나요?';
+  $('q1T').textContent=wm?'지갑 자산 말고 새로 더 넣는다면, 무엇으로? (안 넣으면 아래에서 ‘추가 없이’)':'무엇으로 시작하나요?';
   $('amtT').textContent=wm?(lg?'새로 사서 더 넣을 LGNS는 몇 개?':'새로 더 넣을 DAI는 얼마?'):(lg?'LGNS를 몇 개 넣을까요?':'DAI를 얼마 넣을까요?');$('unit').textContent=lg?'개':'DAI';
   const list=lg?[1000,5000,10000,50000]:[500,1000,3000,10000];
   let chips=(wm?[0]:[]).concat(list);
@@ -785,6 +802,7 @@ function render(){
   $('ammMeta').textContent=$('ammOn').checked?`LGNS 풀 DAI 약 ${fmt(p.amm.l/1e6,1)}백만 · AiLGNS 풀 DAI 약 ${fmt(p.amm.a/1e6,1)}백만 ${live&&live.lgnsDepth?'✅ '+live.at.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})+' 온체인':'(10/23 값)'} · 다른 사람이 되돌리지 않는다고 보고 내 거래 영향이 다음 날로 이어져요 ❓`:'꺼져 있어요: 사고파는 양과 상관없이 시세(와 시장 가정)대로 계산해요.';
   renderGuide(p,P0,firstCost,r,R3,o);
   renderRank();
+  autoFind();
 }
 function steps(p,P0,firstCost,r,ntCash){
   const F=f=>`<i class="fee">${f}</i>`;const out=[];const add=(t,d,loop)=>out.push(`<li${loop?' class="loop"':''}><b>${t}</b><span>${d}</span></li>`);
@@ -1325,7 +1343,7 @@ async function loadAll(){
 $('loadBtn').addEventListener('click',loadAll);
 $('applyBtn').addEventListener('click',()=>{S.mode='wallet';store.set('mode','wallet');render();$('say').scrollIntoView({behavior:'smooth',block:'center'});});
 $('ammOn').checked=store.get('amm',true);
-$('ammOn').addEventListener('change',()=>{store.set('amm',$('ammOn').checked);aiLast=null;renderAi();render();});
+$('ammOn').addEventListener('change',()=>{store.set('amm',$('ammOn').checked);render();});
 $('xCap').value=store.get('xCap','');
 $('xCap').addEventListener('input',()=>{store.set('xCap',$('xCap').value);render();});
 function showRate(){
@@ -1341,7 +1359,7 @@ function group(id,key,conv){const bs=document.querySelectorAll('#'+id+' [data-v]
 group('qGoal','goal');group('gDays','days',Number);group('qScen','scen');group('gReinv','reinv',Number);group('gRoute','route');group('gCash','cashVia');group('gBFund','bFund');group('gRank','rank',Number);group('gNtShare','ntShare',Number);group('gXFund','xFund');group('gLgDest','lgnsDest');group('gPolyDest','polyDest');group('gRel','bondRelease');
 document.querySelectorAll('#gBurn [data-v]').forEach(b=>b.addEventListener('click',()=>{S.burnOpen=b.dataset.v==='open';store.set('burnOpen',S.burnOpen);
   if(!S.burnOpen&&S.bondRelease==='helix'){S.bondRelease='hold';document.querySelectorAll('#gRel [data-v]').forEach(x=>x.setAttribute('aria-pressed',x.dataset.v==='hold'));}
-  aiLast=null;renderAi();$('aiMeta').textContent='';render();}));group('gRk',null);
+  render();}));group('gRk',null);
 // 같은 값을 두 곳에서 고르는 버튼(신생태 터보 판 돈 쓰임·상품)은 서로 맞춰요
 ['ntUse','ntProd'].forEach(key=>{const bs=document.querySelectorAll(`[data-key="${key}"] [data-v]`);bs.forEach(b=>b.addEventListener('click',()=>{S[key]=b.dataset.v;bs.forEach(x=>x.setAttribute('aria-pressed',x.dataset.v===S[key]));render();}));});
 $('gMode').querySelectorAll('[data-v]').forEach(b=>b.addEventListener('click',()=>{S.mode=b.dataset.v;store.set('mode',S.mode);if(S.mode==='wallet'){fillStart();if(+$('amt').value>0&&W.list.length)$('amt').value=0;}renderWallets();render();}));
@@ -1451,27 +1469,36 @@ const LBL={
   cashVia:v=>v==='nt'?'현금 몫은 신생태로 나눠 받기':'현금 몫은 바로 현금',bFund:v=>({self:'터빈 비용은 AiLGNS 조금 팔기',ext:'터빈 비용은 매일 내 DAI',nt:'터빈 비용은 신생태 터보 DAI'}[v]),
   xFund:v=>({first:'터보란 매일 가장 먼저',plan:'터보란은 방식대로',none:'터보란 안 돌림'}[v]),
   ntUse:v=>({lgns:'신생태에서 풀린 돈은 LGNS 사서 소각',turbo:'신생태에서 풀린 돈은 일반 터보',helix:'신생태에서 풀린 돈은 DAI 참여',cash:'신생태에서 풀린 돈은 현금'}[v])};
+// 1번 조건에서 ‘괜찮아요’에 체크한 것만 추천에 넣어요
+var OK={bond:store.get('okBond',true),nt:store.get('okNt',true),sell:store.get('okSell',false),ext:store.get('aiExt',false)};
+function okPlan(c){
+  if(!OK.bond&&(c.lgnsDest==='bond'||c.polyDest==='fixed'||c.bondRelease==='rebond'||c.route==='bond'))return false;
+  if(!OK.nt&&(c.ntShare>0||c.cashVia==='nt'||c.bFund==='nt'||c.route==='turbo'))return false;
+  if(!OK.sell&&c.bondRelease==='sell')return false;
+  if(!OK.ext&&(c.bFund==='ext'||c.bFund==='nt'))return false;
+  return true;
+}
 function planCandidates(){
   const out=[],hasNt=S.start==='newturbo'||(walletMode()&&nv('exNtRem')+nv('exNtNow')+nv('exCw2')+nv('exCw2Daily')>0);
   const ntUses=hasNt?['lgns','turbo','helix','cash']:[S.ntUse];
   // 소각이 안 열렸으면 AiLGNS 소각은 빼고, 소각 본드 DAI 예치를 넣어요
   const routes=S.burnOpen?['auto','lgns','old','turbo','aiburn','bond']:['auto','bond','lgns','old','turbo'];
-  const sink={lgnsDest:S.lgnsDest,polyDest:S.polyDest,bondRelease:S.bondRelease};
+  const sink={lgnsDest:OK.bond?S.lgnsDest:'hold',polyDest:OK.bond?S.polyDest:'hold',bondRelease:okPlan({bondRelease:S.bondRelease})?S.bondRelease:'hold'};
   for(const ntUse of ntUses)for(const xFund of ['first','plan','none']){
     // ‘매일 내 DAI’·‘신생태 터보 DAI’는 지갑 밖의 새 돈이 들어가서, 체크했을 때만 비교해요
-    for(const bFund of ($('aiExt').checked?['self','ext','nt']:['self']))out.push({goal:'B',bFund,xFund,ntUse,...sink});
+    for(const bFund of ['self','ext','nt'])out.push({goal:'B',bFund,xFund,ntUse,...sink});
     for(const goal of ['A','C'])for(const reinv of [.5,.8,1])for(const route of routes)
       for(const [ntShare,ntProd] of [[0,'2.5|300'],[.2,'2.5|300'],[.5,'2.5|300'],[.2,'4|500'],[.5,'4|500']])
         for(const cashVia of (goal==='A'&&reinv<1?['now','nt']:['now']))out.push({goal,reinv,route,ntShare,ntProd,cashVia,xFund,ntUse,...sink});
   }
-  return out;
+  return out.filter(okPlan);
 }
 // LGNS 쓰는 곳 조합 (2단계에서 상위 플랜에만 붙여 봐요)
 function sinkCombos(){
   const hasPoly=walletMode()&&nv('exBurnP')>0,out=[];
   const rel=S.burnOpen?['hold','rebond','sell','helix']:['hold','rebond','sell'];
   for(const lgnsDest of (S.burnOpen?[S.lgnsDest]:['bond','hold']))for(const polyDest of (!S.burnOpen&&hasPoly?['fixed','hold']:[S.polyDest]))for(const bondRelease of rel)out.push({lgnsDest,polyDest,bondRelease});
-  return out;
+  return out.filter(okPlan);
 }
 // 한 조합을 한 시장 가정으로 돌려서 점수와 숫자를 돌려줘요 (화면 선택 S는 그대로 되돌려 놓아요)
 function runPlan(c,scen,obj){
@@ -1491,8 +1518,9 @@ function runPlan(c,scen,obj){
   }finally{Object.assign(S,keep);}
 }
 let aiLast=null;
+var aiRunId=0;
 async function findBest(){
-  const obj=S.obj||'total',btn=$('aiRun');btn.disabled=true;
+  const run=++aiRunId,obj=S.obj||'total',btn=$('aiRun');btn.disabled=true;aiKey=condKey();
   const cands=planCandidates(),scens=obj==='safe'?['keep','mid','low']:[S.scen];
   const res=[];
   for(let i=0;i<cands.length;i++){
@@ -1500,12 +1528,13 @@ async function findBest(){
     for(const sc of scens)by[sc]=runPlan(c,sc,obj==='safe'?'total':obj);
     const score=obj==='safe'?Math.min(...scens.map(s=>by[s].score)):by[scens[0]].score;
     res.push({c,score,by,main:by[obj==='safe'?'low':scens[0]]});
-    if(i%40===39){$('aiMeta').textContent=`${i+1} / ${cands.length}가지 계산 중…`;await new Promise(r=>setTimeout(r));}
+    if(i%40===39){$('aiMeta').textContent=`${i+1} / ${cands.length}가지 계산 중…`;await new Promise(r=>setTimeout(r));if(run!==aiRunId)return;}
   }
   res.sort((a,b)=>b.score-a.score);
   // 2단계: 상위 12개 플랜에 LGNS 쓰는 곳(소각 본드·보유·픽스본드·풀린 LGNS) 조합을 모두 붙여 봐요
   const top=res.slice(0,12),combos=sinkCombos();let n2=0;
   for(const t of top)for(const sk of combos){
+    if(!okPlan({...t.c,...sk}))continue;
     if(sk.lgnsDest===t.c.lgnsDest&&sk.polyDest===t.c.polyDest&&sk.bondRelease===t.c.bondRelease)continue;
     const c={...t.c,...sk},by={};for(const sc of scens)by[sc]=runPlan(c,sc,obj==='safe'?'total':obj);
     const score=obj==='safe'?Math.min(...scens.map(s=>by[s].score)):by[scens[0]].score;res.push({c,score,by,main:by[obj==='safe'?'low':scens[0]]});n2++;
@@ -1517,7 +1546,7 @@ async function findBest(){
   // 세 시장 가정에서 1등 플랜이 어떻게 되는지
   // 새 돈을 안 넣는 비교일 때도, 매일 내 DAI를 넣으면 얼마나 달라지는지 한 줄로 알려줘요
   let extHint=null;
-  if(!$('aiExt').checked){
+  if(!OK.ext){
     const ntUses=[...new Set(cands.map(c=>c.ntUse))];
     for(const ntUse of ntUses)for(const xFund of ['first','plan']){
       const c={goal:'B',bFund:'ext',xFund,ntUse},by={};for(const sc of scens)by[sc]=runPlan(c,sc,obj==='safe'?'total':obj);
@@ -1531,18 +1560,19 @@ async function findBest(){
     const dom={xFund:['first','plan','none'],bondRelease:S.burnOpen?['hold','rebond','sell','helix']:['hold','rebond','sell']};
     if(!S.burnOpen){dom.lgnsDest=['bond','hold'];if(walletMode()&&nv('exBurnP')>0)dom.polyDest=['fixed','hold'];}
     if(hasNt)dom.ntUse=['lgns','turbo','helix','cash'];
-    if(b.goal==='B'){if($('aiExt').checked)dom.bFund=['self','ext','nt'];}
+    if(b.goal==='B')dom.bFund=['self','ext','nt'];
     else{dom.route=S.burnOpen?['auto','lgns','old','turbo','aiburn','bond']:['auto','bond','lgns','old','turbo'];dom.reinv=[.5,.8,1];dom.ntShare=[0,.2,.5];if(b.goal==='A'&&b.reinv<1)dom.cashVia=['now','nt'];}
     const sc0=s=>obj==='safe'?Math.min(...['keep','mid','low'].map(x=>runPlan(s,x,'total').score)):runPlan(s,scens[0],obj).score;
-    for(const [k,vals] of Object.entries(dom)){let alt=null;for(const v of vals){if(String(v)===String(b[k]))continue;const s=sc0({...b,[k]:v});if(!alt||s>alt.s)alt={v,s};}
+    for(const [k,vals] of Object.entries(dom)){let alt=null;for(const v of vals){if(String(v)===String(b[k])||!okPlan({...b,[k]:v}))continue;const s=sc0({...b,[k]:v});if(!alt||s>alt.s)alt={v,s};}
       if(alt)why.push({k,v:alt.v,d:res[0].score-alt.s});}
     // 방식(goal)은 다른 선택이 같이 바뀌어야 해서, 다른 방식 중 가장 좋은 플랜과 비교해요
-    const g=res.find(x=>x.c.goal!==b.goal);if(g)why.push({k:'goal',v:g.c.goal,d:res[0].score-g.score});
+    const g=res.find(x=>x.c.goal!==b.goal&&okPlan(x.c));if(g)why.push({k:'goal',v:g.c.goal,d:res[0].score-g.score});
     why.sort((x,y)=>y.d-x.d);}
   const best=res[0],all3={};['keep','mid','low'].forEach(sc=>all3[sc]=best.by[sc]||runPlan(best.c,sc,obj==='safe'?'total':obj));
   aiLast={obj,res,best,cur,curScore,all3,n:cands.length+n2,scens,extHint,why};
   btn.disabled=false;$('aiMeta').textContent=`${cands.length+n2}가지 조합 ×${scens.length===3?'시장 가정 3가지':PT[S.days]+' · '+{keep:'지금처럼',mid:'조금 나빠짐',low:'많이 나빠짐'}[S.scen]}로 비교했어요`;
-  renderAi();
+  applyPlan(best.c);
+  $('aiMeta').textContent=`${cands.length+n2}가지 조합을 비교해서 가장 이득인 플랜을 적용했어요 (${scens.length===3?'시장 가정 3가지':PT[S.days]+' · '+{keep:'지금처럼',mid:'조금 나빠짐',low:'많이 나빠짐'}[S.scen]})`;
 }
 // 1등과 ‘이것만 바꾼 가장 좋은 대안’을 비교해서 이유를 만들어요
 function whyLines(a){
@@ -1573,7 +1603,7 @@ function describe(c){
   return l;
 }
 function renderAi(){
-  const a=aiLast,box=$('aiOut');if(!a){box.hidden=true;return;}
+  const a=aiLast,box=$('aiOut');$('aiEmpty').hidden=!!a;if(!a){box.hidden=true;return;}
   const b=a.best,m=b.main,objN={total:'총 이득',cash:'꺼낼 수 있는 현금 기준 이득',safe:'가장 나쁜 시장에서도 남는 이득'}[a.obj];
   const same=describe(b.c).join()===describe(a.cur).join();
   const gain=b.score-a.curScore;
@@ -1584,11 +1614,11 @@ function renderAi(){
     <ul>${describe(b.c).slice(1).map(x=>`<li>${x}</li>`).join('')}</ul>
     <div class="ainums"><div><span>${objN}</span><b>${fmt(b.score)} DAI</b></div><div><span>${PT[S.days]} 뒤 꺼낼 현금</span><b>${fmt(Math.max(0,m.liq))} DAI</b></div><div><span>남은 Power</span><b>${fmt(m.P)}</b></div></div>
     <p class="msg" style="margin:0;color:var(--ink)">${m.newDai>0.5?`이 플랜에 새로 넣는 내 DAI: 약 <b>${fmt(m.newDai)} DAI</b> (${[m.R0>0.5?`처음 터빈용 ${fmt(m.R0)}`:'',m.ext>0.5?`매일 터빈 비용 합계 ${fmt(m.ext)} (하루 평균 ${fmt(m.ext/S.days,1)})`:'',m.fundInv>0.5?`신생태 터보 ${fmt(m.fundInv)}`:''].filter(Boolean).join(' · ')}) · 이득은 이 돈을 뺀 값이에요`:'지갑 밖에서 새로 넣는 DAI 없이 돌아가요'}</p>
-    <p class="msg" style="margin:0;color:var(--ink)">${same?'지금 고른 플랜이 이미 가장 이득이에요.':`지금 고른 플랜보다 약 <b>${fmt(gain)} DAI</b> 더 이득이에요.`}${m.cashDay&&!noBasis(params().p)?` · 원금은 ${m.cashDay}일째에 찾아요`:''}</p>
+    <p class="msg" style="margin:0;color:var(--ink)">${same?'이 플랜이 적용돼 있어요 — 아래 결과와 ‘오늘 할 일’이 이 플랜 기준이에요.':`지금 고른 플랜보다 약 <b>${fmt(gain)} DAI</b> 더 이득이에요.`}${m.cashDay&&!noBasis(params().p)?` · 원금은 ${m.cashDay}일째에 찾아요`:''}</p>
     <p class="msg" style="margin:0">시장이 지금처럼 ${fmt(a.all3.keep.score)} · 조금 나빠지면 ${fmt(a.all3.mid.score)} · 많이 나빠지면 ${fmt(a.all3.low.score)} DAI</p>
-    <div class="row"><button type="button" class="btn" id="aiApply"${same?' disabled':''}>이 플랜으로 바꾸기</button>${same?'':'<span class="msg">오늘 할 일도 이 플랜대로 바뀌어요</span>'}</div>
+    ${same?'':'<div class="row"><button type="button" class="btn" id="aiApply">추천 플랜으로 되돌리기</button><span class="msg">직접 바꾼 선택을 버리고 추천대로 계산해요</span></div>'}
   </div>
-  ${a.extHint?`<div class="note" style="margin-top:8px">지금 지갑 DAI로는 쌓이는 추가이자·터보란을 거의 못 돌려요. <b>매일 내 DAI를 약 ${fmt(a.extHint.main.ext/S.days,1)}씩 (${PT[S.days]} 동안 ${fmt(a.extHint.main.ext)} DAI) 터빈 비용으로 넣으면</b> 이득이 약 ${fmt(a.extHint.score)} DAI까지 커져요 (‘${GOALN.B}’ · ${LBL.xFund(a.extHint.c.xFund)}). 위 ‘내 DAI를 더 넣는 플랜도 비교하기’를 켜고 다시 찾아보세요.</div>`:''}
+  ${a.extHint?`<div class="note" style="margin-top:8px">지금 지갑 DAI로는 쌓이는 추가이자·터보란을 거의 못 돌려요. <b>매일 내 DAI를 약 ${fmt(a.extHint.main.ext/S.days,1)}씩 (${PT[S.days]} 동안 ${fmt(a.extHint.main.ext)} DAI) 터빈 비용으로 넣으면</b> 이득이 약 ${fmt(a.extHint.score)} DAI까지 커져요 (‘${GOALN.B}’ · ${LBL.xFund(a.extHint.c.xFund)}). 위 조건에서 ‘새 DAI를 더 넣어도 돼요’에 체크하면 이 플랜도 함께 비교해요.</div>`:''}
   <div class="h3" style="margin-top:10px">왜 이 플랜인가요?</div>
   <ul class="why">${whyLines(a).map(x=>`<li>${x.t}</li>`).join('')}${runner?`<li>2등은 ${describe(runner.c).slice(0,3).join(' · ')} (약 ${fmt(b.score-runner.score)} DAI 차이)</li>`:''}</ul>
   <p class="legend3" style="margin:6px 0 0">❓ 남은 Power는 출금할 수 없어서 1개를 ${POW_VAL} DAI로 쳤어요 (‘꺼낼 수 있는 현금’ 목표는 0). 보유 LGNS·본드에서 받을 몫·안 돌린 터보란은 시세로 넣었어요 (‘현금’ 목표는 Anubis에서 팔 때 약 52%로). ${S.burnOpen?'LGNS 소각은 1개 = 1 DAI × 2배 인정 기준(📢, 아직 안 열림)이에요.':'HELIX LGNS 소각은 아직 안 열린 걸로 계산했어요.'} 하루 한도 경쟁이 심한 ‘DAI로 참여’는 조합에서 뺐어요. 가정에 따른 시뮬레이션이고 수익을 보장하지 않아요.</p>`;
@@ -1601,12 +1631,22 @@ function applyPlan(c){
   sync('#qGoal','goal');sync('#gReinv','reinv');sync('#gRoute','route');sync('#gNtShare','ntShare');sync('#gCash','cashVia');sync('#gBFund','bFund');sync('#gXFund','xFund');
   sync('[data-key="ntProd"]','ntProd');sync('[data-key="ntUse"]','ntUse');sync('#gLgDest','lgnsDest');sync('#gPolyDest','polyDest');sync('#gRel','bondRelease');
   render();aiLast&&(aiLast.cur={...c},aiLast.curScore=aiLast.best.score);renderAi();
-  $('aiMeta').textContent='적용했어요. ‘오늘 할 일’도 이 플랜대로 바뀌었어요.';
+}
+// 조건(1번)이 바뀌면 추천을 다시 찾아요. 직접 바꿔 보기(3번)는 조건이 아니라서 다시 찾지 않아요
+var aiKey=null,aiTimer=0;
+function condKey(){
+  const wm=walletMode();
+  return JSON.stringify([S.mode,wm?S.scope:'',wm?['exPower','exAi','exUnc','exDai','exPend','exExtra','exExtraDaily','exCw','exCwDaily','exCw2','exCw2Daily','exBurnA','exBurnP','exBondRem','exBondDaily','exBondNow','exVe','exNtRem','exNtDaily','exNtNow','exBasis'].map(id=>$(id).value):'',
+    S.burnOpen,S.days,OK,S.obj,S.scen,$('ammOn').checked]);
+}
+function autoFind(){
+  if(S.tab!=='calc'||condKey()===aiKey)return;
+  clearTimeout(aiTimer);aiTimer=setTimeout(()=>{if(S.tab==='calc'&&condKey()!==aiKey)findBest();},600);
 }
 S.obj='total';
-document.querySelectorAll('#gObj [data-v]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('#gObj [data-v]').forEach(x=>x.setAttribute('aria-pressed',x===b));S.obj=b.dataset.v;aiLast=null;renderAi();$('aiMeta').textContent='';}));
+document.querySelectorAll('#gObj [data-v]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('#gObj [data-v]').forEach(x=>x.setAttribute('aria-pressed',x===b));S.obj=b.dataset.v;autoFind();}));
 $('aiRun').addEventListener('click',findBest);
-$('aiExt').addEventListener('change',()=>{aiLast=null;renderAi();$('aiMeta').textContent='';});
+[['okBond','bond'],['okNt','nt'],['okSell','sell'],['aiExt','ext']].forEach(([id,k])=>{$(id).checked=OK[k];$(id).addEventListener('change',()=>{OK[k]=$(id).checked;store.set(id,OK[k]);autoFind();});});
 
 // ===== 탭 =====
 function setTab(t){
