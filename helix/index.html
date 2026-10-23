@@ -449,8 +449,8 @@ body.hasbar{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
           <h2>시장 가정</h2>
           <div class="opts" id="qScen">
             <button type="button" class="opt" data-v="keep" aria-pressed="false"><b>지금처럼</b><span>받는 속도·가격 그대로</span></button>
-            <button type="button" class="opt" data-v="mid" aria-pressed="true"><b>조금 나빠짐</b><span>받는 속도 월 -25%, AiLGNS 월 -10%</span></button>
-            <button type="button" class="opt" data-v="low" aria-pressed="false"><b>많이 나빠짐</b><span>받는 속도 월 -50%, AiLGNS 월 -25%</span></button>
+            <button type="button" class="opt" data-v="mid" aria-pressed="true"><b>조금 나빠짐</b><span>받는 속도 월 -25%, AiLGNS 월 -10%, LGNS 사는 값 월 +10%</span></button>
+            <button type="button" class="opt" data-v="low" aria-pressed="false"><b>많이 나빠짐</b><span>받는 속도 월 -50%, AiLGNS 월 -25%, LGNS 사는 값 월 +25%</span></button>
           </div>
           <label class="msg" style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;color:var(--ink)"><input type="checkbox" id="ammOn" checked style="margin-top:4px;accent-color:var(--acc)"><span>내가 사고파는 양만큼 가격 움직이기 — LGNS를 살수록 오르고 AiLGNS를 팔수록 내려요 (풀 잔고 기준 · 스왑 수수료 0.3%)<br><small id="ammMeta" style="color:var(--muted)"></small></span></label>
           <div class="grid2">
@@ -761,7 +761,7 @@ function render(){
   }
   // LGNS·본드 자산: 들고 있는 LGNS + 본드에서 받을 몫 + 안 돌린 터보란 (시세로)
   if(L.lgAssets>1){const pLx=L.pL||p.pL0;
-    nb+=`<div class="nb"><div class="l">${PT[S.days]} 뒤 LGNS·본드 자산 (시세로)</div><div class="v">약 ${fmt(L.lgAssets)} DAI어치</div><div class="s">${[L.lgHeld>1e-6?`들고 있는 LGNS ${fmt(L.lgHeld)}개`:'',L.polyHeld>1e-6?`Polygon LGNS ${fmt(L.polyHeld)}개`:'',L.bondLeft>1?`본드에서 받을 몫 ${fmt(L.bondLeft)} DAI어치`:'',L.pendLeft>1e-6?`안 돌린 터보란 ${fmt(L.pendLeft)}개`:''].filter(Boolean).join(' · ')}<br>본드 몫은 그날 시세의 LGNS로 나와요 · Anubis에서 LGNS를 바로 팔면 약 48% 수수료</div></div>`;}
+    nb+=`<div class="nb"><div class="l">${PT[S.days]} 뒤 LGNS·본드 자산 (지금 시세로)</div><div class="v">약 ${fmt(L.lgAssets)} DAI어치</div><div class="s">${[L.lgHeld>1e-6?`들고 있는 LGNS ${fmt(L.lgHeld)}개`:'',L.polyHeld>1e-6?`Polygon LGNS ${fmt(L.polyHeld)}개`:'',L.bondLeft>1?`본드에서 받을 몫 ${fmt(L.bondLeft)} DAI어치`:'',L.pendLeft>1e-6?`안 돌린 터보란 ${fmt(L.pendLeft)}개`:''].filter(Boolean).join(' · ')}<br>본드 몫은 그날 시세의 LGNS로 나와요 · 시장 가정의 LGNS 값 오름은 사는 값에만 넣고 자산 값엔 안 넣어요 · Anubis에서 LGNS를 바로 팔면 약 48% 수수료</div></div>`;}
   if(ntC+ntP>1)nb+=`<div class="nb"><div class="l">신생태 터보 남은 양 (받을 예정)</div><div class="v">약 ${fmt(ntC+ntP)} DAI</div><div class="s">${[ntC>1?`현금으로 받을 몫 ${fmt(ntC)}`:'',ntP>1?`소각해 Power로 바꿀 몫 ${fmt(ntP)}`:''].filter(Boolean).join(' · ')} · 수수료 뺀 금액</div></div>`;
   const exIn=p.ex?(p.ex.basis+p.ex.dai+p.ex.ai*p.pA0*(1-p.fee-p.slip)+p.ex.burnA*p.pL0+p.ex.burnP*p.pLP0):0;
   nb+=`<div class="nb"><div class="l">들인 돈</div><div class="v">${fmt(L.invested)} DAI</div><div class="s">${lg?`LGNS 시세 기준 ${fmt(r.startValue)}`:`DAI ${fmt(r.startValue)}`} + 터빈용 ${fmt(p.R0)}${r.fundInv?` + 신생태 터빈 자금 ${fmt(r.fundInv)}`:''}${r.ext?` + 추가 DAI ${fmt(r.ext)}`:''}${p.ex?`<br>+ 지갑 자산 ${fmt(exIn-p.ex.basis)} (DAI·AiLGNS${p.ex.burnA+p.ex.burnP>0?'·소각할 LGNS 시세':''})${p.ex.basis?` + 이미 들인 원금 ${fmt(p.ex.basis)}`:''}`:''}</div></div>`;
@@ -1449,7 +1449,7 @@ function renderNtDone(p){
     <div class="t" style="color:var(--ink)">${D}일 뒤 (${when}) 마지막 지급</div>
     <p class="msg" style="margin:0;color:var(--ink)">지금 받을 예정인 신생태 터보 약 <b>${fmt(nowRem)} DAI</b> 가치를 다 받은 뒤 (수수료 빼면 약 ${fmt(nowRem*net)} DAI · ${LBL.ntUse(S.ntUse).replace('신생태에서 풀린 돈은 ','')}로 계산)</p>
     <div class="ainums"><div><span>꺼낼 수 있는 현금</span><b>${fmt(Math.max(0,cashNow))} DAI</b></div><div><span>남은 Power</span><b>${fmt(L.P)}</b></div><div><span>소각한 LGNS 누적</span><b>${fmt(L.burned)}</b></div></div>
-    <p class="msg" style="margin:0;color:var(--ink)">총 자산 약 <b>${fmt(total)} DAI</b> = 현금 ${fmt(Math.max(0,cashNow))} + 남은 Power ${fmt(L.P)} (앞으로 천천히 받을 DAI어치, 출금 불가)${L.lgAssets>1?` + LGNS·본드 ${fmt(L.lgAssets)} (시세로)`:''}</p>
+    <p class="msg" style="margin:0;color:var(--ink)">총 자산 약 <b>${fmt(total)} DAI</b> = 현금 ${fmt(Math.max(0,cashNow))} + 남은 Power ${fmt(L.P)} (앞으로 천천히 받을 DAI어치, 출금 불가)${L.lgAssets>1?` + LGNS·본드 ${fmt(L.lgAssets)} (지금 시세로)`:''}</p>
     ${otherTxt||L.ntRemain>1?`<ul style="margin:0;padding-left:18px;font-size:13px">${otherTxt}${L.ntRemain>1?`<li>그때도 다시 넣어서 새로 생긴 신생태 주문 ${fmt(L.ntRemain)} DAI 가치가 더 남아요</li>`:''}</ul>`:''}
   </div>`;
 }

@@ -174,8 +174,9 @@ function simulate(p,pl){
     const sumL=a=>a.reduce((s,x)=>s+x.d*x.left,0);
     const ntRemain=(t<ntDays?ntDaily*(ntDays-t):0)+sumL(exNt)+sumL(streams)+sumL(cs)+sumL(fs);
     // LGNS 자산 (시세로): 들고 있는 LGNS + 본드에서 앞으로 받을 몫 + 아직 안 돌린 터보란 — 터보를 안 돌려도 사라지지 않아요
-    const bondLeft=sumL(bonds),pLPt=p.pLP0*Math.pow(1+p.lChg,t/30);
-    const lgAssets=lgHeld*pL+polyHeld*pLPt+bondLeft+pend*pL;
+    // 시장 가정의 LGNS 가격 오름(lChg)은 ‘사는 값이 비싸진다’는 나쁜 가정이라, 들고 있는 LGNS 값에는 넣지 않아요 (지금 시세 기준)
+    const lgUp=Math.max(1,Math.pow(1+p.lChg,t/30)),pLv=pL/lgUp,bondLeft=sumL(bonds),pLPt=p.pLP0*Math.pow(1+p.lChg,t/30)/lgUp;
+    const lgAssets=lgHeld*pLv+polyHeld*pLPt+bondLeft+pend*pLv;
     series.push({t,P,D,cost,cash,R,ai,ve,veVal:ve*pA,pA,pL,r,invested,liquid,burned:lgBurn,ntRemain,aiDaily:D/pA,
       pAnow:AMM?pAb*AMM.a.m:pA,pLnow:AMM?pLb*AMM.l.m:pL,lgHeld,polyHeld,bondLeft,pendLeft:pend,lgAssets});
   }
