@@ -147,8 +147,10 @@ function simulate(p,pl){
         if(dai<need&&ai>0){const q=Math.min(ai,(need-dai)/net);ai-=q;dai+=AMM?sellAi(q):q*net;}
         if(dai>0){const o=xRun(dai,pL);pending+=o.pow;R+=o.left;}}
     }else{
-      R+=AMM?sellAi(rest):rest*net;
+      // p.aiSell(0~1): 터빈용 DAI를 채우고 남는 AiLGNS 중 파는 비율. 안 판 몫은 AiLGNS로 보유
       const target=Math.max(p.R0,cost*1.2);
+      if(p.aiSell!=null&&p.aiSell<1){const need=Math.min(rest,Math.max(0,target-R)/net),sq=need+(rest-need)*p.aiSell;R+=AMM?sellAi(sq):sq*net;ai+=rest-sq;}
+      else R+=AMM?sellAi(rest):rest*net;
       let sur=Math.max(0,R-target);R-=sur;
       if(p.xFirst&&pend>0&&sur>0){const o=xRun(sur,pL);pending+=o.pow;sur=o.left;}
       let inv=0;

@@ -400,6 +400,7 @@ body.hasbar{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
         <section class="q">
           <h2>받은 돈은 어떻게?</h2>
           <div class="more" id="moreAC" style="border:0;padding:0">
+            <div class="row"><span class="lb">터빈 비용을 채우고 남는 AiLGNS 중 파는 비율 (안 판 몫은 AiLGNS로 보유 · 터빈 비용이 받은 양의 약 절반이에요)</span><span id="gAiSell"><button type="button" class="chip" data-v="1" aria-pressed="true">전부</button> <button type="button" class="chip" data-v="0.7" aria-pressed="false">70%</button> <button type="button" class="chip" data-v="0.5" aria-pressed="false">절반</button> <button type="button" class="chip" data-v="0" aria-pressed="false">안 팔기 (터빈 비용만)</button></span></div>
             <div class="row"><span class="lb" id="reinvLb">판 돈 중 다시 넣는 비율</span><span id="gReinv"><button type="button" class="chip" data-v="0.5" aria-pressed="false">50%</button> <button type="button" class="chip" data-v="0.8" aria-pressed="true">80%</button> <button type="button" class="chip" data-v="1" aria-pressed="false">100%</button></span></div>
             <div class="row"><span class="lb">다시 넣는 방법</span><span id="gRoute"><button type="button" class="chip" data-v="auto" aria-pressed="true">자동 · 이득 순 (추천)</button> <button type="button" class="chip" data-v="lgns" aria-pressed="false">LGNS 사서 소각 (0%)</button> <button type="button" class="chip" data-v="old" aria-pressed="false">일반 터보 → 소각 (5%)</button> <button type="button" class="chip" data-v="turbo" aria-pressed="false">신생태 → 일반 터보 → 소각</button> <button type="button" class="chip" data-v="bond" aria-pressed="false">소각 본드에 DAI 예치 (250%)</button> <button type="button" class="chip" data-v="aiburn" aria-pressed="false">AiLGNS 소각 (비교)</button> <button type="button" class="chip" data-v="dai" aria-pressed="false">DAI로 참여</button></span></div>
             <p class="sub" style="margin:0" id="routeHint"></p>
@@ -550,7 +551,7 @@ const POOL_DEFAULT={l:32994826,a:18652841};
 // 처음 쓰는 사람도 고를 게 없도록: 다시 넣기는 ‘자동 · 이득 순’, 터보란은 ‘매일 가장 먼저’
 // HELIX LGNS 소각은 아직 안 열려서(10/23) 기본은 ‘지금 되는 것만’: Anubis LGNS → 소각 본드, Polygon LGNS → 픽스본드, 풀린 LGNS → 보유
 const S={burnOpen:store.get('burnOpen',false),lgnsDest:'bond',polyDest:'fixed',bondRelease:'hold',
-  start:'anubis',goal:'C',days:180,scen:'mid',reinv:.8,route:'auto',ntShare:0,xFund:'first',cashVia:'now',bFund:'self',rank:0,ntProd:'2.5|300',ntUse:'lgns',
+  start:'anubis',goal:'C',days:180,scen:'mid',reinv:.8,aiSell:1,route:'auto',ntShare:0,xFund:'first',cashVia:'now',bFund:'self',rank:0,ntProd:'2.5|300',ntUse:'lgns',
   mode:store.get('mode',W.list.length?'wallet':'new'),scope:store.get('scope','all'),tab:store.get('tab',W.list.length?'today':'assets')};
 const GOALN={C:'원금 먼저',A:'많이 모으기',B:'편하게'};
 const PT={30:'1개월',90:'3개월',180:'6개월',365:'1년'};
@@ -636,6 +637,7 @@ function base(){
   const ex=exFromFields(p);if(ex){p.ex=ex;p.pend=nv('exPend')+nv('exExtra')+nv('exCw');ex.pendDaily=nv('exExtraDaily')+nv('exCwDaily');ex.xNow=Math.min(nv('xNow'),ex.dai);
     ex.burnA=nv('exBurnA');ex.burnP=nv('exBurnP');}
   if(S.ntShare>0)p.ntShare=S.ntShare;
+  if(S.goal!=='B'&&S.aiSell<1)p.aiSell=S.aiSell;
   if(nv('xCap')>0)p.xCap=nv('xCap');
   // LGNS 쓰는 곳: 소각 열림 여부 · 소각 본드/보유 · 픽스본드/보유 · 본드에서 풀린 LGNS
   p.burnOpen=S.burnOpen;p.lgnsDest=S.lgnsDest;p.polyDest=S.polyDest;p.bondRelease=S.bondRelease;
@@ -824,7 +826,8 @@ function steps(p,P0,firstCost,r,ntCash){
   if(p.rankOn)add(`받은 AiLGNS의 30%는 ve로 잠그기`,`목표 $${fmt(p.veTarget)}에 닿을 때까지 · 잠근 기간에는 못 빼요`);
   const rr={lgns:`LGNS를 사서${F('0%')} HELIX에 소각`,old:`일반 터보${F('5%')} → 1+1 LGNS → HELIX에 소각`,turbo:`신생태 터보${F('1%+5%')} → 일반 터보${F('5%')} → HELIX에 소각`,dai:'DAI로 HELIX 참여 (2.5배)',
     auto:`쌓인 터보 수량까지 일반 터보${F('5%')} → 1+1 LGNS 소각, 남은 DAI는 LGNS를 사서${F('0%')} 소각`,aiburn:'그만큼의 AiLGNS를 팔지 않고 HELIX에 소각 (2.5배)'}[p.route]+(p.ntShare?` · 그중 ${fmt(p.ntShare*100)}%는 신생태 터보(${p.ntMult}배)${F('1%+5%')}`:'');
-  if(S.goal==='A'){add(p.rankOn?'잠그고 남은 AiLGNS 전부 팔기':'받은 AiLGNS 전부 팔기',`${F('3%')} 다음 날 터빈용 DAI를 먼저 채워요`);add(`남은 돈의 ${fmt(p.reinv*100)}% 다시 넣기`,rr);
+  const sellTxt=(p.rankOn?'잠그고 남은 ':'받은 ')+(p.aiSell==null?'AiLGNS 전부 팔기':p.aiSell>0?`AiLGNS 중 터빈 비용 빼고 남는 몫의 ${fmt(p.aiSell*100)}%만 팔고 나머지 보유`:'AiLGNS는 터빈 비용만큼만 팔고 나머지 보유');
+  if(S.goal==='A'){add(sellTxt,`${F('3%')} 다음 날 터빈용 DAI를 먼저 채워요`);add(`남은 돈의 ${fmt(p.reinv*100)}% 다시 넣기`,rr);
     if(p.reinv<1)add(`나머지 ${fmt(100-p.reinv*100)}%는 ${p.cashVia==='nt'?'신생태 터보에':'현금으로'}`,p.cashVia==='nt'?`300일 동안 2.5배 가치를 나눠 받아요${F('1%+5%')}`:'꺼내서 보관해요');
     add('매일 반복','늘어난 Power로 다음 날 더 많이 나와요',true);}
   else if(S.goal==='B'){
@@ -832,7 +835,7 @@ function steps(p,P0,firstCost,r,ntCash){
     else if(p.bFund==='ext')add('터빈 비용은 내 DAI로','매일 터빈에 필요한 DAI를 따로 넣어요');
     else add('터빈 비용은 신생태 터보 DAI로',`처음에 약 ${fmt(r.fundInv)} DAI 참여 → 매일 나오는 DAI${F('1%+5%')}로 터빈을 돌리고, 모자란 날만 AiLGNS를 조금 팔아요`);
     add('나머지 AiLGNS는 모아두기','원할 때 일부만 팔거나 ve로 잠가요');add('매일 반복','Power는 다시 넣지 않아 서서히 줄어요',true);}
-  else{add('받은 AiLGNS 전부 팔기',`${F('3%')} 터빈용 DAI를 먼저 채워요`);add('남은 돈은 전부 현금으로','들인 돈만큼 모일 때까지 다시 넣지 않아요');add('원금을 찾은 뒤에는 불리기',`남은 돈의 ${fmt(p.reinv*100)}%: ${rr}`);add('매일 반복','',true);}
+  else{add(sellTxt,`${F('3%')} 터빈용 DAI를 먼저 채워요`);add('남은 돈은 전부 현금으로','들인 돈만큼 모일 때까지 다시 넣지 않아요');add('원금을 찾은 뒤에는 불리기',`남은 돈의 ${fmt(p.reinv*100)}%: ${rr}`);add('매일 반복','',true);}
   $('path').innerHTML=out.join('');
 }
 let lastFly=null;
@@ -1054,9 +1057,11 @@ function renderToday(p,P0,o){
     }
     if(keep>1e-9)add('나머지 AiLGNS는 모아두기',`${fq(keep)}개`);
   }else{
-    dai+=got*net;
-    if(hasAi)add('받은 AiLGNS 팔기',`${fq(got)}개 매도${F('3%')} → 약 ${fmt(got*net,2)} DAI`);
     const buffer=D*(1+.025+p.slip)*2;
+    // 파는 비율을 골랐으면: 내일 터빈용 DAI를 채울 만큼은 꼭 팔고, 남는 몫 중 그 비율만 팔아요
+    const needQ=Math.min(got,Math.max(0,buffer-dai)/net),sellQ=p.aiSell==null?got:needQ+(got-needQ)*p.aiSell;
+    dai+=sellQ*net;
+    if(hasAi)add('받은 AiLGNS 팔기',`${fq(sellQ)}개 매도${F('3%')} → 약 ${fmt(sellQ*net,2)} DAI${got-sellQ>1e-9?` · 나머지 ${fq(got-sellQ)}개는 AiLGNS로 보유`:''}`);
     let sur=Math.max(0,dai-buffer);
     if(buffer>1e-9)add('내일 터빈용 DAI 남기기',`약 ${fmt(Math.min(dai,buffer),2)} DAI (2일치)`);
     if(p.xFirst&&pend>0&&sur>0)sur-=xStep(sur,'터보란 먼저 돌리기','남는 DAI로, 원금 회수·현금보다 먼저');
@@ -1357,7 +1362,7 @@ $('exBasis').addEventListener('input',()=>{const b=store.get('basis',{});b[S.sco
 
 // 선택 버튼
 function group(id,key,conv){const bs=document.querySelectorAll('#'+id+' [data-v]');bs.forEach(b=>b.addEventListener('click',()=>{bs.forEach(x=>x.setAttribute('aria-pressed',x===b));const v=conv?conv(b.dataset.v):b.dataset.v;if(key)S[key]=v;else if(id==='gRk')rk=+v;render();}));}
-group('qGoal','goal');group('gDays','days',Number);group('qScen','scen');group('gReinv','reinv',Number);group('gRoute','route');group('gCash','cashVia');group('gBFund','bFund');group('gRank','rank',Number);group('gNtShare','ntShare',Number);group('gXFund','xFund');group('gLgDest','lgnsDest');group('gPolyDest','polyDest');group('gRel','bondRelease');
+group('qGoal','goal');group('gDays','days',Number);group('qScen','scen');group('gReinv','reinv',Number);group('gAiSell','aiSell',Number);group('gRoute','route');group('gCash','cashVia');group('gBFund','bFund');group('gRank','rank',Number);group('gNtShare','ntShare',Number);group('gXFund','xFund');group('gLgDest','lgnsDest');group('gPolyDest','polyDest');group('gRel','bondRelease');
 document.querySelectorAll('#gBurn [data-v]').forEach(b=>b.addEventListener('click',()=>{S.burnOpen=b.dataset.v==='open';store.set('burnOpen',S.burnOpen);
   if(!S.burnOpen&&S.bondRelease==='helix'){S.bondRelease='hold';document.querySelectorAll('#gRel [data-v]').forEach(x=>x.setAttribute('aria-pressed',x.dataset.v==='hold'));}
   render();}));group('gRk',null);
@@ -1460,12 +1465,13 @@ document.querySelectorAll('#gGrow [data-v]').forEach(b=>b.addEventListener('clic
 // 이득 = 기간 뒤 꺼낼 수 있는 현금 + 앞으로 현금으로 받을 몫 + 신생태에서 앞으로 받을 DAI + 남은 Power × POW_VAL − 들인 돈
 // 남은 Power는 출금할 수 없고 터빈 비용을 내며 천천히 받으니까 1개를 0.5 DAI로 쳐요 ❓ (‘현금’ 목표는 0으로)
 const POW_VAL=.5;
-const PLAN_KEYS=['goal','reinv','route','ntShare','ntProd','cashVia','bFund','xFund','ntUse','lgnsDest','polyDest','bondRelease'];
+const PLAN_KEYS=['goal','reinv','aiSell','route','ntShare','ntProd','cashVia','bFund','xFund','ntUse','lgnsDest','polyDest','bondRelease'];
 const LBL={
   goal:v=>`‘${GOALN[v]}’`,reinv:v=>`판 돈의 ${fmt(v*100)}% 다시 넣기`,
   route:v=>({auto:'자동 · 이득 순으로 다시 넣기',lgns:S.burnOpen?'LGNS 사서 소각':'LGNS 사서 (본드·보유)',old:'일반 터보로만',turbo:'신생태 → 터보 → 소각',aiburn:'AiLGNS 소각',bond:'소각 본드에 DAI 예치 (250%)'}[v]),
   lgnsDest:v=>v==='hold'?'Anubis LGNS는 그대로 보유':'Anubis LGNS는 소각 본드 (230%)',polyDest:v=>v==='hold'?'Polygon LGNS는 그대로 보유':'Polygon LGNS는 픽스본드 (1 DAI × 200%)',
   bondRelease:v=>({hold:'본드에서 풀린 LGNS는 보유',rebond:'본드에서 풀린 LGNS는 다시 소각 본드',sell:'본드에서 풀린 LGNS는 팔기',helix:'본드에서 풀린 LGNS는 HELIX 소각'}[v]),
+  aiSell:v=>v>=1?'받은 AiLGNS 전부 팔기':v>0?`터빈 비용 빼고 남는 AiLGNS의 ${fmt(v*100)}%만 팔고 나머지 보유`:'받은 AiLGNS는 터빈 비용만큼만 팔고 나머지 보유',
   ntShare:v=>v?`다시 넣는 돈의 ${fmt(v*100)}%는 신생태 터보`:'신생태 터보에 안 넣기',ntProd:v=>v==='4|500'?'신생태 4배 · 500일':'신생태 2.5배 · 300일',
   cashVia:v=>v==='nt'?'현금 몫은 신생태로 나눠 받기':'현금 몫은 바로 현금',bFund:v=>({self:'터빈 비용은 AiLGNS 조금 팔기',ext:'터빈 비용은 매일 내 DAI',nt:'터빈 비용은 신생태 터보 DAI'}[v]),
   xFund:v=>({first:'터보란 매일 가장 먼저',plan:'터보란은 방식대로',none:'터보란 안 돌림'}[v]),
@@ -1487,10 +1493,10 @@ function planCandidates(){
   const sink={lgnsDest:OK.bond?S.lgnsDest:'hold',polyDest:OK.bond?S.polyDest:'hold',bondRelease:okPlan({bondRelease:S.bondRelease})?S.bondRelease:'hold'};
   for(const ntUse of ntUses)for(const xFund of ['first','plan','none']){
     // ‘매일 내 DAI’·‘신생태 터보 DAI’는 지갑 밖의 새 돈이 들어가서, 체크했을 때만 비교해요
-    for(const bFund of ['self','ext','nt'])out.push({goal:'B',bFund,xFund,ntUse,...sink});
+    for(const bFund of ['self','ext','nt'])out.push({goal:'B',aiSell:1,bFund,xFund,ntUse,...sink});
     for(const goal of ['A','C'])for(const reinv of [.5,.8,1])for(const route of routes)
       for(const [ntShare,ntProd] of [[0,'2.5|300'],[.2,'2.5|300'],[.5,'2.5|300'],[.2,'4|500'],[.5,'4|500']])
-        for(const cashVia of (goal==='A'&&reinv<1?['now','nt']:['now']))out.push({goal,reinv,route,ntShare,ntProd,cashVia,xFund,ntUse,...sink});
+        for(const cashVia of (goal==='A'&&reinv<1?['now','nt']:['now']))out.push({goal,reinv,aiSell:1,route,ntShare,ntProd,cashVia,xFund,ntUse,...sink});
   }
   return out.filter(okPlan);
 }
@@ -1507,7 +1513,7 @@ function runPlan(c,scen,obj){
   Object.assign(S,c);S.scen=scen;
   try{
     const {p}=params(),r=simulate(p,S.goal),L=r.last,net=1-FEE.ntSell-FEE.ntAct-p.slip;
-    const liq=L.cash+L.R+L.ai*p.pA0*(1-p.fee-p.slip);
+    const liq=L.cash+L.R+L.ai*L.pA*(1-p.fee-p.slip); // 남긴 AiLGNS는 기간 끝 시세로
     const ntLater=(r.ntLeft+(r.exNtLeft||0))*net;
     const cashLater=r.csLeft+(r.fundLeft||0)+(p.ntUse==='cash'?ntLater:0);
     const daiLater=r.streamsLeft*net+(p.ntUse!=='cash'?ntLater:0);
@@ -1532,13 +1538,17 @@ async function findBest(){
     if(i%40===39){keepPos(()=>$('aiMeta').textContent=`${i+1} / ${cands.length}가지 계산 중… (위아래로 움직여도 돼요)`);await new Promise(r=>setTimeout(r));if(run!==aiRunId)return;}
   }
   res.sort((a,b)=>b.score-a.score);
-  // 2단계: 상위 12개 플랜에 LGNS 쓰는 곳(소각 본드·보유·픽스본드·풀린 LGNS) 조합을 모두 붙여 봐요
+  // 2단계: 상위 12개 플랜에 LGNS 쓰는 곳(소각 본드·보유·픽스본드·풀린 LGNS)과 받은 AiLGNS 파는 비율 조합을 모두 붙여 봐요
   const top=res.slice(0,12),combos=sinkCombos();let n2=0;
-  for(const t of top)for(const sk of combos){
-    if(!okPlan({...t.c,...sk}))continue;
-    if(sk.lgnsDest===t.c.lgnsDest&&sk.polyDest===t.c.polyDest&&sk.bondRelease===t.c.bondRelease)continue;
-    const c={...t.c,...sk},by={};for(const sc of scens)by[sc]=runPlan(c,sc,obj==='safe'?'total':obj);
-    const score=obj==='safe'?Math.min(...scens.map(s=>by[s].score)):by[scens[0]].score;res.push({c,score,by,main:by[obj==='safe'?'low':scens[0]]});n2++;
+  for(const t of top){
+    for(const aiSell of (t.c.goal==='B'?[t.c.aiSell]:[1,.7,.5,0]))for(const sk of combos){
+      const c={...t.c,...sk,aiSell};
+      if(!okPlan(c))continue;
+      if(sk.lgnsDest===t.c.lgnsDest&&sk.polyDest===t.c.polyDest&&sk.bondRelease===t.c.bondRelease&&aiSell===t.c.aiSell)continue;
+      const by={};for(const sc of scens)by[sc]=runPlan(c,sc,obj==='safe'?'total':obj);
+      const score=obj==='safe'?Math.min(...scens.map(s=>by[s].score)):by[scens[0]].score;res.push({c,score,by,main:by[obj==='safe'?'low':scens[0]]});n2++;
+    }
+    await new Promise(r=>setTimeout(r));if(run!==aiRunId)return;
   }
   res.sort((a,b)=>b.score-a.score);
   const cur={};PLAN_KEYS.forEach(k=>cur[k]=S[k]);
@@ -1562,7 +1572,7 @@ async function findBest(){
     if(!S.burnOpen){dom.lgnsDest=['bond','hold'];if(walletMode()&&nv('exBurnP')>0)dom.polyDest=['fixed','hold'];}
     if(hasNt)dom.ntUse=['lgns','turbo','helix','cash'];
     if(b.goal==='B')dom.bFund=['self','ext','nt'];
-    else{dom.route=S.burnOpen?['auto','lgns','old','turbo','aiburn','bond']:['auto','bond','lgns','old','turbo'];dom.reinv=[.5,.8,1];dom.ntShare=[0,.2,.5];if(b.goal==='A'&&b.reinv<1)dom.cashVia=['now','nt'];}
+    else{dom.route=S.burnOpen?['auto','lgns','old','turbo','aiburn','bond']:['auto','bond','lgns','old','turbo'];dom.reinv=[.5,.8,1];dom.aiSell=[1,.7,.5,0];dom.ntShare=[0,.2,.5];if(b.goal==='A'&&b.reinv<1)dom.cashVia=['now','nt'];}
     const sc0=s=>obj==='safe'?Math.min(...['keep','mid','low'].map(x=>runPlan(s,x,'total').score)):runPlan(s,scens[0],obj).score;
     for(const [k,vals] of Object.entries(dom)){let alt=null;for(const v of vals){if(String(v)===String(b[k])||!okPlan({...b,[k]:v}))continue;const s=sc0({...b,[k]:v});if(!alt||s>alt.s)alt={v,s};}
       if(alt)why.push({k,v:alt.v,d:res[0].score-alt.s});}
@@ -1596,7 +1606,7 @@ function whyLines(a){
 function describe(c){
   const l=[LBL.goal(c.goal)+' 방식'];
   if(c.goal==='B')l.push(LBL.bFund(c.bFund));
-  else{l.push(LBL.reinv(c.reinv)+(c.goal==='C'?' (원금을 찾은 뒤)':''),LBL.route(c.route));if(c.ntShare>0)l.push(`${LBL.ntShare(c.ntShare)} (${LBL.ntProd(c.ntProd)})`);if(c.goal==='A'&&c.reinv<1)l.push(LBL.cashVia(c.cashVia));}
+  else{if(c.aiSell<1)l.push(LBL.aiSell(c.aiSell));l.push(LBL.reinv(c.reinv)+(c.goal==='C'?' (원금을 찾은 뒤)':''),LBL.route(c.route));if(c.ntShare>0)l.push(`${LBL.ntShare(c.ntShare)} (${LBL.ntProd(c.ntProd)})`);if(c.goal==='A'&&c.reinv<1)l.push(LBL.cashVia(c.cashVia));}
   l.push(LBL.xFund(c.xFund));
   if(S.start==='newturbo'||(walletMode()&&nv('exNtRem')+nv('exNtNow')+nv('exCw2')+nv('exCw2Daily')>0))l.push(LBL.ntUse(c.ntUse));
   if(!S.burnOpen){l.push(LBL.lgnsDest(c.lgnsDest));if(walletMode()&&nv('exBurnP')>0)l.push(LBL.polyDest(c.polyDest));}
@@ -1639,7 +1649,7 @@ function applyPlan(c){keepPos(()=>applyPlan0(c));}
 function applyPlan0(c){ // render()도 keepPos로 감싸져 있어서 겹쳐 불러도 괜찮아요
   Object.assign(S,c);
   const sync=(sel,key)=>document.querySelectorAll(sel+' [data-v]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.v)===String(S[key])));
-  sync('#qGoal','goal');sync('#gReinv','reinv');sync('#gRoute','route');sync('#gNtShare','ntShare');sync('#gCash','cashVia');sync('#gBFund','bFund');sync('#gXFund','xFund');
+  sync('#qGoal','goal');sync('#gReinv','reinv');sync('#gAiSell','aiSell');sync('#gRoute','route');sync('#gNtShare','ntShare');sync('#gCash','cashVia');sync('#gBFund','bFund');sync('#gXFund','xFund');
   sync('[data-key="ntProd"]','ntProd');sync('[data-key="ntUse"]','ntUse');sync('#gLgDest','lgnsDest');sync('#gPolyDest','polyDest');sync('#gRel','bondRelease');
   render();aiLast&&(aiLast.cur={...c},aiLast.curScore=aiLast.best.score);renderAi();
 }
