@@ -216,6 +216,7 @@ footer{font-size:12px;color:var(--muted)}
     </details>
     <div class="row" style="justify-content:space-between"><span class="msg" id="loadMeta">지갑을 추가하면 바로 조회해요.</span><button type="button" class="btn" id="loadBtn" hidden>모두 다시 조회</button></div>
     <div class="wl" id="wl"></div>
+    <div class="wc" id="lgnsBox" hidden></div>
     <p class="legend3">✅ 온체인에서 직접 읽은 값 · 📢 운영 측 안내·강의 설명 · ❓ 가정·미확인</p>
   </section>
 
@@ -441,9 +442,10 @@ const walletMode=()=>S.mode==='wallet';
 function scopeWallets(){return S.scope==='all'?W.list:W.list.filter(w=>w.address===S.scope);}
 function sumState(ws){
   const o={power:0,ai:0,unc:0,dai:0,pend:0,ve:0,ntRem:0,ntDaily:0,ntNowL:0,lgnsA:0,lgnsP:0,turbLocked:0,turbClaim:0,ntSell:0,ntLocked:0,ntClaim:0,orders:[],n:0,fail:[],
-    extra:0,extraDaily:0,extraMeasured:true,stakeInterest:0,stakePrincipal:0,stakes:[],cw:0,cwDaily:0,cwMeasured:true,cwTotal:0,cwClaimed:0};
+    extra:0,extraDaily:0,extraMeasured:true,stakeInterest:0,stakePrincipal:0,stakes:[],cw:0,cwDaily:0,cwMeasured:true,cwTotal:0,cwClaimed:0,tcLocked:0,tcReady:0};
   ws.forEach(w=>{const d=W.data[w.address.toLowerCase()];if(!d)return;o.n++;
     if(d.v.cw&&d.v.cw.ok)o.cw+=d.v.cw.x;
+    if(d.v.tClaim&&d.v.tClaim.ok){o.tcLocked+=d.v.tClaim.locked;o.tcReady+=d.v.tClaim.ready;}
     if(d.cw){o.cwTotal+=d.cw.total;o.cwClaimed+=d.cw.claimed;if(d.cw.daily!=null)o.cwDaily+=d.cw.daily;else if(d.cw.total>0)o.cwMeasured=false;}
     (d.stakes||[]).forEach(s=>{o.stakes.push({...s,wallet:w.name});o.extra+=s.extra;o.stakeInterest+=s.interest;o.stakePrincipal+=s.principal;});
     const v=k=>d.v[k]?.ok?d.v[k].x:0;
@@ -556,7 +558,7 @@ function render(){
   $('gMode').querySelectorAll('[data-v]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===S.mode));
   $('walletStart').hidden=!wm;
   renderScope();
-  $('q1T').textContent=wm?'지갑 밖에서 새로 더 넣을 게 있나요?':'무엇으로 시작하나요?';
+  $('q1T').textContent=wm?'지갑 자산 말고 새로 더 넣는다면, 무엇으로? (안 넣으면 2번에서 ‘추가 없이’)':'무엇으로 시작하나요?';
   $('amtT').textContent=wm?(lg?'2. 새로 사서 더 넣을 LGNS는 몇 개?':'2. 새로 더 넣을 DAI는 얼마?'):(lg?'2. LGNS를 몇 개 넣을까요?':'2. DAI를 얼마 넣을까요?');$('unit').textContent=lg?'개':'DAI';
   const list=lg?[1000,5000,10000,50000]:[500,1000,3000,10000];
   let chips=(wm?[0]:[]).concat(list);
@@ -903,6 +905,27 @@ function renderScope(){
   g.querySelectorAll('[data-v]').forEach(b=>b.addEventListener('click',()=>{S.scope=b.dataset.v;store.set('scope',S.scope);fillStart();render();renderWallets();}));
   $('scopeHint').textContent=W.list.length?'조회한 값이 아래 칸에 채워져요. 고친 값으로 계산하려면 ‘이 현황으로 계산’을 눌러요.':'위에서 지갑을 먼저 추가해 주세요.';
 }
+// LGNS 총 보유량: 어디에 얼마나 있는지 네 묶음으로 (모두 온체인에서 읽은 수량 ✅)
+function lgnsGroups(o){
+  return [
+    {t:'바로 쓸 수 있어요',rows:[['지갑 · Anubis',o.lgnsA],['지갑 · Polygon',o.lgnsP],['터보 청구 가능 (24시간 지남)',o.tcReady]]},
+    {t:'곧 받아요',rows:[['터보 24시간 잠김',o.tcLocked],['신생태 금고 판매 가능 (판매세 5%)',o.ntSell],['신생태 금고 잠김',o.ntLocked],['신생태 활성화 대기 (1%)',o.ntClaim]]},
+    {t:'DAI를 내면 1+1로 받아요',rows:[['터보란',o.pend],['장기 스테이킹 추가이자',o.extra],['스파이더 웹 (청구 전)',o.cw]],note:'DAI(시세+5%)를 내면 같은 수량을 사서 함께 받아요'},
+    {t:'스테이킹에 묶여 있어요',rows:[['장기 스테이킹 원금',o.stakePrincipal],['장기 스테이킹 받을 이자',o.stakeInterest]]},
+  ];
+}
+function lgnsTotal(o){return lgnsGroups(o).reduce((a,g)=>a+g.rows.reduce((b,r)=>b+r[1],0),0);}
+function renderLgnsBox(){
+  const box=$('lgnsBox');const ws=S.scope==='all'||!walletMode()?W.list:W.list.filter(w=>w.address===S.scope);
+  const o=sumState(ws);if(!o.n){box.hidden=true;return;}
+  box.hidden=false;const pL=Math.max(.0001,num('pL')||.2),tot=lgnsTotal(o);
+  const who=ws.length>1?`전체 지갑 ${ws.length}개`:esc(ws[0].name);
+  box.innerHTML=`<div class="hd"><div class="nm">LGNS 총 보유량 · ${who}</div><b style="font:700 16px var(--f-num)">${fmt(tot,2)} LGNS</b></div>
+    <p class="msg" style="margin:-2px 0 4px">지금 시세로 약 ${fmt(tot*pL,2)} DAI · Anubis에서 바로 팔면 약 50%가 수수료라 실제로 받는 돈은 훨씬 적어요</p>
+    ${lgnsGroups(o).map(g=>{const s=g.rows.reduce((a,r)=>a+r[1],0);return `<details${s>0?' open':''}><summary class="msg" style="cursor:pointer;color:var(--ink)"><b>${g.t}</b> · ${fq(s)} LGNS</summary>
+      <div class="kv" style="margin:4px 0 6px">${g.rows.map(([k,v])=>`<div><span>${k}</span><b>${fq(v)}</b></div>`).join('')}</div>${g.note&&s>0?`<p class="legend3" style="margin:0 0 6px">${g.note}</p>`:''}</details>`;}).join('')}
+    <p class="legend3" style="margin:0">✅ 온체인에서 읽은 수량 · 장기 스테이킹은 원금 기준 · 신생태 터보의 남은 지급(DAI 가치)은 아직 LGNS가 아니라 빼고 셌어요</p>`;
+}
 function cell(d,k,unit,dg){const x=d.v[k];if(!x)return '<b>-</b>';if(!x.ok)return `<b class="err" title="${esc(x.err)}">못 읽음</b>`;return `<b>${dg==null?fq(x.x):fmt(x.x,dg)}${unit?' '+unit:''}</b>`;}
 function renderWallets(){
   $('loadBtn').hidden=!W.list.length;
@@ -911,8 +934,9 @@ function renderWallets(){
     const d=W.data[w.address.toLowerCase()];const sel=walletMode()&&(S.scope===w.address||(S.scope==='all'&&W.list.length===1));
     let body;
     if(!d)body=`<p class="msg">${W.loading?'조회 중…':'아직 조회하지 않았어요.'}</p>`;
-    else{const nt=(d.orders||[]).filter(x=>!x.completed);
+    else{const nt=(d.orders||[]).filter(x=>!x.completed);const lt=lgnsTotal(sumState([w]));
       body=`<div class="kv">
+        <div><span>LGNS 총 보유량 ✅</span><b>${fmt(lt,2)}</b></div>
         <div><span>활성 Power ✅</span>${cell(d,'power','',0)}</div>
         <div><span>보유 AiLGNS ✅</span>${cell(d,'ai')}</div>
         <div><span>터빈 대기 AiLGNS ✅</span>${cell(d,'unc')}</div>
@@ -932,7 +956,7 @@ function renderWallets(){
       </div>`;
       // 지갑이 여러 개면 한 줄 요약만 보이고 눌러서 펼쳐요
       if(W.list.length>1){const pw=d.v.power?.ok?d.v.power.x:0;
-        body=`<details><summary class="msg" style="cursor:pointer">Power ${fmt(pw)} · AiLGNS ${fq((d.v.ai?.x||0)+(d.v.turbLocked?.x||0)+(d.v.turbClaim?.x||0))} · DAI ${fmt(d.v.dai?.x||0,2)}${d.v.long?.x>0?` · 추가이자 ${fq(d.v.long.x)}`:''}${d.v.cw?.x>0?` · 스파이더 웹 ${fq(d.v.cw.x)}`:''}${nt.length?` · 신생태 ${nt.length}건`:''}${Object.values(d.v).some(x=>!x.ok)?' · <span class="err">못 읽은 값 있음</span>':''}</summary><div style="margin-top:6px">${body}</div></details>`;}}
+        body=`<details><summary class="msg" style="cursor:pointer">LGNS ${fmt(lt,2)} · Power ${fmt(pw)} · AiLGNS ${fq((d.v.ai?.x||0)+(d.v.turbLocked?.x||0)+(d.v.turbClaim?.x||0))} · DAI ${fmt(d.v.dai?.x||0,2)}${d.v.long?.x>0?` · 추가이자 ${fq(d.v.long.x)}`:''}${d.v.cw?.x>0?` · 스파이더 웹 ${fq(d.v.cw.x)}`:''}${nt.length?` · 신생태 ${nt.length}건`:''}${Object.values(d.v).some(x=>!x.ok)?' · <span class="err">못 읽은 값 있음</span>':''}</summary><div style="margin-top:6px">${body}</div></details>`;}}
     return `<div class="wc${sel?' sel':''}"><div class="hd"><div class="nm"><span class="dot" style="background:${COLORS[i%COLORS.length]}"></span><span style="overflow-wrap:anywhere">${esc(w.name)}</span></div><div class="act"><a class="ad" href="https://browser.anubispace.org/address/${w.address}" target="_blank" rel="noopener">${w.address.slice(0,6)}…${w.address.slice(-4)}</a>
       ${W.list.length>1?`<button type="button" class="linkbtn" data-use="${w.address}">이 지갑으로 계산</button>`:''}<button type="button" class="linkbtn" data-ren="${w.address}">이름</button><button type="button" class="linkbtn danger" data-del="${w.address}">삭제</button></div></div>${body}</div>`;
   };
@@ -945,6 +969,7 @@ function renderWallets(){
     <div><span>하루 터빈 비용</span><b>${fmt(tot.power*(num('r0')||.279)/100*1.035,2)} DAI</b></div><div><span>AiLGNS 지금 가치</span><b>${fmt(tot.ai*(num('pA')||793))} DAI</b></div></div></div>`;}
   h+=W.list.map(card).join('');
   $('wl').innerHTML=h;
+  renderLgnsBox();
   $('wl').querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{const a=b.dataset.del;if(b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='한 번 더 누르면 삭제';return;}
     W.list=W.list.filter(w=>w.address!==a);delete W.data[a.toLowerCase()];store.set('wallets',W.list);touched();if(S.scope===a)S.scope='all';fillStart();renderWallets();render();}));
   $('wl').querySelectorAll('[data-ren]').forEach(b=>b.addEventListener('click',()=>{const w=W.list.find(x=>x.address===b.dataset.ren);const n=prompt('지갑 이름',w.name);if(n&&n.trim()){w.name=n.trim().slice(0,30);store.set('wallets',W.list);touched();renderWallets();render();}}));

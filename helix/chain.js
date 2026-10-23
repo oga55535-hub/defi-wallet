@@ -33,9 +33,11 @@ const SEL={balanceOf:'0x70a08231',getReserves:'0x0902f1ac',token0:'0x0dfe1681',
   // 일반 터보: 터보란 LGNS 수량을 넣으면 그만큼 LGNS를 사는 DAI 견적. 실제로는 여기에 burnExtraBps(5%)를 더 내요 (10/22 실제 거래로 확인)
   getSilenceDAIAmount:'0x5c083dc6',burnExtraBps:'0x2d5ec9b9',
   // 스파이더 웹: claimable=지금 청구할 LGNS, rewardOf=(total, claimed) 누적
-  claimable:'0x402914f5',rewardOf:'0x1d62ebd9'};
+  claimable:'0x402914f5',rewardOf:'0x1d62ebd9',
+  // 일반 터보 청구 기록: (id, silenceBalance, rewardBalance, lockTimestamp)[]. 청구하면 기록이 지워져요 (10/23 실제 거래로 확인)
+  getClaimInfo:'0x0835fe47',lockPeriod:'0x3fd8b02f'};
 const LABEL={power:'활성 Power',totalPower:'누적 Power',queued:'대기 Power',ai:'AiLGNS',unc:'터빈 대기',turbLocked:'터빈 잠김',turbClaim:'터빈 수령 가능',
-  dai:'DAI',lgnsA:'LGNS(Anubis)',lgnsP:'LGNS(Polygon)',pend:'일반 터보',ve:'ve 잠금',nt25:'신생태 2.5배',nt4:'신생태 4배',long:'장기 스테이킹',turboDai:'터보 DAI 견적',cw:'스파이더 웹'};
+  dai:'DAI',lgnsA:'LGNS(Anubis)',lgnsP:'LGNS(Polygon)',pend:'일반 터보',ve:'ve 잠금',nt25:'신생태 2.5배',nt4:'신생태 4배',long:'장기 스테이킹',turboDai:'터보 DAI 견적',cw:'스파이더 웹',tClaim:'터보 청구 대기'};
 
 const isAddr=a=>/^0x[0-9a-fA-F]{40}$/.test(a);
 const word=v=>BigInt(v).toString(16).padStart(64,'0');
@@ -119,8 +121,9 @@ async function loadWallets(addrs,opt={}){
     c('pend',A.turbine,SEL.getTurbineBal);c('veIds',A.ve,SEL.positionsOf);
     ['nt25','nt4'].forEach(k=>{c(k+'n',A[k],SEL.getUserOrderCount);c(k+'s',A[k],SEL.sellableBalance);c(k+'l',A[k],SEL.lockedBalance);});
     ['long360','long600'].forEach(k=>c(k+'n',A[k],SEL.getUserStakesCount));
-    c('cw',A.cobweb,SEL.claimable);c('cwr',A.cobweb,SEL.rewardOf);
+    c('cw',A.cobweb,SEL.claimable);c('cwr',A.cobweb,SEL.rewardOf);c('tci',A.turbine,SEL.getClaimInfo);
   });
+  R1.push(callReq('lp',A.turbine,SEL.lockPeriod,[]));
   R1.push(callReq('r25',A.nt25,SEL.ratePerEpoch,[]),callReq('r4',A.nt4,SEL.ratePerEpoch,[]),{id:'bn',method:'eth_blockNumber',params:[]});
   const [r1,rp]=await Promise.all([batch(ANUBIS,R1),batch(POLYGON,addrs.map((a,i)=>callReq(i+':lgnsP',P.lgns,SEL.balanceOf,[a])))]);
   const bn=r1.bn&&r1.bn.result?parseInt(r1.bn.result,16):null;
@@ -206,6 +209,12 @@ async function loadWallets(addrs,opt={}){
       const a0=units(words(p0.result)[0]||0n,18),tt=units(words(t0.result)[0]||0n,18);
       if(a0>0&&Math.abs(tt-v.totalPower.x)<1e-9&&v.power.x<a0){const r=1-Math.pow(v.power.x/a0,86400/dayAgo.sec);if(r>0&&r<.05)rate1=r;}
     }
+    // 일반 터보 청구 대기: 터보를 돌린 뒤 24시간 잠금 중이거나 지금 청구할 수 있는 LGNS
+    const tci=r1[i+':tci'];
+    if(errOf(tci))v.tClaim={ok:false,err:errOf(tci)};
+    else{const x=words(tci.result),n=Number(x[1]||0n),lock=r1.lp&&!errOf(r1.lp)?Number(words(r1.lp.result)[0]||86400n):86400,now=Date.now()/1000;let locked=0,ready=0;
+      for(let j=0;j<n;j++){const r=x.slice(2+4*j,6+4*j);if(r.length<4)break;const amt=units(r[1],9)+units(r[2],9);if(Number(r[3])+lock>now)locked+=amt;else ready+=amt;}
+      v.tClaim={ok:true,x:locked+ready,locked,ready};}
     // 터보 전부 돌리는 DAI = 견적 × (1 + burnExtraBps)
     const sq=r3[i+':sq'];
     v.turboDai=turboQty[i]===0n?{ok:true,x:0}:errOf(sq)?{ok:false,err:errOf(sq)}:{ok:true,x:units(words(sq.result)[0]||0n,18)*(1+extraBps/10000)};
