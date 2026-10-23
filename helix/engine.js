@@ -16,7 +16,8 @@
 //   p.ntShare        다시 넣는 돈 중 신생태 터보(p.ntMult배 · p.ntDays일)에 넣는 비율. 풀린 DAI는 p.route 대로 다시 넣어요
 //   p.xFirst         터보란(쌓인 수량 + 추가이자)을 매일 가장 먼저 돌려요: 남는 DAI를 원금 회수·현금·다시 넣기보다 먼저 쓰고,
 //                    ‘편하게’는 모자란 만큼 받은 AiLGNS를 팔아서 내요
-//   p.ex.xNow        첫날 지갑 DAI 중 이만큼으로 터보란을 바로 돌려요
+//   p.ex.xNow        첫날 지갑 DAI 중 이만큼으로 터보란을 바로 돌려요 (하루 한도와 상관없이)
+//   p.xCap           하루에 터보란에 쓰는 DAI 최대 — 쌓인 보상을 천천히 나눠 돌릴 때
 //   p.ex.burnA/burnP 지갑에 이미 있는 Anubis/Polygon LGNS 중 첫날 HELIX에 소각하는 수량 (1개 = 1 DAI 인정 × 2배 📢)
 // 일반 터보 (10/22 실제 거래로 확인): DAI를 내면 그 값으로 산 LGNS는 바로 지갑에 오고, 터보란의 같은 수량은 24시간 뒤 청구 → 1+1.
 //   내는 DAI = 시세(견적) × 1.05. 터보란 수량은 사라지지 않고 남아 있다가 DAI와 함께 돌릴 때 줄어요.
@@ -46,9 +47,13 @@ function simulate(p,pl){
   let fs=fundInv>0?[{d:fundInv*2.5/300*(1-FEE.ntSell-FEE.ntAct-p.slip),left:300}]:[];
   let R=p.R0,cash=0,ai=0,ve=0,ext=0,unc=0,pending=0,streams=[],cashDay=null,veDay=null,ntOut=0,cs=[],ntIn=0;
   if(ex.dai)R+=ex.dai;
-  let xDai=0,xLgns=0,xDay=null; // 터보란을 돌리는 데 쓴 DAI, 1+1로 받은 LGNS, 처음 쌓여 있던 양을 다 돌린 날
-  const xRun=(dai,pL)=>{const before=pend,o=oldTurbo(dai,pL),m=before-pend;xDai+=dai-o.left;xLgns+=2*m;return o;};
-  if(ex.xNow>0&&pend>0){const d0=Math.min(ex.xNow,R),o=xRun(d0,p.pL0);R-=d0-o.left;pending+=o.pow;} // 받은 LGNS는 첫날 소각
+  let xDai=0,xLgns=0,xDay=null,xToday=0; // 터보란을 돌리는 데 쓴 DAI, 1+1로 받은 LGNS, 처음 쌓여 있던 양을 다 돌린 날, 오늘 쓴 DAI
+  // p.xCap: 하루에 터보란에 쓰는 DAI 최대. 넘는 DAI는 쓰지 않고 돌려줘요 (터보란은 남아 있다가 다음 날 이어서)
+  const xRun=(dai,pL,noCap)=>{
+    if(!(p.xCap>0)||noCap){const before=pend,o=oldTurbo(dai,pL),m=before-pend;xDai+=dai-o.left;xToday+=dai-o.left;xLgns+=2*m;return o;}
+    const use=Math.min(dai,Math.max(0,p.xCap-xToday)),before=pend,o=oldTurbo(use,pL),m=before-pend,spent=use-o.left;
+    xDai+=spent;xToday+=spent;xLgns+=2*m;return {pow:o.pow,left:dai-spent};};
+  if(ex.xNow>0&&pend>0){const d0=Math.min(ex.xNow,R),o=xRun(d0,p.pL0,true);R-=d0-o.left;pending+=o.pow;} // 받은 LGNS는 첫날 소각
   if(ex.ai)ai+=ex.ai;
   if(ex.unc)unc+=ex.unc;
   if(ex.ve)ve+=ex.ve;
@@ -62,6 +67,7 @@ function simulate(p,pl){
     const lgPow=x=>x*2*Math.max(pL,1)/pL;
     // auto: 쌓인 터보 수량까지 일반 터보, 남은 DAI는 LGNS 사서 소각
     const autoPow=dai=>{const o=xRun(dai,pL);return o.pow+lgPow(o.left*(1-p.slip));};
+    xToday=0;
     if(ex.pendDaily)pend+=ex.pendDaily;
     P+=pending;pending=0;
     if(streams.length){let V=0;streams.forEach(s=>{V+=s.d;s.left--;});streams=streams.filter(s=>s.left>0);
