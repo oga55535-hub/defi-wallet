@@ -176,6 +176,17 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .sumcard .x{background:rgba(255,255,255,.08);border-radius:12px;padding:10px 12px;font-size:14px}
 .sumcard .go{align-self:flex-start;background:var(--acc);color:#fff}
 .adv{display:flex;flex-direction:column;gap:12px;padding-bottom:4px}
+#aiSec{border-color:var(--acc)}
+.aibest{background:var(--acc-soft);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.aibest .t{font-weight:900;font-size:16px;color:var(--acc)}
+.aibest ul{margin:0;padding-left:18px;font-size:14px}
+.ainums{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.ainums div{background:var(--panel);border-radius:10px;padding:8px 10px;min-width:0}
+.ainums span{display:block;font-size:12px;color:var(--muted)}
+.ainums b{font:700 15px var(--f-num);overflow-wrap:anywhere}
+@media (max-width:380px){.ainums{grid-template-columns:minmax(0,1fr)}}
+.why{font-size:13.5px;margin:0;padding-left:18px}
+.why li{margin-bottom:3px}
 .routine li.done span{opacity:.55;text-decoration:line-through}
 .routine .when{display:inline-block;font:700 11.5px var(--f-body);color:var(--acc);background:var(--acc-soft);border-radius:6px;padding:0 6px;margin-right:4px}
 .bottombar{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;justify-content:center;background:var(--bg);border-top:1px solid var(--line);
@@ -312,6 +323,15 @@ body.hasbar{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
           <div class="row"><span class="lb">진행 중인 신생태 터보에서 풀려서 판 돈은 어디에?</span><span data-key="ntUse"><button type="button" class="chip" data-v="turbo" aria-pressed="false">일반 터보 → 소각</button> <button type="button" class="chip" data-v="lgns" aria-pressed="true">LGNS 사서 소각</button> <button type="button" class="chip" data-v="helix" aria-pressed="false">HELIX에 DAI 참여</button> <button type="button" class="chip" data-v="cash" aria-pressed="false">현금으로</button></span></div>
         </div>
       </div>
+    </section>
+
+    <section class="q" id="aiSec">
+      <h2>최적 플랜 추천</h2>
+      <p class="sub" style="margin:0">지금 현황으로 고를 수 있는 방법을 전부 시뮬레이션해서, 가장 이득인 플랜을 골라 드려요.</p>
+      <div class="row"><span class="lb">무엇을 가장 크게?</span><span id="gObj"><button type="button" class="chip" data-v="total" aria-pressed="true">총 이득 (현금 + 남은 Power)</button> <button type="button" class="chip" data-v="cash" aria-pressed="false">꺼낼 수 있는 현금</button> <button type="button" class="chip" data-v="safe" aria-pressed="false">시장이 나빠져도 안전하게</button></span></div>
+      <label class="msg" style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;color:var(--ink)"><input type="checkbox" id="aiExt" style="margin-top:4px;accent-color:var(--acc)"><span>내 DAI를 더 넣는 플랜도 비교하기 (매일 터빈 비용을 내 DAI로 · 신생태 터보에 새 DAI) — 끄면 지금 지갑에 있는 것만으로 돌려요</span></label>
+      <div class="row"><button type="button" class="btn" id="aiRun">최적 플랜 찾기</button><span class="msg" id="aiMeta"></span></div>
+      <div id="aiOut" hidden></div>
     </section>
 
     <section class="q" id="goalSec">
@@ -573,7 +593,8 @@ function startPower(p){
   const daily=p.startAmt*p.ntMult/p.ntDays*(1-.06-p.slip);const f={turbo:4/(p.pL0*1.05),lgnsbuy:2/p.pL0,helix:2.5,cash:0}[p.ntUse];return daily*f*14;
 }
 function params(pOver){
-  const p=pOver||base();const P0=startPower(p)+(p.ex?p.ex.power:0);const firstCost=P0*p.r0*(1+.025+p.slip);
+  // 시작 Power: 새로 넣는 것 + 이미 가진 Power + 지갑 LGNS 소각분 (터빈용 DAI 자동 계산에 다 들어가야 해요)
+  const p=pOver||base();const ex0=p.ex||{};const P0=startPower(p)+(ex0.power||0)+(ex0.burnA||0)*2*Math.max(p.pL0,1)+(ex0.burnP||0)*2*Math.max(p.pLP0,1);const firstCost=P0*p.r0*(1+.025+p.slip);
   const auto=Math.max(20,Math.ceil(firstCost*2/10)*10);
   // 지갑 모드: 지갑 DAI로 2일치가 되면 새로 준비할 DAI는 0이에요
   p.R0=$('R0in').value!==''?Math.max(0,+$('R0in').value):p.ex?Math.max(0,Math.ceil((firstCost*2-p.ex.dai)/10)*10):auto;
@@ -1248,6 +1269,138 @@ async function refreshPrices(){
 }
 $('priceBtn').addEventListener('click',refreshPrices);
 
+// ===== 최적 플랜 추천: 고를 수 있는 조합을 전부 시뮬레이션해서 비교 =====
+// 이득 = 기간 뒤 꺼낼 수 있는 현금 + 앞으로 현금으로 받을 몫 + 신생태에서 앞으로 받을 DAI + 남은 Power × POW_VAL − 들인 돈
+// 남은 Power는 출금할 수 없고 터빈 비용을 내며 천천히 받으니까 1개를 0.5 DAI로 쳐요 ❓ (‘현금’ 목표는 0으로)
+const POW_VAL=.5;
+const PLAN_KEYS=['goal','reinv','route','ntShare','ntProd','cashVia','bFund','xFund','ntUse'];
+const LBL={
+  goal:v=>`‘${GOALN[v]}’`,reinv:v=>`판 돈의 ${fmt(v*100)}% 다시 넣기`,
+  route:v=>({auto:'자동 · 이득 순으로 다시 넣기',lgns:'LGNS 사서 소각',old:'일반 터보로만',turbo:'신생태 → 터보 → 소각',aiburn:'AiLGNS 소각'}[v]),
+  ntShare:v=>v?`다시 넣는 돈의 ${fmt(v*100)}%는 신생태 터보`:'신생태 터보에 안 넣기',ntProd:v=>v==='4|500'?'신생태 4배 · 500일':'신생태 2.5배 · 300일',
+  cashVia:v=>v==='nt'?'현금 몫은 신생태로 나눠 받기':'현금 몫은 바로 현금',bFund:v=>({self:'터빈 비용은 AiLGNS 조금 팔기',ext:'터빈 비용은 매일 내 DAI',nt:'터빈 비용은 신생태 터보 DAI'}[v]),
+  xFund:v=>({first:'터보란 매일 가장 먼저',plan:'터보란은 방식대로',none:'터보란 안 돌림'}[v]),
+  ntUse:v=>({lgns:'신생태에서 풀린 돈은 LGNS 사서 소각',turbo:'신생태에서 풀린 돈은 일반 터보',helix:'신생태에서 풀린 돈은 DAI 참여',cash:'신생태에서 풀린 돈은 현금'}[v])};
+function planCandidates(){
+  const out=[],hasNt=S.start==='newturbo'||(walletMode()&&nv('exNtRem')+nv('exNtNow')>0);
+  const ntUses=hasNt?['lgns','turbo','helix','cash']:[S.ntUse];
+  for(const ntUse of ntUses)for(const xFund of ['first','plan','none']){
+    // ‘매일 내 DAI’·‘신생태 터보 DAI’는 지갑 밖의 새 돈이 들어가서, 체크했을 때만 비교해요
+    for(const bFund of ($('aiExt').checked?['self','ext','nt']:['self']))out.push({goal:'B',bFund,xFund,ntUse});
+    for(const goal of ['A','C'])for(const reinv of [.5,.8,1])for(const route of ['auto','lgns','old','turbo','aiburn'])
+      for(const [ntShare,ntProd] of [[0,'2.5|300'],[.2,'2.5|300'],[.5,'2.5|300'],[.2,'4|500'],[.5,'4|500']])
+        for(const cashVia of (goal==='A'&&reinv<1?['now','nt']:['now']))out.push({goal,reinv,route,ntShare,ntProd,cashVia,xFund,ntUse});
+  }
+  return out;
+}
+// 한 조합을 한 시장 가정으로 돌려서 점수와 숫자를 돌려줘요 (화면 선택 S는 그대로 되돌려 놓아요)
+function runPlan(c,scen,obj){
+  const keep={};PLAN_KEYS.concat(['scen']).forEach(k=>keep[k]=S[k]);
+  Object.assign(S,c);S.scen=scen;
+  try{
+    const {p}=params(),r=simulate(p,S.goal),L=r.last,net=1-FEE.ntSell-FEE.ntAct-p.slip;
+    const liq=L.cash+L.R+L.ai*p.pA0*(1-p.fee-p.slip);
+    const ntLater=(r.ntLeft+(r.exNtLeft||0))*net;
+    const cashLater=r.csLeft+(r.fundLeft||0)+(p.ntUse==='cash'?ntLater:0);
+    const daiLater=r.streamsLeft*net+(p.ntUse!=='cash'?ntLater:0);
+    const pv=obj==='cash'?0:POW_VAL;
+    return {score:liq+cashLater+(obj==='cash'?0:daiLater)+pv*L.P-L.invested,liq,P:L.P,invested:L.invested,cashDay:r.cashDay,xDai:r.xDai,
+      newDai:p.R0+(r.ext||0)+(r.fundInv||0)+(r.startValue||0),ext:r.ext||0,fundInv:r.fundInv||0,R0:p.R0};
+  }finally{Object.assign(S,keep);}
+}
+let aiLast=null;
+async function findBest(){
+  const obj=S.obj||'total',btn=$('aiRun');btn.disabled=true;
+  const cands=planCandidates(),scens=obj==='safe'?['keep','mid','low']:[S.scen];
+  const res=[];
+  for(let i=0;i<cands.length;i++){
+    const c=cands[i],by={};
+    for(const sc of scens)by[sc]=runPlan(c,sc,obj==='safe'?'total':obj);
+    const score=obj==='safe'?Math.min(...scens.map(s=>by[s].score)):by[scens[0]].score;
+    res.push({c,score,by,main:by[obj==='safe'?'low':scens[0]]});
+    if(i%40===39){$('aiMeta').textContent=`${i+1} / ${cands.length}가지 계산 중…`;await new Promise(r=>setTimeout(r));}
+  }
+  res.sort((a,b)=>b.score-a.score);
+  const cur={};PLAN_KEYS.forEach(k=>cur[k]=S[k]);
+  const curBy={};for(const sc of scens)curBy[sc]=runPlan(cur,sc,obj==='safe'?'total':obj);
+  const curScore=obj==='safe'?Math.min(...scens.map(s=>curBy[s].score)):curBy[scens[0]].score;
+  // 세 시장 가정에서 1등 플랜이 어떻게 되는지
+  // 새 돈을 안 넣는 비교일 때도, 매일 내 DAI를 넣으면 얼마나 달라지는지 한 줄로 알려줘요
+  let extHint=null;
+  if(!$('aiExt').checked){
+    const ntUses=[...new Set(cands.map(c=>c.ntUse))];
+    for(const ntUse of ntUses)for(const xFund of ['first','plan']){
+      const c={goal:'B',bFund:'ext',xFund,ntUse},by={};for(const sc of scens)by[sc]=runPlan(c,sc,obj==='safe'?'total':obj);
+      const score=obj==='safe'?Math.min(...scens.map(s=>by[s].score)):by[scens[0]].score;
+      if(!extHint||score>extHint.score)extHint={c,score,main:by[obj==='safe'?'low':scens[0]]};
+    }
+    if(extHint&&extHint.score<=res[0].score+Math.max(20,Math.abs(res[0].score)*.1))extHint=null;
+  }
+  const best=res[0],all3={};['keep','mid','low'].forEach(sc=>all3[sc]=best.by[sc]||runPlan(best.c,sc,obj==='safe'?'total':obj));
+  aiLast={obj,res,best,cur,curScore,all3,n:cands.length,scens,extHint};
+  btn.disabled=false;$('aiMeta').textContent=`${cands.length}가지 조합 × ${scens.length===3?'시장 가정 3가지':PT[S.days]+' · '+{keep:'지금처럼',mid:'조금 나빠짐',low:'많이 나빠짐'}[S.scen]}로 비교했어요`;
+  renderAi();
+}
+// 1등과 ‘이것만 바꾼 가장 좋은 대안’을 비교해서 이유를 만들어요
+function whyLines(a){
+  const {best,res}=a,b=best.c,lines=[];
+  const dims=b.goal==='B'?['goal','bFund','xFund','ntUse']:['goal','route','xFund','reinv','ntShare','cashVia','ntUse'];
+  dims.forEach(k=>{
+    if(k==='cashVia'&&!(b.goal==='A'&&b.reinv<1))return;
+    if(k==='ntUse'&&!res.some(x=>x.c.ntUse!==b.ntUse))return;
+    // 방식별 선택(다시 넣는 방법·터빈 비용 등)은 같은 방식 안에서만 비교해요
+    const sameKind=['goal','xFund','ntUse'].includes(k)?()=>true:x=>x.c.goal===b.goal;
+    const alt=res.find(x=>sameKind(x)&&x.c[k]!==undefined&&x.c[k]!==b[k]);if(!alt)return;
+    const d=best.score-alt.score;
+    lines.push({k,d,t:`${LBL[k](b[k])} 대신 ${LBL[k](alt.c[k])}${k==='goal'?' 방식':''}이면 약 <b>${fmt(d)} DAI</b> 덜 나와요`});
+  });
+  lines.sort((x,y)=>y.d-x.d);
+  return lines.slice(0,4);
+}
+function describe(c){
+  const l=[LBL.goal(c.goal)+' 방식'];
+  if(c.goal==='B')l.push(LBL.bFund(c.bFund));
+  else{l.push(LBL.reinv(c.reinv)+(c.goal==='C'?' (원금을 찾은 뒤)':''),LBL.route(c.route));if(c.ntShare>0)l.push(`${LBL.ntShare(c.ntShare)} (${LBL.ntProd(c.ntProd)})`);if(c.goal==='A'&&c.reinv<1)l.push(LBL.cashVia(c.cashVia));}
+  l.push(LBL.xFund(c.xFund));
+  if(S.start==='newturbo'||(walletMode()&&nv('exNtRem')+nv('exNtNow')>0))l.push(LBL.ntUse(c.ntUse));
+  return l;
+}
+function renderAi(){
+  const a=aiLast,box=$('aiOut');if(!a){box.hidden=true;return;}
+  const b=a.best,m=b.main,objN={total:'총 이득',cash:'꺼낼 수 있는 현금 기준 이득',safe:'가장 나쁜 시장에서도 남는 이득'}[a.obj];
+  const same=describe(b.c).join()===describe(a.cur).join();
+  const gain=b.score-a.curScore;
+  const runner=a.res.slice(1).find(x=>describe(x.c).join()!==describe(b.c).join());
+  box.hidden=false;
+  box.innerHTML=`<div class="aibest">
+    <div class="t">추천: ${describe(b.c)[0]}</div>
+    <ul>${describe(b.c).slice(1).map(x=>`<li>${x}</li>`).join('')}</ul>
+    <div class="ainums"><div><span>${objN}</span><b>${fmt(b.score)} DAI</b></div><div><span>${PT[S.days]} 뒤 꺼낼 현금</span><b>${fmt(Math.max(0,m.liq))} DAI</b></div><div><span>남은 Power</span><b>${fmt(m.P)}</b></div></div>
+    <p class="msg" style="margin:0;color:var(--ink)">${m.newDai>0.5?`이 플랜에 새로 넣는 내 DAI: 약 <b>${fmt(m.newDai)} DAI</b> (${[m.R0>0.5?`처음 터빈용 ${fmt(m.R0)}`:'',m.ext>0.5?`매일 터빈 비용 합계 ${fmt(m.ext)} (하루 평균 ${fmt(m.ext/S.days,1)})`:'',m.fundInv>0.5?`신생태 터보 ${fmt(m.fundInv)}`:''].filter(Boolean).join(' · ')}) · 이득은 이 돈을 뺀 값이에요`:'지갑 밖에서 새로 넣는 DAI 없이 돌아가요'}</p>
+    <p class="msg" style="margin:0;color:var(--ink)">${same?'지금 고른 플랜이 이미 가장 이득이에요.':`지금 고른 플랜보다 약 <b>${fmt(gain)} DAI</b> 더 이득이에요.`}${m.cashDay&&!noBasis(params().p)?` · 원금은 ${m.cashDay}일째에 찾아요`:''}</p>
+    <p class="msg" style="margin:0">시장이 지금처럼 ${fmt(a.all3.keep.score)} · 조금 나빠지면 ${fmt(a.all3.mid.score)} · 많이 나빠지면 ${fmt(a.all3.low.score)} DAI</p>
+    <div class="row"><button type="button" class="btn" id="aiApply"${same?' disabled':''}>이 플랜으로 바꾸기</button>${same?'':'<span class="msg">오늘 할 일도 이 플랜대로 바뀌어요</span>'}</div>
+  </div>
+  ${a.extHint?`<div class="note" style="margin-top:8px">지금 지갑 DAI로는 쌓이는 추가이자·터보란을 거의 못 돌려요. <b>매일 내 DAI를 약 ${fmt(a.extHint.main.ext/S.days,1)}씩 (${PT[S.days]} 동안 ${fmt(a.extHint.main.ext)} DAI) 터빈 비용으로 넣으면</b> 이득이 약 ${fmt(a.extHint.score)} DAI까지 커져요 (‘${GOALN.B}’ · ${LBL.xFund(a.extHint.c.xFund)}). 위 ‘내 DAI를 더 넣는 플랜도 비교하기’를 켜고 다시 찾아보세요.</div>`:''}
+  <div class="h3" style="margin-top:10px">왜 이 플랜인가요?</div>
+  <ul class="why">${whyLines(a).map(x=>`<li>${x.t}</li>`).join('')}${runner?`<li>2등은 ${describe(runner.c).slice(0,3).join(' · ')} (약 ${fmt(b.score-runner.score)} DAI 차이)</li>`:''}</ul>
+  <p class="legend3" style="margin:6px 0 0">❓ 남은 Power는 출금할 수 없어서 1개를 ${POW_VAL} DAI로 쳤어요 (‘꺼낼 수 있는 현금’ 목표는 0). LGNS 소각은 1개 = 1 DAI × 2배 인정 기준(📢)이에요. 하루 한도 경쟁이 심한 ‘DAI로 참여’는 조합에서 뺐어요. 가정에 따른 시뮬레이션이고 수익을 보장하지 않아요.</p>`;
+  const ap=$('aiApply');if(ap&&!same)ap.addEventListener('click',()=>applyPlan(b.c));
+}
+// 추천 플랜을 화면 선택에 반영하고 버튼 표시도 맞춰요
+function applyPlan(c){
+  Object.assign(S,c);
+  const sync=(sel,key)=>document.querySelectorAll(sel+' [data-v]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.v)===String(S[key])));
+  sync('#qGoal','goal');sync('#gReinv','reinv');sync('#gRoute','route');sync('#gNtShare','ntShare');sync('#gCash','cashVia');sync('#gBFund','bFund');sync('#gXFund','xFund');
+  sync('[data-key="ntProd"]','ntProd');sync('[data-key="ntUse"]','ntUse');
+  render();aiLast&&(aiLast.cur={...c},aiLast.curScore=aiLast.best.score);renderAi();
+  $('aiMeta').textContent='적용했어요. ‘오늘 할 일’도 이 플랜대로 바뀌었어요.';
+}
+S.obj='total';
+document.querySelectorAll('#gObj [data-v]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('#gObj [data-v]').forEach(x=>x.setAttribute('aria-pressed',x===b));S.obj=b.dataset.v;aiLast=null;renderAi();$('aiMeta').textContent='';}));
+$('aiRun').addEventListener('click',findBest);
+$('aiExt').addEventListener('change',()=>{aiLast=null;renderAi();$('aiMeta').textContent='';});
+
 // ===== 탭 =====
 function setTab(t){
   S.tab=t;store.set('tab',t);
@@ -1274,8 +1427,9 @@ function renderAssetSum(){
   box.innerHTML=`<div class="l">${ws.length>1?`지갑 ${ws.length}개 합계 · `:''}LGNS 총 보유량</div><div class="big">${fmt(lgnsTotal(o),2)} LGNS</div>
     <div class="grid"><div class="cell"><span class="l">Power</span><b>${fmt(o.power)}</b></div><div class="cell"><span class="l">AiLGNS</span><b>${fq(o.ai)}</b></div><div class="cell"><span class="l">DAI</span><b>${fmt(o.dai,2)}</b></div></div>
     ${tq>1e-6?`<div class="x">DAI <b>${fmt(td,2)}</b>를 내면 터보란 <b>${fq(tq)}</b> LGNS를 1+1로 받을 수 있어요<br><span class="l">터보란 ${fq(o.pend)} · 추가이자 ${fq(o.extra)} · 거미망 ${fq(o.cw)} · 천천히 나눠서 해도 돼요</span></div>`:''}
-    <button type="button" class="btn go" id="goToday">오늘 할 일 보기 →</button>`;
+    <div class="row"><button type="button" class="btn go" id="goToday">오늘 할 일 보기 →</button> <button type="button" class="btn go" id="goAi" style="background:var(--b)">최적 플랜 찾기 →</button></div>`;
   $('goToday').addEventListener('click',()=>setTab('today'));
+  $('goAi').addEventListener('click',()=>{if(!walletMode()){S.mode='wallet';store.set('mode','wallet');$('amt').value=0;}setTab('calc');findBest();});
 }
 
 if(S.mode==='wallet'&&W.list.length)$('amt').value=0;
