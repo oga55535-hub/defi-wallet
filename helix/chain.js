@@ -23,6 +23,8 @@ const A={
   cobweb:'0xF7a0cacDF0810609EE5618247C4121b799E41664',    // 거미망(코브웹) 보상 · 옛 방식: claim() 하면 터보란으로. 10/7 17:30 KST 이후 새로 쌓이지 않아요
   cobweb2:'0x71B514b8d08F61e39e24442c2Fc83297584C1Dd6',   // 거미망 보상 · 새 방식 (같은 코드, 10/12부터 적립): claim() 하면 새 터빈으로
   cwTurbine:'0x8250f8eeaae5b6e21043fbd8c61c70e1b0906109', // 새 터빈: 신생태 터보형 (활성화 1% → 24시간 → 판매 5%), 10/9 생성
+  burnBond:'0x11b10C9827c5B7071E96fcAa143B4e6E86b17c69',  // 소각 본드: Anubis LGNS(시세로 원금, 230%) 또는 DAI(250%) → LGNS로 나눠 지급
+  fixedBond:'0x3f403751975e1EB06d95901f7FF246513444E71F', // 고정 소각 본드(픽스본드): Polygon에서 소각한 LGNS 1개 = 1 DAI 원금, 200% · 300일
 };
 const P={lgns:'0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01',pair:'0x882df4B0fB50a229C3B4124EB18c759911485bFb'};
 const SEL={balanceOf:'0x70a08231',getReserves:'0x0902f1ac',token0:'0x0dfe1681',
@@ -37,9 +39,11 @@ const SEL={balanceOf:'0x70a08231',getReserves:'0x0902f1ac',token0:'0x0dfe1681',
   // 스파이더 웹: claimable=지금 청구할 LGNS, rewardOf=(total, claimed) 누적
   claimable:'0x402914f5',rewardOf:'0x1d62ebd9',
   // 일반 터보 청구 기록: (id, silenceBalance, rewardBalance, lockTimestamp)[]. 청구하면 기록이 지워져요 (10/23 실제 거래로 확인)
-  getClaimInfo:'0x0835fe47',lockPeriod:'0x3fd8b02f'};
+  getClaimInfo:'0x0835fe47',lockPeriod:'0x3fd8b02f',
+  // 본드: getUserDeposits(user) → (원금 DAI, 배수 bps, 소각 LGNS, 지급된 DAI 가치, 청구한 LGNS, …, 예치 시각, 종류)[] / getClaimable(user, idx) = 지금 청구할 LGNS
+  getUserDeposits:'0x2a5bf6d2',getClaimable:'0x6f5244b1'};
 const LABEL={power:'활성 Power',totalPower:'누적 Power',queued:'대기 Power',ai:'AiLGNS',unc:'터빈 대기',turbLocked:'터빈 잠김',turbClaim:'터빈 수령 가능',
-  dai:'DAI',lgnsA:'LGNS(Anubis)',lgnsP:'LGNS(Polygon)',pend:'일반 터보',ve:'ve 잠금',nt25:'신생태 2.5배',nt4:'신생태 4배',long:'장기 스테이킹',turboDai:'터보 DAI 견적',cw:'거미망(옛 방식)',cw2:'거미망(새 방식)',tClaim:'터보 청구 대기'};
+  dai:'DAI',lgnsA:'LGNS(Anubis)',lgnsP:'LGNS(Polygon)',pend:'일반 터보',ve:'ve 잠금',nt25:'신생태 2.5배',nt4:'신생태 4배',long:'장기 스테이킹',turboDai:'터보 DAI 견적',cw:'거미망(옛 방식)',cw2:'거미망(새 방식)',tClaim:'터보 청구 대기',bbd:'소각 본드',fbd:'픽스본드'};
 
 const isAddr=a=>/^0x[0-9a-fA-F]{40}$/.test(a);
 const word=v=>BigInt(v).toString(16).padStart(64,'0');
@@ -129,8 +133,9 @@ async function loadWallets(addrs,opt={}){
     ['long360','long600'].forEach(k=>c(k+'n',A[k],SEL.getUserStakesCount));
     c('cw',A.cobweb,SEL.claimable);c('cwr',A.cobweb,SEL.rewardOf);c('tci',A.turbine,SEL.getClaimInfo);
     c('cw2',A.cobweb2,SEL.claimable);c('cw2r',A.cobweb2,SEL.rewardOf);c('cwts',A.cwTurbine,SEL.sellableBalance);c('cwtl',A.cwTurbine,SEL.lockedBalance);
+    c('bbd',A.burnBond,SEL.getUserDeposits);c('fbd',A.fixedBond,SEL.getUserDeposits);
   });
-  R1.push(callReq('lp',A.turbine,SEL.lockPeriod,[]));
+  R1.push(callReq('lp',A.turbine,SEL.lockPeriod,[]),callReq('rbb',A.burnBond,SEL.ratePerEpoch,[]),callReq('rfb',A.fixedBond,SEL.ratePerEpoch,[]));
   R1.push(callReq('r25',A.nt25,SEL.ratePerEpoch,[]),callReq('r4',A.nt4,SEL.ratePerEpoch,[]),{id:'bn',method:'eth_blockNumber',params:[]});
   const [r1,rp]=await Promise.all([batch(ANUBIS,R1),batch(POLYGON,addrs.map((a,i)=>callReq(i+':lgnsP',P.lgns,SEL.balanceOf,[a])))]);
   const bn=r1.bn&&r1.bn.result?parseInt(r1.bn.result,16):null;
@@ -147,6 +152,9 @@ async function loadWallets(addrs,opt={}){
     const v=r1[i+':veIds'];const ids=v&&!errOf(v)?words(v.result).slice(2):[];
     ids.slice(0,50).forEach((id,j)=>R2.push(callReq(i+':ve'+j,A.ve,SEL.positions,[id])));
     if(dayAgo){const blk='0x'+dayAgo.n.toString(16);R2.push(callReq(i+':p0',A.power,SEL.activePowerOf,[a],blk),callReq(i+':t0',A.power,SEL.totalPowerOf,[a],blk),callReq(i+':cwr0',A.cobweb,SEL.rewardOf,[a],blk),callReq(i+':cw2r0',A.cobweb2,SEL.rewardOf,[a],blk));}
+    // 본드 건별 지금 청구할 LGNS
+    ['bbd','fbd'].forEach(k=>{const x=r1[i+':'+k];if(!x||errOf(x))return;const w=words(x.result),n=Math.min(Number(w[1]||0n),30);
+      for(let j=0;j<n;j++)R2.push(callReq(`${i}:${k}c${j}`,k==='bbd'?A.burnBond:A.fixedBond,SEL.getClaimable,[a,j]));});
     ['long360','long600'].forEach(k=>{const x=r1[i+':'+k+'n'];const n=x&&!errOf(x)?Number(words(x.result)[0]||0n):0;
       for(let j=0;j<Math.min(n,30);j++){
         R2.push(callReq(`${i}:${k}s${j}`,A[k],SEL.stakes,[a,j]),callReq(`${i}:${k}p${j}`,A[k],SEL.pendingPayout,[a,j]),callReq(`${i}:${k}x${j}`,A[k],SEL.extraInterest,[a,j]));
@@ -231,7 +239,19 @@ async function loadWallets(addrs,opt={}){
     // 터보 전부 돌리는 DAI = 견적 × (1 + burnExtraBps)
     const sq=r3[i+':sq'];
     v.turboDai=turboQty[i]===0n?{ok:true,x:0}:errOf(sq)?{ok:false,err:errOf(sq)}:{ok:true,x:units(words(sq.result)[0]||0n,18)*(1+extraBps/10000)};
-    return {address:a,v,nt,orders,stakes,cw:cwInfo,cw2:cw2Info,rate:rate1,block:bn,turboQty:units(turboQty[i],9),extraBps};
+    // 본드: 건마다 원금·배수·지급된 양 → 남은 지급(DAI 가치)과 하루 지급, 지금 청구할 LGNS (10/23 실제 보유자로 구조 확인)
+    const bonds=[];
+    [['bbd','burn',r1.rbb],['fbd','fixed',r1.rfb]].forEach(([k,kind,rr])=>{
+      const x=r1[i+':'+k];if(!x||errOf(x)){v[k]={ok:false,err:errOf(x)||'응답 없음'};return;}
+      const rate=rr&&!errOf(rr)?Number(words(rr.result)[0]||0n):(kind==='fixed'?3334:4000);
+      const w=words(x.result),n=Math.min(Number(w[1]||0n),30);let left=0;
+      for(let j=0;j<n;j++){const s=w.slice(2+j*9,2+(j+1)*9);if(s.length<9)break;
+        const principal=units(s[0],18),cap=Number(s[1])/1e4,paid=units(s[3],18),total=principal*cap,remain=Math.max(0,total-paid),daily=principal*rate*2/1e6;
+        const cl=r2[`${i}:${k}c${j}`],claimable=cl&&!errOf(cl)?units(words(cl.result)[0]||0n,9):0;
+        bonds.push({kind,idx:j,principal,cap,burned:units(s[2],9),paid,remain,daily,claimable,ts:Number(s[7])});left+=remain;}
+      v[k]={ok:true,x:left};
+    });
+    return {address:a,v,nt,orders,stakes,cw:cwInfo,cw2:cw2Info,bonds,rate:rate1,block:bn,turboQty:units(turboQty[i],9),extraBps};
   });
 }
 root.HelixChain={isAddr,loadPrices,loadWallets,LABEL,ADDR:{anubis:A,polygon:P},CHAIN_ID};
