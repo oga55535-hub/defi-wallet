@@ -20,6 +20,7 @@ const A={
   ve:'0x52D7f7745D4Ba3dE6C3A0B503815878aeE7eDf14',        // HELIX VE
   long360:'0x88ea98af226Cd4402A3873400308a4D78784eCE6',   // Anubis 360일 장기 스테이킹
   long600:'0x04eD22c6d1D020A9B5e032E93D79ab28293EF72f',   // Anubis 600일 장기 스테이킹
+  cobweb:'0xF7a0cacDF0810609EE5618247C4121b799E41664',    // 스파이더 웹(코브웹) 보상: claim() 하면 터보란으로 (10/23 실제 거래로 확인)
 };
 const P={lgns:'0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01',pair:'0x882df4B0fB50a229C3B4124EB18c759911485bFb'};
 const SEL={balanceOf:'0x70a08231',getReserves:'0x0902f1ac',token0:'0x0dfe1681',
@@ -30,9 +31,11 @@ const SEL={balanceOf:'0x70a08231',getReserves:'0x0902f1ac',token0:'0x0dfe1681',
   // 장기 스테이킹: stakes(user,i)[0]=원금 LGNS, [7]=진행 중 / pendingPayout=받을 이자 / extraInterest=터보로 받는 추가 이자
   getUserStakesCount:'0x98dc8dea',stakes:'0x584b62a1',pendingPayout:'0xda709204',extraInterest:'0xb01d3563',
   // 일반 터보: 터보란 LGNS 수량을 넣으면 그만큼 LGNS를 사는 DAI 견적. 실제로는 여기에 burnExtraBps(5%)를 더 내요 (10/22 실제 거래로 확인)
-  getSilenceDAIAmount:'0x5c083dc6',burnExtraBps:'0x2d5ec9b9'};
+  getSilenceDAIAmount:'0x5c083dc6',burnExtraBps:'0x2d5ec9b9',
+  // 스파이더 웹: claimable=지금 청구할 LGNS, rewardOf=(total, claimed) 누적
+  claimable:'0x402914f5',rewardOf:'0x1d62ebd9'};
 const LABEL={power:'활성 Power',totalPower:'누적 Power',queued:'대기 Power',ai:'AiLGNS',unc:'터빈 대기',turbLocked:'터빈 잠김',turbClaim:'터빈 수령 가능',
-  dai:'DAI',lgnsA:'LGNS(Anubis)',lgnsP:'LGNS(Polygon)',pend:'일반 터보',ve:'ve 잠금',nt25:'신생태 2.5배',nt4:'신생태 4배',long:'장기 스테이킹',turboDai:'터보 DAI 견적'};
+  dai:'DAI',lgnsA:'LGNS(Anubis)',lgnsP:'LGNS(Polygon)',pend:'일반 터보',ve:'ve 잠금',nt25:'신생태 2.5배',nt4:'신생태 4배',long:'장기 스테이킹',turboDai:'터보 DAI 견적',cw:'스파이더 웹'};
 
 const isAddr=a=>/^0x[0-9a-fA-F]{40}$/.test(a);
 const word=v=>BigInt(v).toString(16).padStart(64,'0');
@@ -116,6 +119,7 @@ async function loadWallets(addrs,opt={}){
     c('pend',A.turbine,SEL.getTurbineBal);c('veIds',A.ve,SEL.positionsOf);
     ['nt25','nt4'].forEach(k=>{c(k+'n',A[k],SEL.getUserOrderCount);c(k+'s',A[k],SEL.sellableBalance);c(k+'l',A[k],SEL.lockedBalance);});
     ['long360','long600'].forEach(k=>c(k+'n',A[k],SEL.getUserStakesCount));
+    c('cw',A.cobweb,SEL.claimable);c('cwr',A.cobweb,SEL.rewardOf);
   });
   R1.push(callReq('r25',A.nt25,SEL.ratePerEpoch,[]),callReq('r4',A.nt4,SEL.ratePerEpoch,[]),{id:'bn',method:'eth_blockNumber',params:[]});
   const [r1,rp]=await Promise.all([batch(ANUBIS,R1),batch(POLYGON,addrs.map((a,i)=>callReq(i+':lgnsP',P.lgns,SEL.balanceOf,[a])))]);
@@ -132,7 +136,7 @@ async function loadWallets(addrs,opt={}){
     ['nt25','nt4'].forEach(k=>{const x=r1[i+':'+k+'n'];const n=x&&!errOf(x)?Number(words(x.result)[0]||0n):0;if(n>0)R2.push(callReq(i+':'+k+'o',A[k],SEL.getUserOrders,[a,0,Math.min(n,100)]));});
     const v=r1[i+':veIds'];const ids=v&&!errOf(v)?words(v.result).slice(2):[];
     ids.slice(0,50).forEach((id,j)=>R2.push(callReq(i+':ve'+j,A.ve,SEL.positions,[id])));
-    if(dayAgo){const blk='0x'+dayAgo.n.toString(16);R2.push(callReq(i+':p0',A.power,SEL.activePowerOf,[a],blk),callReq(i+':t0',A.power,SEL.totalPowerOf,[a],blk));}
+    if(dayAgo){const blk='0x'+dayAgo.n.toString(16);R2.push(callReq(i+':p0',A.power,SEL.activePowerOf,[a],blk),callReq(i+':t0',A.power,SEL.totalPowerOf,[a],blk),callReq(i+':cwr0',A.cobweb,SEL.rewardOf,[a],blk));}
     ['long360','long600'].forEach(k=>{const x=r1[i+':'+k+'n'];const n=x&&!errOf(x)?Number(words(x.result)[0]||0n):0;
       for(let j=0;j<Math.min(n,30);j++){
         R2.push(callReq(`${i}:${k}s${j}`,A[k],SEL.stakes,[a,j]),callReq(`${i}:${k}p${j}`,A[k],SEL.pendingPayout,[a,j]),callReq(`${i}:${k}x${j}`,A[k],SEL.extraInterest,[a,j]));
@@ -144,6 +148,7 @@ async function loadWallets(addrs,opt={}){
   // 3차: 지갑마다 ‘터보란 LGNS + 아직 안 옮긴 추가이자’를 전부 터보로 돌리는 DAI 견적 (풀 가격 영향 포함)
   const turboQty=addrs.map((a,i)=>{
     const t=r1[i+':pend'];let q=t&&!errOf(t)?words(t.result)[0]||0n:0n;
+    const cw=r1[i+':cw'];if(cw&&!errOf(cw))q+=words(cw.result)[0]||0n;
     ['long360','long600'].forEach(k=>{const nx=r1[i+':'+k+'n'];const n=nx&&!errOf(nx)?Math.min(Number(words(nx.result)[0]||0n),30):0;
       for(let j=0;j<n;j++){const xx=r2[`${i}:${k}x${j}`],s=r2[`${i}:${k}s${j}`];if(xx&&!errOf(xx)&&s&&!errOf(s)&&words(s.result)[7]!==0n)q+=words(xx.result)[0]||0n;}});
     return q;
@@ -189,6 +194,11 @@ async function loadWallets(addrs,opt={}){
       }
     });
     v.long=lerr?{ok:false,err:lerr}:{ok:true,x:stakes.reduce((s,x)=>s+x.extra,0)};
+    // 스파이더 웹: 청구 전 LGNS, 누적 총액·받은 양, 24시간 동안 늘어난 총액(= 하루 새 보상)
+    g('cw',r1[i+':cw'],9);
+    const cr=r1[i+':cwr'],cr0=r2[i+':cwr0'];let cwInfo=null;
+    if(!errOf(cr)){const x=words(cr.result),x0=cr0&&!errOf(cr0)?words(cr0.result):null;
+      cwInfo={total:units(x[0]||0n,9),claimed:units(x[1]||0n,9),daily:x0&&dayAgo&&(x[0]||0n)>=(x0[0]||0n)?units((x[0]||0n)-(x0[0]||0n),9)*86400/dayAgo.sec:null};}
     // 실측 하루 비율: 24시간 동안 누적 Power가 그대로였던(입금 없던) 지갑만
     let rate1=null;
     const p0=r2[i+':p0'],t0=r2[i+':t0'];
@@ -199,7 +209,7 @@ async function loadWallets(addrs,opt={}){
     // 터보 전부 돌리는 DAI = 견적 × (1 + burnExtraBps)
     const sq=r3[i+':sq'];
     v.turboDai=turboQty[i]===0n?{ok:true,x:0}:errOf(sq)?{ok:false,err:errOf(sq)}:{ok:true,x:units(words(sq.result)[0]||0n,18)*(1+extraBps/10000)};
-    return {address:a,v,nt,orders,stakes,rate:rate1,block:bn,turboQty:units(turboQty[i],9),extraBps};
+    return {address:a,v,nt,orders,stakes,cw:cwInfo,rate:rate1,block:bn,turboQty:units(turboQty[i],9),extraBps};
   });
 }
 root.HelixChain={isAddr,loadPrices,loadWallets,LABEL,ADDR:{anubis:A,polygon:P},CHAIN_ID};

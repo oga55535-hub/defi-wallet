@@ -17,6 +17,7 @@
 //   p.xFirst         터보란(쌓인 수량 + 추가이자)을 매일 가장 먼저 돌려요: 남는 DAI를 원금 회수·현금·다시 넣기보다 먼저 쓰고,
 //                    ‘편하게’는 모자란 만큼 받은 AiLGNS를 팔아서 내요
 //   p.ex.xNow        첫날 지갑 DAI 중 이만큼으로 터보란을 바로 돌려요
+//   p.ex.burnA/burnP 지갑에 이미 있는 Anubis/Polygon LGNS 중 첫날 HELIX에 소각하는 수량 (1개 = 1 DAI 인정 × 2배 📢)
 // 일반 터보 (10/22 실제 거래로 확인): DAI를 내면 그 값으로 산 LGNS는 바로 지갑에 오고, 터보란의 같은 수량은 24시간 뒤 청구 → 1+1.
 //   내는 DAI = 시세(견적) × 1.05. 터보란 수량은 사라지지 않고 남아 있다가 DAI와 함께 돌릴 때 줄어요.
 (function(root){
@@ -39,6 +40,8 @@ function simulate(p,pl){
   else if(p.startType==='newturbo'){P=0;startValue=p.startAmt;ntDays=p.ntDays;ntDaily=p.startAmt*p.ntMult/p.ntDays;}
   else{P=p.startAmt*2.5;startValue=p.startAmt;}
   if(ex.power)P+=ex.power;
+  if(ex.burnA)P+=ex.burnA*2*Math.max(p.pL0,1);
+  if(ex.burnP)P+=ex.burnP*2*Math.max(p.pLP0,1);
   const fundInv=(pl==='B'&&p.bFund==='nt')?(p.ntFundIn!==''&&p.ntFundIn!=null?Math.max(0,+p.ntFundIn):autoFund(p,P)):0;
   let fs=fundInv>0?[{d:fundInv*2.5/300*(1-FEE.ntSell-FEE.ntAct-p.slip),left:300}]:[];
   let R=p.R0,cash=0,ai=0,ve=0,ext=0,unc=0,pending=0,streams=[],cashDay=null,veDay=null,ntOut=0,cs=[],ntIn=0;
@@ -51,7 +54,7 @@ function simulate(p,pl){
   if(ex.ve)ve+=ex.ve;
   let exNt=(ex.nt||[]).filter(s=>s.d>0&&s.left>0).map(s=>({d:s.d,left:Math.ceil(s.left)}));
   // 지금 가진 현금성 자산은 들인 돈에도 같이 넣어, 원금 회수 시점이 "새로 넣는 돈 + 이미 들인 원금" 기준이 되게 해요
-  const exIn=(ex.basis||0)+(ex.dai||0)+(ex.ai||0)*p.pA0*(1-p.fee-p.slip);
+  const exIn=(ex.basis||0)+(ex.dai||0)+(ex.ai||0)*p.pA0*(1-p.fee-p.slip)+(ex.burnA||0)*p.pL0+(ex.burnP||0)*p.pLP0;
   const goalC=startValue+p.R0+(ex.basis||0);
   const series=[];const startP=P;
   for(let t=1;t<=p.days;t++){
