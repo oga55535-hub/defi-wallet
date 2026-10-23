@@ -306,8 +306,10 @@ body.hasbar{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
             <div class="field"><label for="exPend">터보란에 쌓인 LGNS <i class="tag" id="tPend">✅</i></label><input id="exPend" type="number" min="0" step="any" inputmode="decimal"></div>
             <div class="field"><label for="exExtra">장기 스테이킹 추가이자 (아직 터보란으로 안 옮긴 LGNS) <i class="tag">✅</i></label><input id="exExtra" type="number" min="0" step="any" inputmode="decimal"></div>
             <div class="field"><label for="exExtraDaily">하루에 새로 쌓이는 추가이자 LGNS <i class="tag" id="tExtraD">✅</i></label><input id="exExtraDaily" type="number" min="0" step="any" inputmode="decimal"></div>
-            <div class="field"><label for="exCw">거미망(스파이더 웹) 보상 (청구 전 LGNS → 청구하면 터보란으로) <i class="tag">✅</i></label><input id="exCw" type="number" min="0" step="any" inputmode="decimal"></div>
-            <div class="field"><label for="exCwDaily">하루에 새로 쌓이는 거미망 보상 LGNS <i class="tag" id="tCwD">✅</i></label><input id="exCwDaily" type="number" min="0" step="any" inputmode="decimal"></div>
+            <div class="field"><label for="exCw">거미망 보상 · 옛 방식 (10/7까지 쌓인 것 · 청구하면 터보란 → 1+1) <i class="tag">✅</i></label><input id="exCw" type="number" min="0" step="any" inputmode="decimal"></div>
+            <div class="field"><label for="exCwDaily">옛 방식 하루 새 적립 LGNS (10/7 이후 0) <i class="tag" id="tCwD">✅</i></label><input id="exCwDaily" type="number" min="0" step="any" inputmode="decimal"></div>
+            <div class="field"><label for="exCw2">거미망 보상 · 새 방식 (10/12부터 · 청구하면 새 터빈 → 활성화 1% → 24시간 → 판매 5%) <i class="tag">✅</i></label><input id="exCw2" type="number" min="0" step="any" inputmode="decimal"></div>
+            <div class="field"><label for="exCw2Daily">새 방식 하루 새 적립 LGNS <i class="tag" id="tCw2D">✅</i></label><input id="exCw2Daily" type="number" min="0" step="any" inputmode="decimal"></div>
             <div class="field"><label for="exBurnA">지갑 Anubis LGNS 중 HELIX에 소각할 수 <i class="tag">📢</i></label><input id="exBurnA" type="number" min="0" step="any" inputmode="decimal"></div>
             <div class="field"><label for="exBurnP">지갑 Polygon LGNS 중 HELIX에 소각할 수 <i class="tag">❓</i></label><input id="exBurnP" type="number" min="0" step="any" inputmode="decimal" placeholder="0"></div>
             <div class="field"><label for="exVe">ve로 잠근 AiLGNS <i class="tag" id="tVe">✅</i></label><input id="exVe" type="number" min="0" step="any" inputmode="decimal"></div>
@@ -480,7 +482,7 @@ body.hasbar{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
         <div><b>하루에 받는 비율</b>Power가 매일 약 0.279%씩 줄고 그만큼 AiLGNS로 나와요 ✅ (10/22 실제 지갑 Power를 하루 간격으로 읽어 0.2795% 확인). 참여자가 늘면 낮아질 수 있어요.</div>
         <div><b>AiLGNS 터빈</b>나온 AiLGNS만큼 시장에서 사야(2.5%) 산 몫과 함께 받아요. 못 돌린 날의 몫은 쌓여 있다가 나중에 받아요 (커뮤니티 볼트 ‘대기’ 수량 ✅).</div>
         <div><b>터보란 (일반 터보)</b>쌓인 LGNS만큼 DAI(시세 견적 + 5%)를 내면, 산 LGNS는 바로 지갑으로 오고 터보란의 같은 수량은 24시간 뒤 청구해요 → 1+1. 돌리지 않은 터보란은 사라지지 않아요 ✅.</div>
-        <div><b>추가이자 · 거미망 보상</b>장기 스테이킹 추가이자는 ‘Turbine Extra Interest’로, 거미망(스파이더 웹) 보상은 ‘청구’로 터보란에 들어가요 ✅. 천천히 나눠서 돌려도 돼요.</div>
+        <div><b>추가이자 · 거미망 보상</b>장기 스테이킹 추가이자는 ‘Turbine Extra Interest’로 터보란에 들어가요 ✅. 거미망(스파이더 웹) 보상은 10/7 17:30까지 쌓인 몫만 옛 방식(청구 → 터보란 → 1+1)이고, 10/12부터는 새 계약에 쌓여 청구하면 새 터빈에서 신생태 터보처럼 활성화(1%) → 24시간 → 판매(5%)예요 ✅ (온체인 확인 10/23).</div>
         <div><b>신생태 터보</b>넣은 DAI의 2.5배(300일)·4배(500일) 가치를 정해 두고 12시간마다 LGNS로 나눠 줘요. 금고에서 5%로 팔 수 있어요 ✅.</div>
         <div><b>LGNS 소각 1 DAI 인정</b>LGNS 가격이 1달러 아래여도 1개 = 1 DAI × 2배 Power (📢 운영 측 안내, 소각 탭 오픈 전).</div>
         <div><b>현금으로 꺼낼 수 있는 금액</b>그동안 꺼낸 현금 + 터빈용 DAI + 모은 AiLGNS를 지금 시세로 판 금액(수수료 뺀 값)이에요.</div>
@@ -529,10 +531,13 @@ const walletMode=()=>S.mode==='wallet';
 function scopeWallets(){return S.scope==='all'?W.list:W.list.filter(w=>w.address===S.scope);}
 function sumState(ws){
   const o={power:0,ai:0,unc:0,dai:0,pend:0,ve:0,ntRem:0,ntDaily:0,ntNowL:0,lgnsA:0,lgnsP:0,turbLocked:0,turbClaim:0,ntSell:0,ntLocked:0,ntClaim:0,orders:[],n:0,fail:[],
-    extra:0,extraDaily:0,extraMeasured:true,stakeInterest:0,stakePrincipal:0,stakes:[],cw:0,cwDaily:0,cwMeasured:true,cwTotal:0,cwClaimed:0,tcLocked:0,tcReady:0};
+    extra:0,extraDaily:0,extraMeasured:true,stakeInterest:0,stakePrincipal:0,stakes:[],cw:0,cwDaily:0,cwMeasured:true,cwTotal:0,cwClaimed:0,tcLocked:0,tcReady:0,cw2:0,cw2Daily:0,cw2Measured:true};
   ws.forEach(w=>{const d=W.data[w.address.toLowerCase()];if(!d)return;o.n++;
     if(d.v.cw&&d.v.cw.ok)o.cw+=d.v.cw.x;
     if(d.v.tClaim&&d.v.tClaim.ok){o.tcLocked+=d.v.tClaim.locked;o.tcReady+=d.v.tClaim.ready;}
+    // 거미망 새 방식: 청구 전 + 하루 적립. 새 터빈 금고(활성화 뒤)는 신생태 금고와 같이 세요
+    if(d.v.cw2&&d.v.cw2.ok)o.cw2+=d.v.cw2.x;
+    if(d.cw2){if(d.cw2.daily!=null)o.cw2Daily+=d.cw2.daily;else if(d.cw2.total>0)o.cw2Measured=false;o.ntSell+=d.cw2.sellable;o.ntLocked+=d.cw2.locked;}
     if(d.cw){o.cwTotal+=d.cw.total;o.cwClaimed+=d.cw.claimed;if(d.cw.daily!=null)o.cwDaily+=d.cw.daily;else if(d.cw.total>0)o.cwMeasured=false;}
     (d.stakes||[]).forEach(s=>{o.stakes.push({...s,wallet:w.name});o.extra+=s.extra;o.stakeInterest+=s.interest;o.stakePrincipal+=s.principal;});
     const v=k=>d.v[k]?.ok?d.v[k].x:0;
@@ -559,6 +564,7 @@ function fillStart(){
   set('exNtRem',o.ntRem,2);set('exNtDaily',o.ntDaily,4);set('exNtNow',o.ntNowL,4);
   set('exExtra',o.extra,4);set('exExtraDaily',o.extraDaily,4);$('tExtraD').textContent=o.extraMeasured?'✅':'❓';
   set('exCw',o.cw,4);set('exCwDaily',o.cwDaily,4);$('tCwD').textContent=o.cwMeasured?'✅':'❓';
+  set('exCw2',o.cw2,4);set('exCw2Daily',o.cw2Daily,4);$('tCw2D').textContent=o.cw2Measured?'✅':'❓';
   // 지갑 LGNS 소각: Anubis는 기본으로 전부, Polygon은 소각 가능 여부가 미확인이라 0
   set('exBurnA',Math.floor(o.lgnsA*1e4)/1e4,4);$('exBurnP').value=0;
   $('exBasis').value=store.get('basis',{})[S.scope]||''; // 원금은 지갑(또는 합계)마다 따로 기억해요
@@ -573,7 +579,8 @@ function exFromFields(p){
   return {power:nv('exPower'),ai:nv('exAi'),unc:nv('exUnc'),dai:nv('exDai'),ve:nv('exVe'),basis:nv('exBasis'),
     nt:daily>0&&rem>0?[{d:daily,left:rem/daily}]:[],
     // 금고 LGNS는 지금 시세로 팔아 DAI로 (판매 5% + 슬리피지). 활성화 전 몫의 1%는 따로 빼지 않은 근사치예요.
-    ntNow:ntNowL*p.pL0*(1-FEE.ntSell-p.slip)};
+    ntNow:ntNowL*p.pL0*(1-FEE.ntSell-p.slip)+nv('exCw2')*p.pL0*(1-FEE.ntAct-FEE.ntSell-p.slip), // 거미망 새 방식 청구분은 활성화 1%도 내요
+    cw2Daily:nv('exCw2Daily')};
 }
 // 추가 투입 없이 지갑 현황만 계산하는데 원금도 안 적었으면 ‘원금 회수’는 의미가 없어요
 const noBasis=p=>!!(p.ex&&p.startAmt<=0&&!p.ex.basis);
@@ -657,7 +664,7 @@ function render(){
   $('chips').querySelectorAll('.chip').forEach(b=>b.addEventListener('click',()=>{$('amt').value=b.dataset.n;render();}));
   $('sA').textContent=`HELIX에 소각 · 시세 ${$('pL').value}`;$('sP').textContent=`HELIX에 소각 · 시세 ${$('pLP').value}`;
   $('moreTurbo').hidden=st!=='turbo';$('moreNT').hidden=st!=='newturbo';
-  $('moreExNt').hidden=!(wm&&nv('exNtRem')+nv('exNtNow')>0&&st!=='newturbo');
+  $('moreExNt').hidden=!(wm&&nv('exNtRem')+nv('exNtNow')+nv('exCw2')+nv('exCw2Daily')>0&&st!=='newturbo');
   const {p,P0,firstCost}=params();
   const hasHelix=!!(p.ex&&(p.ex.power>0||p.ex.unc>0));
   const ntCash=st==='newturbo'&&S.ntUse==='cash'&&!hasHelix;
@@ -813,7 +820,7 @@ function renderPerWallet(p0){
     const p=JSON.parse(JSON.stringify(p0));p.startAmt=0;p.pend=off?0:o.pend+o.extra+o.cw;
     // 지갑 LGNS 소각은 위 칸에 적은 비율만큼 지갑마다 나눠요
     const all=sumState(scopeWallets()),fa=all.lgnsA>0?Math.min(1,nv('exBurnA')/all.lgnsA):0,fp=all.lgnsP>0?Math.min(1,nv('exBurnP')/all.lgnsP):0;
-    p.ex={power:o.power,ai:o.ai,unc:o.unc,dai:o.dai,ve:o.ve,basis:0,pendDaily:off?0:o.extraDaily+o.cwDaily,burnA:o.lgnsA*fa,burnP:o.lgnsP*fp,nt:o.ntDaily>0&&o.ntRem>0?[{d:o.ntDaily,left:o.ntRem/o.ntDaily}]:[],ntNow:o.ntNowL*p.pL0*(1-FEE.ntSell-p.slip)};
+    p.ex={power:o.power,ai:o.ai,unc:o.unc,dai:o.dai,ve:o.ve,basis:0,pendDaily:off?0:o.extraDaily+o.cwDaily,burnA:o.lgnsA*fa,burnP:o.lgnsP*fp,nt:o.ntDaily>0&&o.ntRem>0?[{d:o.ntDaily,left:o.ntRem/o.ntDaily}]:[],ntNow:o.ntNowL*p.pL0*(1-FEE.ntSell-p.slip)+o.cw2*p.pL0*(1-FEE.ntAct-FEE.ntSell-p.slip),cw2Daily:o.cw2Daily};
     const x=params(p);
     const r=simulate(x.p,S.goal),L=r.last,liq=L.cash+L.R+L.ai*p.pA0*(1-p.fee-p.slip);
     const cost=o.power*p.r0*(1.025+p.slip);
@@ -838,7 +845,8 @@ function renderGuide(p,P0,firstCost,r,R3,o){
       else T(`터빈용 DAI 약 ${fmt(Math.min(days,999))}일치 있어요`,`하루 터빈 비용 약 ${fmt(cost,2)} DAI (Power ${fmt(ex.power)} × ${fmt(p.r0*100,3)}% × 1.035)`,false,'✅');}
     else T('아직 HELIX Power가 없어요','위 1번에서 시작 방법을 골라 추가로 넣는 경우를 계산해 보세요.',false,'✅');
     o.stakes.filter(s=>s.extra>1e-6).forEach(s=>T(`장기 스테이킹 ${s.term}일 #${s.idx+1} 추가이자 ${fq(s.extra)} LGNS (${esc(s.wallet)})`,`Anubis 장기 스테이킹 화면에서 ‘Turbine Extra Interest’ → 일반 터보로 옮긴 뒤 DAI 약 ${fmt(s.extra*pL*1.05,2)}로 1+1 · 소각하면 약 ${fmt(4*s.extra*Math.max(pL,1))} Power (📢)${s.daily!=null?` · 하루 약 ${fq(s.daily)}개씩 쌓여요`:''}`,true,'✅'));
-    if(o.cw>1e-6)T(`거미망 보상 ${fq(o.cw)} LGNS 청구`,`Anubis 커뮤니티 보상(코브웹)에서 ‘청구’ → LGNS가 지갑이 아니라 터보란으로 가요 ✅ · 그다음 DAI 약 ${fmt(o.cw*pL*1.05,2)}로 1+1 · 소각하면 약 ${fmt(4*o.cw*Math.max(pL,1))} Power (📢)${o.cwDaily>0?` · 하루 약 ${fq(o.cwDaily)}개씩 쌓여요`:''}`,true,'✅');
+    if(o.cw>1e-6)T(`거미망 보상 · 옛 방식 ${fq(o.cw)} LGNS 청구`,`10/7까지 쌓인 몫이에요. 커뮤니티 보상(코브웹)에서 ‘청구’ → 터보란으로 가요 ✅ · 그다음 DAI 약 ${fmt(o.cw*pL*1.05,2)}로 1+1 · 소각하면 약 ${fmt(4*o.cw*Math.max(pL,1))} Power (📢) · 10/7 이후로는 새로 쌓이지 않아요`,true,'✅');
+    if(o.cw2>1e-6||o.cw2Daily>1e-6)T(`거미망 보상 · 새 방식 ${fq(o.cw2)} LGNS`,`10/12부터 새 계약에 쌓여요${o.cw2Daily>0?` (하루 약 ${fq(o.cw2Daily)}개)`:''}. 청구하면 1+1 터보란이 아니라 새 터빈으로 가서 활성화(1%) → 24시간 → 판매(5%)로 약 ${fmt(o.cw2*pL*(1-.07),2)} DAI가 돼요 ✅ · 청구는 온체인에서 되지만 아직 디앱 화면을 못 찾았어요 ❓`,false,'✅');
     if(o.stakeInterest>=1)T(`장기 스테이킹 받을 이자 ${fq(o.stakeInterest)} LGNS`,`‘Claim Interest’로 받아 HELIX에 소각하면 약 ${fmt(o.stakeInterest*2*Math.max(pL,1))} Power (📢 소각 탭 오픈 후) · Anubis에서 팔면 약 50% 수수료`,false,'✅');
     if(nv('exPend')>1e-6){const pe=nv('exPend');T(`일반 터보에 쌓인 LGNS ${fq(pe)}개`,`DAI 약 ${fmt(pe*pL*1.05,2)}(시세+5%)로 같은 수량을 사면 1+1로 ${fq(pe*2)}개 · 소각하면 약 ${fmt(4*pe*Math.max(pL,1))} Power (📢 소각 탭 오픈 후)`,false,'✅');}
     if(o.ntClaim>1e-6)T(`신생태 터보에서 풀린 LGNS ${fq(o.ntClaim)}개 활성화`,'활성화(1%) → 24시간 잠금 → 금고에서 판매(5%)',false,'✅');
@@ -884,7 +892,8 @@ function renderGuide(p,P0,firstCost,r,R3,o){
   const R=[];const add=(t,d)=>R.push([t,d]);
   add('01:00 정산 뒤 HELIX에서 나온 AiLGNS 확인',`Power × ${fmt(p.r0*100,3)}% 만큼 나와요 · 커뮤니티 볼트 ‘대기’ 수량 (싱가포르 자정 = 한국 01:00)`);
   if(wm&&(nv('exExtra')>0||nv('exExtraDaily')>0))add('장기 스테이킹 추가이자 터보란으로 옮기기','건마다 ‘Turbine Extra Interest’ → 터보란에서 DAI와 함께 돌려 1+1');
-  if(wm&&(nv('exCw')>0||nv('exCwDaily')>0))add('거미망 보상 청구','커뮤니티 보상(코브웹) ‘청구’ → 터보란으로 → DAI와 함께 돌려 1+1');
+  if(wm&&(nv('exCw')>0||nv('exCwDaily')>0))add('거미망 보상 · 옛 방식 청구','10/7까지 쌓인 몫 · 커뮤니티 보상(코브웹) ‘청구’ → 터보란 → DAI와 함께 돌려 1+1');
+  if(wm&&(nv('exCw2')>0||nv('exCw2Daily')>0))add('거미망 보상 · 새 방식','청구 → 새 터빈에서 활성화(1%) → 24시간 뒤 판매(5%) → DAI');
   add('AiLGNS 터빈 돌리기',`나온 수량만큼 사서(2.5%) 2배로 받기 · 오늘 약 ${fmt((ex&&ex.power>0?ex.power:P0)*p.r0*(1.035),2)} DAI`);
   add('어제 터빈 몫 수령','24시간 잠금이 끝난 AiLGNS');
   if(S.goal==='A')add('받은 AiLGNS 팔고 다시 넣기',`매도(3%) → 터빈용 DAI 먼저 채우고 → ${fmt(p.reinv*100)}% 다시 넣기`);
@@ -939,7 +948,9 @@ function renderToday(p,P0,o){
   const D=pow*p.r0, aiNew=D/pA, aiT=aiNew+unc, cost=aiT*pA*(1+.025+p.slip);
   let dai=ex?ex.dai+p.R0:p.R0;
   if(extra>1e-9&&S.xFund!=='none')add('장기 스테이킹 추가이자를 터보란으로 옮기기',`Anubis 장기 스테이킹에서 건마다 ‘Turbine Extra Interest’ → 추가이자 ${fq(extra)} LGNS가 터보란으로 그대로 옮겨져요 (가스만 들어요) ✅`);
-  if(cw>1e-9&&S.xFund!=='none')add('거미망 보상 청구',`커뮤니티 보상(코브웹)에서 ‘청구’ → ${fq(cw)} LGNS가 터보란으로 가요 (가스만 들어요) ✅`);
+  if(cw>1e-9&&S.xFund!=='none')add('거미망 보상 · 옛 방식 청구',`10/7까지 쌓인 ${fq(cw)} LGNS · 커뮤니티 보상(코브웹)에서 ‘청구’ → 터보란으로 가요 (가스만 들어요) ✅`);
+  const cw2=ex?nv('exCw2'):0;
+  if(cw2>1e-9)add('거미망 보상 · 새 방식 청구·활성화',`${fq(cw2)} LGNS · 청구 → 새 터빈에서 활성화(1%, 같은 수량을 잠깐 사고 바로 되팔아 DAI는 돌려받아요) → 24시간 뒤 판매(5%) → 약 ${fmt(cw2*pL*(1-.07),2)} DAI · ${LBL.ntUse(S.ntUse).replace('신생태에서 풀린 돈은 ','')}로 계산해요 (디앱 화면 미확인 ❓)`);
   let powAdd=0;
   if(burnPow>0){powAdd+=burnPow;add('지갑 LGNS를 HELIX에 소각',`${fq(ex.burnA+ex.burnP)}개 · 1개 = 1 DAI × 2배 → 약 ${fmt(burnPow)} Power · 대기열을 거쳐 다음 정산부터 AiLGNS가 나와요 (소각 탭 오픈 후 📢)`);}
   // 터보란 돌리기: DAI를 내면 산 LGNS는 바로 지갑으로, 터보란의 같은 수량은 24시간 뒤 청구 (1+1)
@@ -1016,8 +1027,8 @@ function renderScope(){
 function lgnsGroups(o){
   return [
     {t:'바로 쓸 수 있어요',rows:[['지갑 · Anubis',o.lgnsA],['지갑 · Polygon',o.lgnsP],['터보 청구 가능 (24시간 지남)',o.tcReady]]},
-    {t:'곧 받아요',rows:[['터보 24시간 잠김',o.tcLocked],['신생태 금고 판매 가능 (판매세 5%)',o.ntSell],['신생태 금고 잠김',o.ntLocked],['신생태 활성화 대기 (1%)',o.ntClaim]]},
-    {t:'DAI를 내면 1+1로 받아요',rows:[['터보란',o.pend],['장기 스테이킹 추가이자',o.extra],['거미망 (청구 전)',o.cw]],note:'DAI(시세+5%)를 내면 같은 수량을 사서 함께 받아요'},
+    {t:'곧 받아요',rows:[['터보 24시간 잠김',o.tcLocked],['신생태·새 터빈 금고 판매 가능 (판매세 5%)',o.ntSell],['신생태·새 터빈 금고 잠김',o.ntLocked],['신생태 활성화 대기 (1%)',o.ntClaim],['거미망 새 방식 (청구 전 · 활성화 1% → 판매 5%)',o.cw2]]},
+    {t:'DAI를 내면 1+1로 받아요',rows:[['터보란',o.pend],['장기 스테이킹 추가이자',o.extra],['거미망 옛 방식 (10/7까지 쌓인 것)',o.cw]],note:'DAI(시세+5%)를 내면 같은 수량을 사서 함께 받아요'},
     {t:'스테이킹에 묶여 있어요',rows:[['장기 스테이킹 원금',o.stakePrincipal],['장기 스테이킹 받을 이자',o.stakeInterest]]},
   ];
 }
@@ -1053,8 +1064,9 @@ function renderWallets(){
         <div><span>LGNS Polygon ✅</span>${cell(d,'lgnsP','',2)}</div>
         <div><span>일반 터보 쌓인 LGNS ✅</span>${cell(d,'pend')}</div>
         <div><span>터보란 전부 돌리는 DAI ✅</span>${cell(d,'turboDai','',2)}</div>
-        <div><span>거미망 보상 (청구 전) ✅</span>${d.v.cw&&!d.v.cw.ok?'<b class="err">못 읽음</b>':`<b>${fq(d.v.cw?.x||0)} LGNS${d.cw&&d.cw.daily!=null&&d.cw.daily>0?` · 하루 +${fq(d.cw.daily)}`:''}</b>`}</div>
-        ${d.cw&&d.cw.total>0?`<div><span>거미망 누적 · 받음 ✅</span><b>${fq(d.cw.total)} · ${fq(d.cw.claimed)}</b></div>`:''}
+        <div><span>거미망 옛 방식 (청구 전) ✅</span>${d.v.cw&&!d.v.cw.ok?'<b class="err">못 읽음</b>':`<b>${fq(d.v.cw?.x||0)} LGNS</b>`}</div>
+        <div><span>거미망 새 방식 (청구 전) ✅</span>${d.v.cw2&&!d.v.cw2.ok?'<b class="err">못 읽음</b>':`<b>${fq(d.v.cw2?.x||0)} LGNS${d.cw2&&d.cw2.daily!=null&&d.cw2.daily>0?` · 하루 +${fq(d.cw2.daily)}`:''}</b>`}</div>
+        ${d.cw&&d.cw.total>0?`<div><span>거미망 옛 방식 누적 · 받음 ✅</span><b>${fq(d.cw.total)} · ${fq(d.cw.claimed)}</b></div>`:''}
         <div><span>장기 스테이킹 추가이자 ✅</span>${d.v.long&&!d.v.long.ok?'<b class="err">못 읽음</b>':(d.stakes||[]).length?`<b>${fq(d.v.long.x)} LGNS · ${d.stakes.length}건</b>`:'<b>없음</b>'}</div>
         <div><span>신생태 남은 지급 ✅</span><b>${d.v.nt25?.ok===false&&d.v.nt4?.ok===false?'<span class="err">못 읽음</span>':nt.length?fmt(nt.reduce((a,x)=>a+x.pending,0),2)+' DAI · '+nt.length+'건':'없음'}</b></div>
         <div><span>ve 잠금 AiLGNS ✅</span>${cell(d,'ve')}</div>
@@ -1063,7 +1075,7 @@ function renderWallets(){
       </div>`;
       // 지갑이 여러 개면 한 줄 요약만 보이고 눌러서 펼쳐요
       if(W.list.length>1){const pw=d.v.power?.ok?d.v.power.x:0;
-        body=`<details><summary class="msg" style="cursor:pointer">LGNS ${fmt(lt,2)} · Power ${fmt(pw)} · AiLGNS ${fq((d.v.ai?.x||0)+(d.v.turbLocked?.x||0)+(d.v.turbClaim?.x||0))} · DAI ${fmt(d.v.dai?.x||0,2)}${d.v.long?.x>0?` · 추가이자 ${fq(d.v.long.x)}`:''}${d.v.cw?.x>0?` · 거미망 ${fq(d.v.cw.x)}`:''}${nt.length?` · 신생태 ${nt.length}건`:''}${Object.values(d.v).some(x=>!x.ok)?' · <span class="err">못 읽은 값 있음</span>':''}</summary><div style="margin-top:6px">${body}</div></details>`;}}
+        body=`<details><summary class="msg" style="cursor:pointer">LGNS ${fmt(lt,2)} · Power ${fmt(pw)} · AiLGNS ${fq((d.v.ai?.x||0)+(d.v.turbLocked?.x||0)+(d.v.turbClaim?.x||0))} · DAI ${fmt(d.v.dai?.x||0,2)}${d.v.long?.x>0?` · 추가이자 ${fq(d.v.long.x)}`:''}${(d.v.cw?.x||0)+(d.v.cw2?.x||0)>0?` · 거미망 ${fq((d.v.cw?.x||0)+(d.v.cw2?.x||0))}`:''}${nt.length?` · 신생태 ${nt.length}건`:''}${Object.values(d.v).some(x=>!x.ok)?' · <span class="err">못 읽은 값 있음</span>':''}</summary><div style="margin-top:6px">${body}</div></details>`;}}
     return `<div class="wc${sel?' sel':''}"><div class="hd"><div class="nm"><span class="dot" style="background:${COLORS[i%COLORS.length]}"></span><span style="overflow-wrap:anywhere">${esc(w.name)}</span></div><div class="act"><a class="ad" href="https://browser.anubispace.org/address/${w.address}" target="_blank" rel="noopener">${w.address.slice(0,6)}…${w.address.slice(-4)}</a>
       ${W.list.length>1?`<button type="button" class="linkbtn" data-use="${w.address}">이 지갑으로 계산</button>`:''}<button type="button" class="linkbtn" data-ren="${w.address}">이름</button><button type="button" class="linkbtn danger" data-del="${w.address}">삭제</button></div></div>${body}</div>`;
   };
@@ -1072,7 +1084,7 @@ function renderWallets(){
     <div><span>활성 Power</span><b>${fmt(tot.power)}</b></div><div><span>보유 AiLGNS</span><b>${fq(tot.ai)}</b></div><div><span>터빈 대기 AiLGNS</span><b>${fq(tot.unc)}</b></div><div><span>DAI</span><b>${fmt(tot.dai,2)}</b></div>
     <div><span>LGNS Anubis</span><b>${fmt(tot.lgnsA,2)}</b></div><div><span>LGNS Polygon</span><b>${fmt(tot.lgnsP,2)}</b></div><div><span>일반 터보 쌓인 LGNS</span><b>${fq(tot.pend)}</b></div>
     <div><span>장기 스테이킹 추가이자</span><b>${fq(tot.extra)} LGNS</b></div><div><span>하루 새 추가이자</span><b>${fq(tot.extraDaily)} LGNS</b></div>
-    <div><span>거미망 보상 (청구 전)</span><b>${fq(tot.cw)} LGNS</b></div><div><span>하루 새 거미망</span><b>${fq(tot.cwDaily)} LGNS</b></div><div><span>신생태 남은 지급</span><b>${fmt(tot.ntRem,2)} DAI</b></div>
+    <div><span>거미망 옛 방식 (청구 전)</span><b>${fq(tot.cw)} LGNS</b></div><div><span>거미망 새 방식 (청구 전)</span><b>${fq(tot.cw2)} LGNS</b></div><div><span>거미망 새 방식 하루 적립</span><b>${fq(tot.cw2Daily)} LGNS</b></div><div><span>신생태 남은 지급</span><b>${fmt(tot.ntRem,2)} DAI</b></div>
     <div><span>하루 터빈 비용</span><b>${fmt(tot.power*(num('r0')||.279)/100*1.035,2)} DAI</b></div><div><span>AiLGNS 지금 가치</span><b>${fmt(tot.ai*(num('pA')||793))} DAI</b></div></div></div>`;}
   h+=W.list.map(card).join('');
   $('wl').innerHTML=h;
@@ -1253,7 +1265,7 @@ function showRate(){
   $('rateMeta').innerHTML=`내 지갑 Power를 하루 간격으로 읽어 잰 하루 비율: <b>${fmt(W.rate*100,4)}%</b> ✅ <button type="button" class="linkbtn" id="rateUse">이 값 쓰기</button>`;
   $('rateUse').addEventListener('click',()=>{$('r0').value=+(W.rate*100).toFixed(4);render();});
 }
-['exPower','exAi','exUnc','exDai','exPend','exExtra','exExtraDaily','exCw','exCwDaily','exBurnA','exBurnP','exVe','exNtRem','exNtDaily','exNtNow','exBasis'].forEach(id=>$(id).addEventListener('input',render));
+['exPower','exAi','exUnc','exDai','exPend','exExtra','exExtraDaily','exCw','exCwDaily','exCw2','exCw2Daily','exBurnA','exBurnP','exVe','exNtRem','exNtDaily','exNtNow','exBasis'].forEach(id=>$(id).addEventListener('input',render));
 $('exBasis').addEventListener('input',()=>{const b=store.get('basis',{});b[S.scope]=$('exBasis').value;store.set('basis',b);touched();});
 
 // 선택 버튼
@@ -1336,7 +1348,7 @@ function renderNtDone(p){
   const cashNow=L.cash+L.R+L.ai*L.pA*(1-p.fee-p.slip);
   // 시뮬레이션에 안 들어간 LGNS (장기 스테이킹 원금·이자, 소각 안 한 지갑 LGNS 등)
   let other=0,otherTxt='';
-  if(walletMode()){const o=sumState(scopeWallets());other=Math.max(0,lgnsTotal(o)-(ex.burnA||0)-(ex.burnP||0)-(o.pend+o.extra+o.cw)-o.ntNowL);
+  if(walletMode()){const o=sumState(scopeWallets());other=Math.max(0,lgnsTotal(o)-(ex.burnA||0)-(ex.burnP||0)-(o.pend+o.extra+o.cw+o.cw2)-o.ntNowL);
     if(other>1)otherTxt=`<li>시뮬레이션에 안 넣은 LGNS ${fmt(other)}개 (장기 스테이킹 원금·이자 등) · 지금 시세로 약 ${fmt(other*p.pL0)} DAI</li>`;}
   const total=cashNow+L.P;
   box.innerHTML=`<div class="aibest" style="background:var(--soft)">
@@ -1362,7 +1374,7 @@ const LBL={
   xFund:v=>({first:'터보란 매일 가장 먼저',plan:'터보란은 방식대로',none:'터보란 안 돌림'}[v]),
   ntUse:v=>({lgns:'신생태에서 풀린 돈은 LGNS 사서 소각',turbo:'신생태에서 풀린 돈은 일반 터보',helix:'신생태에서 풀린 돈은 DAI 참여',cash:'신생태에서 풀린 돈은 현금'}[v])};
 function planCandidates(){
-  const out=[],hasNt=S.start==='newturbo'||(walletMode()&&nv('exNtRem')+nv('exNtNow')>0);
+  const out=[],hasNt=S.start==='newturbo'||(walletMode()&&nv('exNtRem')+nv('exNtNow')+nv('exCw2')+nv('exCw2Daily')>0);
   const ntUses=hasNt?['lgns','turbo','helix','cash']:[S.ntUse];
   for(const ntUse of ntUses)for(const xFund of ['first','plan','none']){
     // ‘매일 내 DAI’·‘신생태 터보 DAI’는 지갑 밖의 새 돈이 들어가서, 체크했을 때만 비교해요
@@ -1442,7 +1454,7 @@ function describe(c){
   if(c.goal==='B')l.push(LBL.bFund(c.bFund));
   else{l.push(LBL.reinv(c.reinv)+(c.goal==='C'?' (원금을 찾은 뒤)':''),LBL.route(c.route));if(c.ntShare>0)l.push(`${LBL.ntShare(c.ntShare)} (${LBL.ntProd(c.ntProd)})`);if(c.goal==='A'&&c.reinv<1)l.push(LBL.cashVia(c.cashVia));}
   l.push(LBL.xFund(c.xFund));
-  if(S.start==='newturbo'||(walletMode()&&nv('exNtRem')+nv('exNtNow')>0))l.push(LBL.ntUse(c.ntUse));
+  if(S.start==='newturbo'||(walletMode()&&nv('exNtRem')+nv('exNtNow')+nv('exCw2')+nv('exCw2Daily')>0))l.push(LBL.ntUse(c.ntUse));
   return l;
 }
 function renderAi(){
@@ -1506,7 +1518,8 @@ function renderAssetSum(){
   if(!qok||!td)td=tq*pL*1.05;
   box.innerHTML=`<div class="l">${ws.length>1?`지갑 ${ws.length}개 합계 · `:''}LGNS 총 보유량</div><div class="big">${fmt(lgnsTotal(o),2)} LGNS</div>
     <div class="grid"><div class="cell"><span class="l">Power</span><b>${fmt(o.power)}</b></div><div class="cell"><span class="l">AiLGNS</span><b>${fq(o.ai)}</b></div><div class="cell"><span class="l">DAI</span><b>${fmt(o.dai,2)}</b></div></div>
-    ${tq>1e-6?`<div class="x">DAI <b>${fmt(td,2)}</b>를 내면 터보란 <b>${fq(tq)}</b> LGNS를 1+1로 받을 수 있어요<br><span class="l">터보란 ${fq(o.pend)} · 추가이자 ${fq(o.extra)} · 거미망 ${fq(o.cw)} · 천천히 나눠서 해도 돼요</span></div>`:''}
+    ${tq>1e-6?`<div class="x">DAI <b>${fmt(td,2)}</b>를 내면 터보란 <b>${fq(tq)}</b> LGNS를 1+1로 받을 수 있어요<br><span class="l">터보란 ${fq(o.pend)} · 추가이자 ${fq(o.extra)} · 거미망 옛 방식 ${fq(o.cw)} · 천천히 나눠서 해도 돼요</span></div>`:''}
+    ${o.cw2+o.cw2Daily>1e-6?`<div class="x">거미망 새 방식 <b>${fq(o.cw2)}</b> LGNS${o.cw2Daily>0?` (하루 +${fq(o.cw2Daily)})`:''} · 10/12부터는 1+1 없이 활성화(1%) → 판매(5%)로 받아요</div>`:''}
     <div class="row"><button type="button" class="btn go" id="goToday">오늘 할 일 보기 →</button> <button type="button" class="btn go" id="goAi" style="background:var(--b)">최적 플랜 찾기 →</button></div>`;
   $('goToday').addEventListener('click',()=>setTab('today'));
   $('goAi').addEventListener('click',()=>{if(!walletMode()){S.mode='wallet';store.set('mode','wallet');$('amt').value=0;}setTab('calc');findBest();});

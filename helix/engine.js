@@ -18,6 +18,7 @@
 //                    ‘편하게’는 모자란 만큼 받은 AiLGNS를 팔아서 내요
 //   p.ex.xNow        첫날 지갑 DAI 중 이만큼으로 터보란을 바로 돌려요 (하루 한도와 상관없이)
 //   p.xCap           하루에 터보란에 쓰는 DAI 최대 — 쌓인 보상을 천천히 나눠 돌릴 때
+//   p.ex.cw2Daily    거미망 보상 새 방식의 하루 적립 LGNS (1+1 없이 신생태 터보처럼 팔아서 DAI)
 //   p.ex.burnA/burnP 지갑에 이미 있는 Anubis/Polygon LGNS 중 첫날 HELIX에 소각하는 수량 (1개 = 1 DAI 인정 × 2배 📢)
 // 일반 터보 (10/22 실제 거래로 확인): DAI를 내면 그 값으로 산 LGNS는 바로 지갑에 오고, 터보란의 같은 수량은 24시간 뒤 청구 → 1+1.
 //   내는 DAI = 시세(견적) × 1.05. 터보란 수량은 사라지지 않고 남아 있다가 DAI와 함께 돌릴 때 줄어요.
@@ -92,6 +93,8 @@ function simulate(p,pl){
     let ntDai=t<=ntDays?ntDaily*ntNet:0;
     if(exNt.length){let V=0;exNt.forEach(s=>{V+=s.d;s.left--;});exNt=exNt.filter(s=>s.left>0);ntDai+=V*ntNet;}
     if(t===1&&ex.ntNow)ntDai+=ex.ntNow;
+    // 거미망 보상 · 새 방식 (10/12~): 새 터빈에서 신생태 터보처럼 활성화(1%) → 24시간 → 판매(5%) → DAI. 쓰는 곳은 p.ntUse
+    if(ex.cw2Daily)ntDai+=ex.cw2Daily*pL*ntNet;
     if(t<=ntDays||ntDai>0){const dai=ntDai;ntOut+=dai;
       if(p.ntUse==='cash')cash+=dai;
       else if(p.ntUse==='helix')P+=dai*2.5;
