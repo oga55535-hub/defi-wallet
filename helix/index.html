@@ -220,6 +220,9 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .guide{border:2px solid var(--acc);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:8px}
 .guide h2{margin:0}
 .guide ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14.5px}
+.stakehero{display:flex;flex-direction:column;gap:6px;padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid rgba(255,255,255,.18)}
+.stakehero .big{font-size:34px}
+.stakehero .split{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .why{font-size:13.5px;margin:0;padding-left:18px}
 .why li{margin-bottom:3px}
 .routine li.done span{opacity:.55;text-decoration:line-through}
@@ -657,7 +660,7 @@ function sumState(ws){
   const o={power:0,ai:0,unc:0,dai:0,pend:0,ve:0,ntRem:0,ntDaily:0,ntNowL:0,lgnsA:0,lgnsP:0,turbLocked:0,turbClaim:0,ntSell:0,ntLocked:0,ntClaim:0,orders:[],n:0,fail:[],
     extra:0,extraDaily:0,extraMeasured:true,stakeInterest:0,stakePrincipal:0,stakes:[],cw:0,cwDaily:0,cwMeasured:true,cwTotal:0,cwClaimed:0,tcLocked:0,tcReady:0,cw2:0,cw2Daily:0,cw2Measured:true,
     bonds:[],bondRem:0,bondDaily:0,bondNow:0,bondBurnRem:0,bondFixRem:0,
-    slg:0,warm:0,inst:0,bst:0,disc:0,lpA:0,lpP:0,slgP:0,warmP:0};
+    slg:0,warm:0,inst:0,bst:0,disc:0,lpA:0,lpP:0,slgP:0,warmP:0,act:0,agg:0,aggOk:true};
   ws.forEach(w=>{const d=W.data[w.address.toLowerCase()];if(!d)return;o.n++;
     if(d.v.cw&&d.v.cw.ok)o.cw+=d.v.cw.x;
     if(d.v.tClaim&&d.v.tClaim.ok){o.tcLocked+=d.v.tClaim.locked;o.tcReady+=d.v.tClaim.ready;}
@@ -671,7 +674,7 @@ function sumState(ws){
     const v=k=>d.v[k]?.ok?d.v[k].x:0;
     o.power+=v('power');o.ai+=v('ai')+v('turbLocked')+v('turbClaim');o.unc+=v('unc');o.dai+=v('dai');o.pend+=v('pend');o.ve+=v('ve');
     o.lgnsA+=v('lgnsA');o.lgnsP+=v('lgnsP');o.turbLocked+=v('turbLocked');o.turbClaim+=v('turbClaim');
-    ['slg','warm','inst','bst','disc','lpA','lpP','slgP','warmP'].forEach(k=>o[k]+=v(k));
+    ['slg','warm','inst','bst','disc','lpA','lpP','slgP','warmP','act','agg'].forEach(k=>o[k]+=v(k));if(!d.v.agg||!d.v.agg.ok)o.aggOk=false;
     (d.orders||[]).forEach(x=>o.orders.push({...x,wallet:w.name}));
     ['nt25','nt4'].forEach(k=>{const z=d.nt?.[k];if(z){o.ntSell+=z.sellable;o.ntLocked+=z.locked;}});
     Object.entries(d.v).forEach(([k,x])=>{if(!x.ok)o.fail.push(w.name+' '+C.LABEL[k]);});
@@ -1238,7 +1241,7 @@ function lgnsGroups(o){
     {t:'곧 받아요',rows:[['터보 24시간 잠김',o.tcLocked],['신생태·새 터빈 금고 판매 가능 (판매세 5%)',o.ntSell],['신생태·새 터빈 금고 잠김',o.ntLocked],['신생태 활성화 대기 (1%)',o.ntClaim],['거미망 새 방식 (청구 전 · 활성화 1% → 판매 5%)',o.cw2]]},
     {t:'DAI를 내면 1+1로 받아요',rows:[['터보란',o.pend],['장기 스테이킹 추가이자',o.extra],['거미망 옛 방식 (10/7까지 쌓인 것)',o.cw]],note:'DAI(시세+5%)를 내면 같은 수량을 사서 함께 받아요'},
     {t:'스테이킹에 묶여 있어요',rows:[['장기 스테이킹 원금',o.stakePrincipal],['장기 스테이킹 받을 이자',o.stakeInterest],['sLGNS (일반 스테이킹 · Anubis)',o.slg],['sLGNS (일반 스테이킹 · Polygon)',o.slgP],
-      ['일반 스테이킹 대기 (warmup)',o.warm+o.warmP],['인스턴트 스테이킹',o.inst],['본드 스테이킹',o.bst],['디스카운트 스테이킹 (Genesis 360 · 리베이스 포함)',o.disc]]},
+      ['일반 스테이킹 대기 (warmup)',o.warm+o.warmP],['인스턴트 스테이킹',o.inst],['본드 스테이킹',o.bst],['디스카운트 스테이킹 (Genesis 360 · 리베이스 포함)',o.disc],['활동 포인트 스테이킹',o.act]]},
     {t:'유동성 풀(LP)에 들어 있어요',rows:[['LGNS/DAI LP · Anubis',o.lpA],['LGNS/DAI LP · Polygon',o.lpP]],note:'내 LP 지분만큼의 풀 LGNS예요. LP를 빼면 DAI도 함께 받아요'},
   ];
 }
@@ -1265,7 +1268,7 @@ function chainRows(o){
   return [
     {t:'지갑',r:[['지갑에 있는 LGNS',o.lgnsA,o.lgnsP]]},
     {t:'스테이킹',sum:true,r:[['sLGNS (일반 스테이킹)',o.slg,o.slgP],['일반 스테이킹 대기 (warmup)',o.warm,o.warmP],['장기 스테이킹 원금',o.stakePrincipal,null],['장기 스테이킹 받을 이자',o.stakeInterest,null],
-      ['인스턴트 스테이킹',o.inst,null],['본드 스테이킹',o.bst,null],['디스카운트 스테이킹 (Genesis 360)',o.disc,null]]},
+      ['인스턴트 스테이킹',o.inst,null],['본드 스테이킹',o.bst,null],['디스카운트 스테이킹 (Genesis 360)',o.disc,null],['활동 포인트 스테이킹',o.act,null]]},
     {t:'LP',r:[['LP 지분 (LGNS/DAI 풀)',o.lpA,o.lpP]]},
     {t:'그 밖에',r:[['터보란·추가이자·거미망 옛 방식 (1+1)',o.pend+o.extra+o.cw,null],['곧 받아요 (터보 청구·신생태 금고·거미망 새 방식·본드 청구)',o.tcLocked+o.tcReady+o.ntSell+o.ntLocked+o.ntClaim+o.cw2+o.bondNow,null]]},
   ];
@@ -1280,6 +1283,7 @@ function chainTable(o,pL,pLP){
     <tr style="font-weight:800"><td>합계 (LGNS)</td><td>${fq(A)}</td><td>${fq(P)}</td><td>${fq(A+P)}</td></tr>
     <tr><td>DAI (시세)</td><td>${fmt(A*pL)}</td><td>${fmt(P*pLP)}</td><td>${fmt(A*pL+P*pLP)}</td></tr>
   </tbody></table></div>
+  ${o.aggOk&&Math.abs(o.agg-G[1].r.reduce((a,r)=>a+r[1],0))>1?`<p class="msg" style="margin:-4px 0 6px;color:var(--ink)">디앱 초대 화면의 <b>Anubis 스테이킹 ${fmt(o.agg,2)}</b>는 위 Anubis 스테이킹 합계(${fmt(G[1].r.reduce((a,r)=>a+r[1],0),2)})와 ${fmt(Math.abs(o.agg-G[1].r.reduce((a,r)=>a+r[1],0)),2)} 달라요. 디앱 숫자는 공식 집계 계약 값이라 소각 본드에 넣은 몫 일부가 포함되고, 장기 스테이킹 이자를 세는 방식이 달라요 (계약 소스가 공개 안 돼서 정확한 공식은 미확인 ❓).</p>`:''}
   <p class="legend3" style="margin:-4px 0 8px">✅ 체인마다 온체인에서 읽은 수량이에요 · ‘없음’은 그 체인에 없는 상품, 0은 상품은 있는데 내 몫이 없는 거예요 · 시세 Anubis ${fmt(pL,4)} · Polygon ${fmt(pLP,4)} DAI</p>`;
 }
 function renderLgnsBox(){
@@ -1331,7 +1335,7 @@ function renderWallets(){
       </div>`;
       // 지갑이 여러 개면 한 줄 요약만 보이고 눌러서 펼쳐요
       if(W.list.length>1){const pw=d.v.power?.ok?d.v.power.x:0;
-        body=`<details><summary class="msg" style="cursor:pointer">LGNS ${fmt(lt,2)} · Power ${fmt(pw)} · AiLGNS ${fq((d.v.ai?.x||0)+(d.v.turbLocked?.x||0)+(d.v.turbClaim?.x||0))} · DAI ${fmt(d.v.dai?.x||0,2)}${d.v.long?.x>0?` · 추가이자 ${fq(d.v.long.x)}`:''}${(d.v.cw?.x||0)+(d.v.cw2?.x||0)>0?` · 거미망 ${fq((d.v.cw?.x||0)+(d.v.cw2?.x||0))}`:''}${nt.length?` · 신생태 ${nt.length}건`:''}${Object.values(d.v).some(x=>!x.ok)?' · <span class="err">못 읽은 값 있음</span>':''}</summary><div style="margin-top:6px">${body}</div></details>`;}}
+        body=`<details><summary class="msg" style="cursor:pointer">스테이킹 ${d.v.agg?.ok?fmt((d.v.agg.x||0)+(d.v.slgP?.x||0),2):'-'} (디앱 기준) · LGNS ${fmt(lt,2)} · Power ${fmt(pw)} · AiLGNS ${fq((d.v.ai?.x||0)+(d.v.turbLocked?.x||0)+(d.v.turbClaim?.x||0))} · DAI ${fmt(d.v.dai?.x||0,2)}${d.v.long?.x>0?` · 추가이자 ${fq(d.v.long.x)}`:''}${(d.v.cw?.x||0)+(d.v.cw2?.x||0)>0?` · 거미망 ${fq((d.v.cw?.x||0)+(d.v.cw2?.x||0))}`:''}${nt.length?` · 신생태 ${nt.length}건`:''}${Object.values(d.v).some(x=>!x.ok)?' · <span class="err">못 읽은 값 있음</span>':''}</summary><div style="margin-top:6px">${body}</div></details>`;}}
     return `<div class="wc${sel?' sel':''}"><div class="hd"><div class="nm"><span class="dot" style="background:${COLORS[i%COLORS.length]}"></span><span style="overflow-wrap:anywhere">${esc(w.name)}</span></div><div class="act"><a class="ad" href="https://browser.anubispace.org/address/${w.address}" target="_blank" rel="noopener">${w.address.slice(0,6)}…${w.address.slice(-4)}</a>
       ${W.list.length>1?`<button type="button" class="linkbtn" data-use="${w.address}">이 지갑으로 계산</button>`:''}<button type="button" class="linkbtn" data-ren="${w.address}">이름</button><button type="button" class="linkbtn danger" data-del="${w.address}">삭제</button></div></div>${body}</div>`;
   };
@@ -2098,7 +2102,12 @@ function renderAssetSum(){
   box.hidden=false;const pL=Math.max(.0001,num('pL')||.2),pA=Math.max(1,num('pA')||793);
   const tq=o.pend+o.extra+o.cw;let td=0,qok=true;ws.forEach(w=>{const d=W.data[w.address.toLowerCase()];if(d&&d.v.turboDai&&d.v.turboDai.ok)td+=d.v.turboDai.x;else if(d)qok=false;});
   if(!qok||!td)td=tq*pL*1.05;
-  box.innerHTML=`<div class="l">${ws.length>1?`지갑 ${ws.length}개 합계 · `:''}LGNS 총 보유량</div><div class="big">${fmt(lgnsTotal(o),2)} LGNS</div>${o.bondRem>1?`<div class="l">본드에서 앞으로 받을 몫은 따로: 약 ${fmt(lgnsFuture(o),2)} LGNS (${fmt(o.bondRem,2)} DAI어치를 지금 시세로 환산 ❓)</div>`:''}
+  // 맨 위: 디앱 초대 화면과 같은 숫자 (Anubis = 공식 집계 getStakedAmount, Polygon = sLGNS 잔고)
+  const hero=`<div class="stakehero"><div class="l">${ws.length>1?`지갑 ${ws.length}개 합계 · `:''}스테이킹 합계 <span style="opacity:.75">(디앱 초대 화면 기준 ✅)</span></div>
+    <div class="big">${o.aggOk?fmt(o.agg+o.slgP,2):'-'} LGNS</div>
+    <div class="split"><div class="cell"><span class="l">Anubis 스테이킹</span><b>${o.aggOk?fmt(o.agg,2):'못 읽음'}</b></div><div class="cell"><span class="l">Polygon 스테이킹</span><b>${fmt(o.slgP,2)}</b></div></div>
+    <div class="l">지금 시세로 약 ${fmt(o.agg*pL+o.slgP*Math.max(.0001,num('pLP')||.28),2)} DAI${ws.length>1?` · ${ws.map(w=>{const d=W.data[w.address.toLowerCase()];return d?`${esc(w.name)} ${fmt((d.v.agg?.x||0)+(d.v.slgP?.x||0))}`:'';}).filter(Boolean).join(' · ')}`:''}</div></div>`;
+  box.innerHTML=hero+`<div class="l">${ws.length>1?`지갑 ${ws.length}개 합계 · `:''}LGNS 총 보유량 (스테이킹 + 지갑 + 터보란 등 전부)</div><div class="big" style="font-size:22px">${fmt(lgnsTotal(o),2)} LGNS</div>${o.bondRem>1?`<div class="l">본드에서 앞으로 받을 몫은 따로: 약 ${fmt(lgnsFuture(o),2)} LGNS (${fmt(o.bondRem,2)} DAI어치를 지금 시세로 환산 ❓)</div>`:''}
     <div class="grid"><div class="cell"><span class="l">Power</span><b>${fmt(o.power)}</b></div><div class="cell"><span class="l">AiLGNS</span><b>${fq(o.ai)}</b></div><div class="cell"><span class="l">DAI</span><b>${fmt(o.dai,2)}</b></div></div>
     ${tq>1e-6?`<div class="x">DAI <b>${fmt(td,2)}</b>를 내면 터보란 <b>${fq(tq)}</b> LGNS를 1+1로 받을 수 있어요<br><span class="l">터보란 ${fq(o.pend)} · 추가이자 ${fq(o.extra)} · 거미망 옛 방식 ${fq(o.cw)} · 천천히 나눠서 해도 돼요</span></div>`:''}
     ${o.bondRem>1||o.bondNow>1e-6?`<div class="x">본드에서 앞으로 받을 몫 <b>${fmt(o.bondRem,2)} DAI어치</b>${o.bondNow>1e-6?` · 지금 청구 ${fq(o.bondNow)} LGNS`:''}<br><span class="l">소각 본드 ${fmt(o.bondBurnRem,2)} · 픽스본드 ${fmt(o.bondFixRem,2)} · 하루 약 ${fmt(o.bondDaily,2)} DAI어치씩</span></div>`:''}

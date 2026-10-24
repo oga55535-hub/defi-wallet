@@ -31,6 +31,8 @@ const A={
   instant:'0xf7788F5A5CbBaFAc4120c63C79dcd9F1931c7824',   // 인스턴트 스테이킹: getDepositorBalance = 잠김 + 지금 찾을 수 있는 LGNS
   bondStaking:'0xF190Ab12B73BFE1B626379aF96e8f1859ec91F20',// 본드 스테이킹: getDepositorBalance = 원금 LGNS 합계
   discount:'0x5584CDeb1369673C91C6aD7EBea0cE7cB630ce60',  // 디스카운트 스테이킹(Genesis 360): 건마다 gons → 리베이스 포함 LGNS
+  activity:'0x1E5FeeC473F7F445FC7F5FeEC0beABB2270b0b4E',  // 활동 포인트 스테이킹: getDepositorBalance = 맡긴 LGNS
+  aggregator:'0xeBd08fa8768c366fcCCd8130AA3c0b35DC50f9a6',// 디앱 초대 화면의 ‘Anubis 스테이킹’ = getStakedAmount(user) (디앱이 쓰는 공식 집계)
 };
 const P={lgns:'0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01',pair:'0x882df4B0fB50a229C3B4124EB18c759911485bFb',
   slgns:'0x99a57E6C8558BC6689f894e068733ADf83C19725',staking:'0x1964Ca90474b11FFD08af387b110ba6C96251Bfc'};
@@ -52,8 +54,8 @@ const SEL={balanceOf:'0x70a08231',getReserves:'0x0902f1ac',token0:'0x0dfe1681',
   // 본드: getUserDeposits(user) → (원금 DAI, 배수 bps, 소각 LGNS, 지급된 DAI 가치, 청구한 LGNS, …, 예치 시각, 종류)[] / getClaimable(user, idx) = 지금 청구할 LGNS
   getUserDeposits:'0x2a5bf6d2',getClaimable:'0x6f5244b1',
   // 스테이킹류: sLGNS gons → LGNS, 일반 스테이킹 대기분, 예치 잔고, 디스카운트 스테이킹 기록 (principal, gons, …, exists 7번째 · 10칸)
-  balanceForGons:'0x7965d56d',warmupInfo:'0x6746f4c2',getDepositorBalance:'0xb79215d6',getStakeRecordsPagination:'0x297a52d2',totalSupply:'0x18160ddd'};
-const LABEL={slg:'sLGNS',warm:'스테이킹 대기',inst:'인스턴트 스테이킹',bst:'본드 스테이킹',disc:'디스카운트 스테이킹',lpA:'LP(Anubis)',lpP:'LP(Polygon)',slgP:'sLGNS(Polygon)',warmP:'스테이킹 대기(Polygon)',power:'활성 Power',totalPower:'누적 Power',queued:'대기 Power',ai:'AiLGNS',unc:'터빈 대기',turbLocked:'터빈 잠김',turbClaim:'터빈 수령 가능',
+  balanceForGons:'0x7965d56d',warmupInfo:'0x6746f4c2',getDepositorBalance:'0xb79215d6',getStakeRecordsPagination:'0x297a52d2',totalSupply:'0x18160ddd',getStakedAmount:'0x4da6a556'};
+const LABEL={act:'활동 포인트 스테이킹',agg:'디앱 스테이킹 합계',slg:'sLGNS',warm:'스테이킹 대기',inst:'인스턴트 스테이킹',bst:'본드 스테이킹',disc:'디스카운트 스테이킹',lpA:'LP(Anubis)',lpP:'LP(Polygon)',slgP:'sLGNS(Polygon)',warmP:'스테이킹 대기(Polygon)',power:'활성 Power',totalPower:'누적 Power',queued:'대기 Power',ai:'AiLGNS',unc:'터빈 대기',turbLocked:'터빈 잠김',turbClaim:'터빈 수령 가능',
   dai:'DAI',lgnsA:'LGNS(Anubis)',lgnsP:'LGNS(Polygon)',pend:'일반 터보',ve:'ve 잠금',nt25:'신생태 2.5배',nt4:'신생태 4배',long:'장기 스테이킹',turboDai:'터보 DAI 견적',cw:'거미망(옛 방식)',cw2:'거미망(새 방식)',tClaim:'터보 청구 대기',bbd:'소각 본드',fbd:'픽스본드'};
 
 const isAddr=a=>/^0x[0-9a-fA-F]{40}$/.test(a);
@@ -146,7 +148,7 @@ async function loadWallets(addrs,opt={}){
     c('cw2',A.cobweb2,SEL.claimable);c('cw2r',A.cobweb2,SEL.rewardOf);c('cwts',A.cwTurbine,SEL.sellableBalance);c('cwtl',A.cwTurbine,SEL.lockedBalance);
     c('bbd',A.burnBond,SEL.getUserDeposits);c('fbd',A.fixedBond,SEL.getUserDeposits);
     c('slg',A.slgns,SEL.balanceOf);c('warm',A.staking,SEL.warmupInfo);c('inst',A.instant,SEL.getDepositorBalance);c('bst',A.bondStaking,SEL.getDepositorBalance);
-    c('dsn',A.discount,SEL.getUserStakesCount);c('lpA',A.lgnsPair,SEL.balanceOf);
+    c('dsn',A.discount,SEL.getUserStakesCount);c('lpA',A.lgnsPair,SEL.balanceOf);c('act',A.activity,SEL.getDepositorBalance);c('agg',A.aggregator,SEL.getStakedAmount);
   });
   // gons → LGNS 환율 (sLGNS.balanceForGons에 큰 수를 넣어 한 번에 구해요), LP 지분 계산용 풀 잔고·발행량
   R1.push(callReq('gpf',A.slgns,SEL.balanceForGons,[10n**75n]),callReq('lpTs',A.lgnsPair,SEL.totalSupply,[]),callReq('lpR',A.lgnsPair,SEL.getReserves,[]),callReq('lpT0',A.lgnsPair,SEL.token0,[]));
@@ -277,6 +279,8 @@ async function loadWallets(addrs,opt={}){
     one('warm',r1[i+':warm'],w=>gpf?gonsL(w[1]||0n):units(w[0]||0n,9));
     one('inst',r1[i+':inst'],w=>units(w[0]||0n,9));
     one('bst',r1[i+':bst'],w=>units(w[0]||0n,9));
+    one('act',r1[i+':act'],w=>units(w[0]||0n,9));
+    one('agg',r1[i+':agg'],w=>units(w[0]||0n,9));
     const dsr=r2[i+':dsr'];
     if(errOf(r1[i+':dsn']))v.disc={ok:false,err:errOf(r1[i+':dsn'])};
     else if(dsr&&errOf(dsr))v.disc={ok:false,err:errOf(dsr)};
