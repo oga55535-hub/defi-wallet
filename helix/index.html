@@ -592,7 +592,8 @@ function scopeWallets(){return S.scope==='all'?W.list:W.list.filter(w=>w.address
 function sumState(ws){
   const o={power:0,ai:0,unc:0,dai:0,pend:0,ve:0,ntRem:0,ntDaily:0,ntNowL:0,lgnsA:0,lgnsP:0,turbLocked:0,turbClaim:0,ntSell:0,ntLocked:0,ntClaim:0,orders:[],n:0,fail:[],
     extra:0,extraDaily:0,extraMeasured:true,stakeInterest:0,stakePrincipal:0,stakes:[],cw:0,cwDaily:0,cwMeasured:true,cwTotal:0,cwClaimed:0,tcLocked:0,tcReady:0,cw2:0,cw2Daily:0,cw2Measured:true,
-    bonds:[],bondRem:0,bondDaily:0,bondNow:0,bondBurnRem:0,bondFixRem:0};
+    bonds:[],bondRem:0,bondDaily:0,bondNow:0,bondBurnRem:0,bondFixRem:0,
+    slg:0,warm:0,inst:0,bst:0,disc:0,lpA:0,lpP:0,slgP:0,warmP:0};
   ws.forEach(w=>{const d=W.data[w.address.toLowerCase()];if(!d)return;o.n++;
     if(d.v.cw&&d.v.cw.ok)o.cw+=d.v.cw.x;
     if(d.v.tClaim&&d.v.tClaim.ok){o.tcLocked+=d.v.tClaim.locked;o.tcReady+=d.v.tClaim.ready;}
@@ -606,6 +607,7 @@ function sumState(ws){
     const v=k=>d.v[k]?.ok?d.v[k].x:0;
     o.power+=v('power');o.ai+=v('ai')+v('turbLocked')+v('turbClaim');o.unc+=v('unc');o.dai+=v('dai');o.pend+=v('pend');o.ve+=v('ve');
     o.lgnsA+=v('lgnsA');o.lgnsP+=v('lgnsP');o.turbLocked+=v('turbLocked');o.turbClaim+=v('turbClaim');
+    ['slg','warm','inst','bst','disc','lpA','lpP','slgP','warmP'].forEach(k=>o[k]+=v(k));
     (d.orders||[]).forEach(x=>o.orders.push({...x,wallet:w.name}));
     ['nt25','nt4'].forEach(k=>{const z=d.nt?.[k];if(z){o.ntSell+=z.sellable;o.ntLocked+=z.locked;}});
     Object.entries(d.v).forEach(([k,x])=>{if(!x.ok)o.fail.push(w.name+' '+C.LABEL[k]);});
@@ -1168,21 +1170,27 @@ function lgnsGroups(o){
     {t:'바로 쓸 수 있어요',rows:[['지갑 · Anubis',o.lgnsA],['지갑 · Polygon',o.lgnsP],['터보 청구 가능 (24시간 지남)',o.tcReady],['본드 청구 가능 (소각 본드·픽스본드)',o.bondNow]]},
     {t:'곧 받아요',rows:[['터보 24시간 잠김',o.tcLocked],['신생태·새 터빈 금고 판매 가능 (판매세 5%)',o.ntSell],['신생태·새 터빈 금고 잠김',o.ntLocked],['신생태 활성화 대기 (1%)',o.ntClaim],['거미망 새 방식 (청구 전 · 활성화 1% → 판매 5%)',o.cw2]]},
     {t:'DAI를 내면 1+1로 받아요',rows:[['터보란',o.pend],['장기 스테이킹 추가이자',o.extra],['거미망 옛 방식 (10/7까지 쌓인 것)',o.cw]],note:'DAI(시세+5%)를 내면 같은 수량을 사서 함께 받아요'},
-    {t:'스테이킹에 묶여 있어요',rows:[['장기 스테이킹 원금',o.stakePrincipal],['장기 스테이킹 받을 이자',o.stakeInterest]]},
+    {t:'스테이킹에 묶여 있어요',rows:[['장기 스테이킹 원금',o.stakePrincipal],['장기 스테이킹 받을 이자',o.stakeInterest],['sLGNS (일반 스테이킹 · Anubis)',o.slg],['sLGNS (일반 스테이킹 · Polygon)',o.slgP],
+      ['일반 스테이킹 대기 (warmup)',o.warm+o.warmP],['인스턴트 스테이킹',o.inst],['본드 스테이킹',o.bst],['디스카운트 스테이킹 (Genesis 360 · 리베이스 포함)',o.disc]]},
+    {t:'유동성 풀(LP)에 들어 있어요',rows:[['LGNS/DAI LP · Anubis',o.lpA],['LGNS/DAI LP · Polygon',o.lpP]],note:'내 LP 지분만큼의 풀 LGNS예요. LP를 빼면 DAI도 함께 받아요'},
+    {t:'본드에서 앞으로 받아요 (지금 시세로 환산 ❓)',rows:[['소각 본드·픽스본드 남은 지급',o.bondRem/Math.max(.0001,num('pL')||.2)]],note:`남은 지급 ${fmt(o.bondRem,2)} DAI어치를 지금 시세로 나눈 수량이에요. 실제로는 그날 시세로 나와서, LGNS 값이 내리면 더 많이 받아요`},
   ];
 }
 function lgnsTotal(o){return lgnsGroups(o).reduce((a,g)=>a+g.rows.reduce((b,r)=>b+r[1],0),0);}
+// 본드에서 앞으로 받을 몫(지금 시세로 환산)을 뺀, 지금 가진 LGNS
+const lgnsFuture=o=>o.bondRem/Math.max(.0001,num('pL')||.2),lgnsNow=o=>lgnsTotal(o)-lgnsFuture(o);
 function renderLgnsBox(){
   const box=$('lgnsBox');const ws=S.scope==='all'||!walletMode()?W.list:W.list.filter(w=>w.address===S.scope);
   const o=sumState(ws);if(!o.n){box.hidden=true;return;}
   box.hidden=false;const pL=Math.max(.0001,num('pL')||.2),tot=lgnsTotal(o);
   const who=ws.length>1?`전체 지갑 ${ws.length}개`:esc(ws[0].name);
+  const now=lgnsNow(o),fut=lgnsFuture(o);
   box.innerHTML=`<div class="hd"><div class="nm">LGNS 총 보유량 · ${who}</div><b style="font:700 16px var(--f-num)">${fmt(tot,2)} LGNS</b></div>
-    <p class="msg" style="margin:-2px 0 4px">지금 시세로 약 ${fmt(tot*pL,2)} DAI · Anubis에서 바로 팔면 약 50%가 수수료라 실제로 받는 돈은 훨씬 적어요</p>
+    ${fut>1e-6?`<p class="msg" style="margin:-2px 0 2px;color:var(--ink)">지금 가진 LGNS <b>${fmt(now,2)}</b> + 본드에서 앞으로 받을 몫 <b>${fmt(fut,2)}</b> (지금 시세로 환산 ❓)</p>`:''}
+    <p class="msg" style="margin:0 0 4px">지금 시세로 약 ${fmt(tot*pL,2)} DAI · Anubis에서 바로 팔면 약 48%가 수수료라 실제로 받는 돈은 훨씬 적어요</p>
     ${lgnsGroups(o).map(g=>{const s=g.rows.reduce((a,r)=>a+r[1],0);return `<details${s>0?' open':''}><summary class="msg" style="cursor:pointer;color:var(--ink)"><b>${g.t}</b> · ${fq(s)} LGNS</summary>
-      <div class="kv" style="margin:4px 0 6px">${g.rows.map(([k,v])=>`<div><span>${k}</span><b>${fq(v)}</b></div>`).join('')}</div>${g.note&&s>0?`<p class="legend3" style="margin:0 0 6px">${g.note}</p>`:''}</details>`;}).join('')}
-    ${o.bondRem>1?`<p class="msg" style="margin:0 0 4px;color:var(--ink)">이 밖에 <b>본드에서 앞으로 받을 몫 약 ${fmt(o.bondRem,2)} DAI어치</b> (소각 본드 ${fmt(o.bondBurnRem,2)} · 픽스본드 ${fmt(o.bondFixRem,2)}, 그날 시세의 LGNS로 나와요)</p>`:''}
-    <p class="legend3" style="margin:0">✅ 온체인에서 읽은 수량 · 장기 스테이킹은 원금 기준 · 신생태 터보·본드의 남은 지급(DAI 가치)은 아직 LGNS가 아니라 개수에서 뺐어요</p>`;
+      <div class="kv" style="margin:4px 0 6px">${(g.rows.filter(r=>r[1]>1e-9).length?g.rows.filter(r=>r[1]>1e-9):[['없어요',0]]).map(([k,v])=>`<div><span>${k}</span><b>${fq(v)}</b></div>`).join('')}</div>${g.note&&s>0?`<p class="legend3" style="margin:0 0 6px">${g.note}</p>`:''}</details>`;}).join('')}
+    <p class="legend3" style="margin:0">✅ 온체인에서 읽은 수량 (장기 스테이킹은 원금 + 받을 이자, 디스카운트 스테이킹은 리베이스 포함, LP는 내 지분만큼) · 본드 몫(소각 본드 ${fmt(o.bondBurnRem,2)} · 픽스본드 ${fmt(o.bondFixRem,2)} DAI어치)은 그날 시세의 LGNS로 나와서 개수는 지금 시세로 환산한 값이에요 ❓ · 신생태 터보의 남은 지급(DAI 가치)은 개수에서 뺐어요 · gLGNS는 LGNS가 아닌 다른 토큰이라 넣지 않았어요</p>`;
 }
 function cell(d,k,unit,dg){const x=d.v[k];if(!x)return '<b>-</b>';if(!x.ok)return `<b class="err" title="${esc(x.err)}">못 읽음</b>`;return `<b>${dg==null?fq(x.x):fmt(x.x,dg)}${unit?' '+unit:''}</b>`;}
 function renderWallets(){
@@ -1504,8 +1512,8 @@ function renderNtDone(p){
   const cashNow=L.cash+L.R+L.ai*p.pA0*(1-p.fee-p.slip); // 화면의 ‘꺼낼 현금’은 AiLGNS를 지금 시세로
   // 시뮬레이션에 안 들어간 LGNS (장기 스테이킹 원금·이자, 소각 안 한 지갑 LGNS 등)
   let other=0,otherTxt='';
-  if(walletMode()){const o=sumState(scopeWallets());other=Math.max(0,lgnsTotal(o)-(ex.burnA||0)-(ex.burnP||0)-(o.pend+o.extra+o.cw+o.cw2)-o.ntNowL-o.bondNow);
-    if(other>1)otherTxt=`<li>시뮬레이션에 안 넣은 LGNS ${fmt(other)}개 (장기 스테이킹 원금·이자 등) · 지금 시세로 약 ${fmt(other*p.pL0)} DAI</li>`;}
+  if(walletMode()){const o=sumState(scopeWallets());other=Math.max(0,lgnsTotal(o)-(ex.burnA||0)-(ex.burnP||0)-(o.pend+o.extra+o.cw+o.cw2)-o.ntNowL-o.bondNow-o.bondRem/Math.max(.0001,p.pL0));
+    if(other>1)otherTxt=`<li>시뮬레이션에 안 넣은 LGNS ${fmt(other)}개 (장기·일반 스테이킹, LP 등) · 지금 시세로 약 ${fmt(other*p.pL0)} DAI</li>`;}
   const total=cashNow+L.P+L.lgAssets,totalSell=cashNow+L.P+L.lgSell;
   box.innerHTML=`<div class="aibest" style="background:var(--soft)">
     <div class="t" style="color:var(--ink)">${D}일 뒤 (${when}) 마지막 지급</div>
@@ -1927,7 +1935,7 @@ function renderAssetSum(){
   box.hidden=false;const pL=Math.max(.0001,num('pL')||.2),pA=Math.max(1,num('pA')||793);
   const tq=o.pend+o.extra+o.cw;let td=0,qok=true;ws.forEach(w=>{const d=W.data[w.address.toLowerCase()];if(d&&d.v.turboDai&&d.v.turboDai.ok)td+=d.v.turboDai.x;else if(d)qok=false;});
   if(!qok||!td)td=tq*pL*1.05;
-  box.innerHTML=`<div class="l">${ws.length>1?`지갑 ${ws.length}개 합계 · `:''}LGNS 총 보유량</div><div class="big">${fmt(lgnsTotal(o),2)} LGNS</div>
+  box.innerHTML=`<div class="l">${ws.length>1?`지갑 ${ws.length}개 합계 · `:''}LGNS 총 보유량</div><div class="big">${fmt(lgnsTotal(o),2)} LGNS</div>${o.bondRem>1?`<div class="l">지금 가진 ${fmt(lgnsNow(o),2)} + 본드에서 앞으로 받을 ${fmt(lgnsFuture(o),2)} (시세로 환산 ❓)</div>`:''}
     <div class="grid"><div class="cell"><span class="l">Power</span><b>${fmt(o.power)}</b></div><div class="cell"><span class="l">AiLGNS</span><b>${fq(o.ai)}</b></div><div class="cell"><span class="l">DAI</span><b>${fmt(o.dai,2)}</b></div></div>
     ${tq>1e-6?`<div class="x">DAI <b>${fmt(td,2)}</b>를 내면 터보란 <b>${fq(tq)}</b> LGNS를 1+1로 받을 수 있어요<br><span class="l">터보란 ${fq(o.pend)} · 추가이자 ${fq(o.extra)} · 거미망 옛 방식 ${fq(o.cw)} · 천천히 나눠서 해도 돼요</span></div>`:''}
     ${o.bondRem>1||o.bondNow>1e-6?`<div class="x">본드에서 앞으로 받을 몫 <b>${fmt(o.bondRem,2)} DAI어치</b>${o.bondNow>1e-6?` · 지금 청구 ${fq(o.bondNow)} LGNS`:''}<br><span class="l">소각 본드 ${fmt(o.bondBurnRem,2)} · 픽스본드 ${fmt(o.bondFixRem,2)} · 하루 약 ${fmt(o.bondDaily,2)} DAI어치씩</span></div>`:''}

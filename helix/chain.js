@@ -25,8 +25,17 @@ const A={
   cwTurbine:'0x8250f8eeaae5b6e21043fbd8c61c70e1b0906109', // 새 터빈: 신생태 터보형 (활성화 1% → 24시간 → 판매 5%), 10/9 생성
   burnBond:'0x11b10C9827c5B7071E96fcAa143B4e6E86b17c69',  // 소각 본드: Anubis LGNS(시세로 원금, 230%) 또는 DAI(250%) → LGNS로 나눠 지급
   fixedBond:'0x3f403751975e1EB06d95901f7FF246513444E71F', // 고정 소각 본드(픽스본드): Polygon에서 소각한 LGNS 1개 = 1 DAI 원금, 200% · 300일
+  // 10/24 디앱 번들 설정에서 찾아 실제 보유자로 확인했어요
+  slgns:'0x2243aE29F73137d678197b61B0621AE942845B8C',     // sLGNS (9): 스테이킹한 LGNS 1:1 · balanceForGons(gons) = LGNS
+  staking:'0x7a2E3fA6eA60437F0441b8eb5e60674B80339228',   // 일반 스테이킹: warmupInfo(user) = (deposit, gons, expiry, lock) 대기 중인 몫
+  instant:'0xf7788F5A5CbBaFAc4120c63C79dcd9F1931c7824',   // 인스턴트 스테이킹: getDepositorBalance = 잠김 + 지금 찾을 수 있는 LGNS
+  bondStaking:'0xF190Ab12B73BFE1B626379aF96e8f1859ec91F20',// 본드 스테이킹: getDepositorBalance = 원금 LGNS 합계
+  discount:'0x5584CDeb1369673C91C6aD7EBea0cE7cB630ce60',  // 디스카운트 스테이킹(Genesis 360): 건마다 gons → 리베이스 포함 LGNS
 };
-const P={lgns:'0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01',pair:'0x882df4B0fB50a229C3B4124EB18c759911485bFb'};
+const P={lgns:'0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01',pair:'0x882df4B0fB50a229C3B4124EB18c759911485bFb',
+  slgns:'0x99a57E6C8558BC6689f894e068733ADf83C19725',staking:'0x1964Ca90474b11FFD08af387b110ba6C96251Bfc'};
+// 한 지갑에서 읽는 건수 최대 (장기 스테이킹·본드·디스카운트 스테이킹)
+const MAXN=200;
 const SEL={balanceOf:'0x70a08231',getReserves:'0x0902f1ac',token0:'0x0dfe1681',
   activePowerOf:'0x6cf2fa36',totalPowerOf:'0x4f343040',pendingPowerOf:'0xaa81a38f',queuedPowerOf:'0x4029c12c',
   pendingOf:'0xf44136a1',lockedBalanceOf:'0x59355736',claimableOf:'0x8903ab9d',getTurbineBal:'0xb4131557',
@@ -41,8 +50,10 @@ const SEL={balanceOf:'0x70a08231',getReserves:'0x0902f1ac',token0:'0x0dfe1681',
   // 일반 터보 청구 기록: (id, silenceBalance, rewardBalance, lockTimestamp)[]. 청구하면 기록이 지워져요 (10/23 실제 거래로 확인)
   getClaimInfo:'0x0835fe47',lockPeriod:'0x3fd8b02f',
   // 본드: getUserDeposits(user) → (원금 DAI, 배수 bps, 소각 LGNS, 지급된 DAI 가치, 청구한 LGNS, …, 예치 시각, 종류)[] / getClaimable(user, idx) = 지금 청구할 LGNS
-  getUserDeposits:'0x2a5bf6d2',getClaimable:'0x6f5244b1'};
-const LABEL={power:'활성 Power',totalPower:'누적 Power',queued:'대기 Power',ai:'AiLGNS',unc:'터빈 대기',turbLocked:'터빈 잠김',turbClaim:'터빈 수령 가능',
+  getUserDeposits:'0x2a5bf6d2',getClaimable:'0x6f5244b1',
+  // 스테이킹류: sLGNS gons → LGNS, 일반 스테이킹 대기분, 예치 잔고, 디스카운트 스테이킹 기록 (principal, gons, …, exists 7번째 · 10칸)
+  balanceForGons:'0x7965d56d',warmupInfo:'0x6746f4c2',getDepositorBalance:'0xb79215d6',getStakeRecordsPagination:'0x297a52d2',totalSupply:'0x18160ddd'};
+const LABEL={slg:'sLGNS',warm:'스테이킹 대기',inst:'인스턴트 스테이킹',bst:'본드 스테이킹',disc:'디스카운트 스테이킹',lpA:'LP(Anubis)',lpP:'LP(Polygon)',slgP:'sLGNS(Polygon)',warmP:'스테이킹 대기(Polygon)',power:'활성 Power',totalPower:'누적 Power',queued:'대기 Power',ai:'AiLGNS',unc:'터빈 대기',turbLocked:'터빈 잠김',turbClaim:'터빈 수령 가능',
   dai:'DAI',lgnsA:'LGNS(Anubis)',lgnsP:'LGNS(Polygon)',pend:'일반 터보',ve:'ve 잠금',nt25:'신생태 2.5배',nt4:'신생태 4배',long:'장기 스테이킹',turboDai:'터보 DAI 견적',cw:'거미망(옛 방식)',cw2:'거미망(새 방식)',tClaim:'터보 청구 대기',bbd:'소각 본드',fbd:'픽스본드'};
 
 const isAddr=a=>/^0x[0-9a-fA-F]{40}$/.test(a);
@@ -134,10 +145,16 @@ async function loadWallets(addrs,opt={}){
     c('cw',A.cobweb,SEL.claimable);c('cwr',A.cobweb,SEL.rewardOf);c('tci',A.turbine,SEL.getClaimInfo);
     c('cw2',A.cobweb2,SEL.claimable);c('cw2r',A.cobweb2,SEL.rewardOf);c('cwts',A.cwTurbine,SEL.sellableBalance);c('cwtl',A.cwTurbine,SEL.lockedBalance);
     c('bbd',A.burnBond,SEL.getUserDeposits);c('fbd',A.fixedBond,SEL.getUserDeposits);
+    c('slg',A.slgns,SEL.balanceOf);c('warm',A.staking,SEL.warmupInfo);c('inst',A.instant,SEL.getDepositorBalance);c('bst',A.bondStaking,SEL.getDepositorBalance);
+    c('dsn',A.discount,SEL.getUserStakesCount);c('lpA',A.lgnsPair,SEL.balanceOf);
   });
+  // gons → LGNS 환율 (sLGNS.balanceForGons에 큰 수를 넣어 한 번에 구해요), LP 지분 계산용 풀 잔고·발행량
+  R1.push(callReq('gpf',A.slgns,SEL.balanceForGons,[10n**75n]),callReq('lpTs',A.lgnsPair,SEL.totalSupply,[]),callReq('lpR',A.lgnsPair,SEL.getReserves,[]),callReq('lpT0',A.lgnsPair,SEL.token0,[]));
   R1.push(callReq('lp',A.turbine,SEL.lockPeriod,[]),callReq('rbb',A.burnBond,SEL.ratePerEpoch,[]),callReq('rfb',A.fixedBond,SEL.ratePerEpoch,[]));
   R1.push(callReq('r25',A.nt25,SEL.ratePerEpoch,[]),callReq('r4',A.nt4,SEL.ratePerEpoch,[]),{id:'bn',method:'eth_blockNumber',params:[]});
-  const [r1,rp]=await Promise.all([batch(ANUBIS,R1),batch(POLYGON,addrs.map((a,i)=>callReq(i+':lgnsP',P.lgns,SEL.balanceOf,[a])))]);
+  const RP=[callReq('lpTs',P.pair,SEL.totalSupply,[]),callReq('lpR',P.pair,SEL.getReserves,[]),callReq('lpT0',P.pair,SEL.token0,[])];
+  addrs.forEach((a,i)=>RP.push(callReq(i+':lgnsP',P.lgns,SEL.balanceOf,[a]),callReq(i+':slgP',P.slgns,SEL.balanceOf,[a]),callReq(i+':warmP',P.staking,SEL.warmupInfo,[a]),callReq(i+':lpP',P.pair,SEL.balanceOf,[a])));
+  const [r1,rp]=await Promise.all([batch(ANUBIS,R1),batch(POLYGON,RP)]);
   const bn=r1.bn&&r1.bn.result?parseInt(r1.bn.result,16):null;
   const rate={nt25:r1.r25&&!errOf(r1.r25)?words(r1.r25.result)[0]:4167n,nt4:r1.r4&&!errOf(r1.r4)?words(r1.r4.result)[0]:4000n};
 
@@ -150,13 +167,15 @@ async function loadWallets(addrs,opt={}){
   addrs.forEach((a,i)=>{
     ['nt25','nt4'].forEach(k=>{const x=r1[i+':'+k+'n'];const n=x&&!errOf(x)?Number(words(x.result)[0]||0n):0;if(n>0)R2.push(callReq(i+':'+k+'o',A[k],SEL.getUserOrders,[a,0,Math.min(n,100)]));});
     const v=r1[i+':veIds'];const ids=v&&!errOf(v)?words(v.result).slice(2):[];
-    ids.slice(0,50).forEach((id,j)=>R2.push(callReq(i+':ve'+j,A.ve,SEL.positions,[id])));
+    ids.slice(0,MAXN).forEach((id,j)=>R2.push(callReq(i+':ve'+j,A.ve,SEL.positions,[id])));
     if(dayAgo){const blk='0x'+dayAgo.n.toString(16);R2.push(callReq(i+':p0',A.power,SEL.activePowerOf,[a],blk),callReq(i+':t0',A.power,SEL.totalPowerOf,[a],blk),callReq(i+':cwr0',A.cobweb,SEL.rewardOf,[a],blk),callReq(i+':cw2r0',A.cobweb2,SEL.rewardOf,[a],blk));}
     // 본드 건별 지금 청구할 LGNS
-    ['bbd','fbd'].forEach(k=>{const x=r1[i+':'+k];if(!x||errOf(x))return;const w=words(x.result),n=Math.min(Number(w[1]||0n),30);
+    ['bbd','fbd'].forEach(k=>{const x=r1[i+':'+k];if(!x||errOf(x))return;const w=words(x.result),n=Math.min(Number(w[1]||0n),MAXN);
       for(let j=0;j<n;j++)R2.push(callReq(`${i}:${k}c${j}`,k==='bbd'?A.burnBond:A.fixedBond,SEL.getClaimable,[a,j]));});
+    const dn=r1[i+':dsn'],dcount=dn&&!errOf(dn)?Math.min(Number(words(dn.result)[0]||0n),MAXN):0;
+    if(dcount>0)R2.push(callReq(i+':dsr',A.discount,SEL.getStakeRecordsPagination,[a,0,dcount]));
     ['long360','long600'].forEach(k=>{const x=r1[i+':'+k+'n'];const n=x&&!errOf(x)?Number(words(x.result)[0]||0n):0;
-      for(let j=0;j<Math.min(n,30);j++){
+      for(let j=0;j<Math.min(n,MAXN);j++){
         R2.push(callReq(`${i}:${k}s${j}`,A[k],SEL.stakes,[a,j]),callReq(`${i}:${k}p${j}`,A[k],SEL.pendingPayout,[a,j]),callReq(`${i}:${k}x${j}`,A[k],SEL.extraInterest,[a,j]));
         if(dayAgo)R2.push(callReq(`${i}:${k}y${j}`,A[k],SEL.extraInterest,[a,j],'0x'+dayAgo.n.toString(16)));
       }});
@@ -167,7 +186,7 @@ async function loadWallets(addrs,opt={}){
   const turboQty=addrs.map((a,i)=>{
     const t=r1[i+':pend'];let q=t&&!errOf(t)?words(t.result)[0]||0n:0n;
     const cw=r1[i+':cw'];if(cw&&!errOf(cw))q+=words(cw.result)[0]||0n;
-    ['long360','long600'].forEach(k=>{const nx=r1[i+':'+k+'n'];const n=nx&&!errOf(nx)?Math.min(Number(words(nx.result)[0]||0n),30):0;
+    ['long360','long600'].forEach(k=>{const nx=r1[i+':'+k+'n'];const n=nx&&!errOf(nx)?Math.min(Number(words(nx.result)[0]||0n),MAXN):0;
       for(let j=0;j<n;j++){const xx=r2[`${i}:${k}x${j}`],s=r2[`${i}:${k}s${j}`];if(xx&&!errOf(xx)&&s&&!errOf(s)&&words(s.result)[7]!==0n)q+=words(xx.result)[0]||0n;}});
     return q;
   });
@@ -186,7 +205,7 @@ async function loadWallets(addrs,opt={}){
     // ve: positions(id) = owner, kind, principal, startEpoch, lockEpochs, claimedPrincipal, closed
     const vi=r1[i+':veIds'];
     if(errOf(vi))v.ve={ok:false,err:errOf(vi)};
-    else{let s=0,bad=null;words(vi.result).slice(2,52).forEach((_,j)=>{const x=r2[i+':ve'+j];if(errOf(x)){bad=errOf(x);return;}const w=words(x.result);if(w.length>=7&&w[6]===0n)s+=units(w[2]-w[5],18);});
+    else{let s=0,bad=null;words(vi.result).slice(2,2+MAXN).forEach((_,j)=>{const x=r2[i+':ve'+j];if(errOf(x)){bad=errOf(x);return;}const w=words(x.result);if(w.length>=7&&w[6]===0n)s+=units(w[2]-w[5],18);});
       v.ve=bad?{ok:false,err:bad}:{ok:true,x:s};}
     const nt={},orders=[];
     ['nt25','nt4'].forEach(k=>{
@@ -201,7 +220,7 @@ async function loadWallets(addrs,opt={}){
     const stakes=[];let lerr=null;
     ['long360','long600'].forEach(k=>{
       const nx=r1[i+':'+k+'n'];if(errOf(nx)){lerr=errOf(nx);return;}
-      const n=Math.min(Number(words(nx.result)[0]||0n),30);
+      const n=Math.min(Number(words(nx.result)[0]||0n),MAXN);
       for(let j=0;j<n;j++){
         const s=r2[`${i}:${k}s${j}`],pp=r2[`${i}:${k}p${j}`],xx=r2[`${i}:${k}x${j}`],yy=r2[`${i}:${k}y${j}`];
         if(errOf(s)||errOf(pp)||errOf(xx)){lerr=errOf(s)||errOf(pp)||errOf(xx);continue;}
@@ -244,13 +263,32 @@ async function loadWallets(addrs,opt={}){
     [['bbd','burn',r1.rbb],['fbd','fixed',r1.rfb]].forEach(([k,kind,rr])=>{
       const x=r1[i+':'+k];if(!x||errOf(x)){v[k]={ok:false,err:errOf(x)||'응답 없음'};return;}
       const rate=rr&&!errOf(rr)?Number(words(rr.result)[0]||0n):(kind==='fixed'?3334:4000);
-      const w=words(x.result),n=Math.min(Number(w[1]||0n),30);let left=0;
+      const w=words(x.result),n=Math.min(Number(w[1]||0n),MAXN);let left=0;
       for(let j=0;j<n;j++){const s=w.slice(2+j*9,2+(j+1)*9);if(s.length<9)break;
         const principal=units(s[0],18),cap=Number(s[1])/1e4,paid=units(s[3],18),total=principal*cap,remain=Math.max(0,total-paid),daily=principal*rate*2/1e6;
         const cl=r2[`${i}:${k}c${j}`],claimable=cl&&!errOf(cl)?units(words(cl.result)[0]||0n,9):0;
         bonds.push({kind,idx:j,principal,cap,burned:units(s[2],9),paid,remain,daily,claimable,ts:Number(s[7])});left+=remain;}
       v[k]={ok:true,x:left};
     });
+    // 스테이킹·LP에 들어 있는 LGNS (✅ 10/24 실제 보유자로 확인)
+    const gpf=r1.gpf&&!errOf(r1.gpf)?words(r1.gpf.result)[0]||0n:0n,gonsL=g0=>units(g0*gpf/(10n**75n),9);
+    const one=(k,res,f)=>{v[k]=!res?{ok:false,err:'응답 없음'}:errOf(res)?{ok:false,err:errOf(res)}:{ok:true,x:f(words(res.result))};};
+    one('slg',r1[i+':slg'],w=>units(w[0]||0n,9));
+    one('warm',r1[i+':warm'],w=>gpf?gonsL(w[1]||0n):units(w[0]||0n,9));
+    one('inst',r1[i+':inst'],w=>units(w[0]||0n,9));
+    one('bst',r1[i+':bst'],w=>units(w[0]||0n,9));
+    const dsr=r2[i+':dsr'];
+    if(errOf(r1[i+':dsn']))v.disc={ok:false,err:errOf(r1[i+':dsn'])};
+    else if(dsr&&errOf(dsr))v.disc={ok:false,err:errOf(dsr)};
+    else{let t=0;if(dsr){const w=words(dsr.result),n=Number(w[1]||0n);for(let j=0;j<n;j++){const r=w.slice(2+j*10,2+(j+1)*10);if(r.length<10)break;if(r[7]!==0n)t+=gpf?gonsL(r[1]):units(r[0],9);}}v.disc={ok:true,x:t};}
+    // LP: 내 LP 지분 × 풀의 LGNS 잔고
+    const lpShare=(res,ts,rr,t0,lg)=>{if(!res||errOf(res)||!ts||errOf(ts)||!rr||errOf(rr)||!t0||errOf(t0))return {ok:false,err:errOf(res)||errOf(ts)||errOf(rr)||'응답 없음'};
+      const bal=words(res.result)[0]||0n,tot=words(ts.result)[0]||0n,R=words(rr.result),isL=('0x'+(words(t0.result)[0]||0n).toString(16).padStart(40,'0')).toLowerCase()===lg.toLowerCase();
+      return {ok:true,x:tot>0n?units(bal*(isL?R[0]:R[1])/tot,9):0};};
+    v.lpA=lpShare(r1[i+':lpA'],r1.lpTs,r1.lpR,r1.lpT0,A.lgns);
+    v.lpP=lpShare(rp[i+':lpP'],rp.lpTs,rp.lpR,rp.lpT0,P.lgns);
+    one('slgP',rp[i+':slgP'],w=>units(w[0]||0n,9));
+    one('warmP',rp[i+':warmP'],w=>units(w[0]||0n,9));
     return {address:a,v,nt,orders,stakes,cw:cwInfo,cw2:cw2Info,bonds,rate:rate1,block:bn,turboQty:units(turboQty[i],9),extraBps};
   });
 }
