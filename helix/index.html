@@ -139,6 +139,9 @@ footer{font-size:12px;color:var(--muted)}
 .tbl th:first-child,.tbl td:first-child{text-align:left;white-space:normal;min-width:88px}
 .tbl td{font-family:var(--f-num)}
 .tbl td:first-child{font-family:var(--f-body)}
+.chaintbl{font-size:12.5px}
+.chaintbl th,.chaintbl td{padding:6px 4px}
+.chaintbl th:first-child,.chaintbl td:first-child{min-width:0;white-space:nowrap}
 .tblwrap{overflow-x:auto;margin:0 -4px;padding:0 4px}
 .todo{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
 .todo li{background:var(--soft);border-radius:10px;padding:10px 12px;font-size:14px}
@@ -1255,14 +1258,36 @@ function lgnsEndCard(e,title,by){
 }
 // 본드에서 앞으로 받을 몫: 아직 LGNS가 아니라 총 보유량에 넣지 않고 따로 적어요 (지금 시세로 환산 ❓)
 const lgnsFuture=o=>o.bondRem/Math.max(.0001,num('pL')||.2);
+// 체인별 LGNS: Polygon에 있는 건 지갑·sLGNS·스테이킹 대기·LP뿐이고, 나머지(스테이킹·터보·신생태·본드)는 모두 Anubis예요
+function chainRows(o){
+  return [
+    ['지갑',o.lgnsA,o.lgnsP],
+    ['sLGNS·대기',o.slg+o.warm,o.slgP+o.warmP],
+    ['LP 지분',o.lpA,o.lpP],
+    ['스테이킹',o.stakePrincipal+o.stakeInterest+o.inst+o.bst+o.disc,0],
+    ['터보란 (1+1)',o.pend+o.extra+o.cw,0],
+    ['곧 받아요',o.tcLocked+o.tcReady+o.ntSell+o.ntLocked+o.ntClaim+o.cw2+o.bondNow,0],
+  ];
+}
+function chainTable(o,pL,pLP){
+  const rows=chainRows(o),A=rows.reduce((a,r)=>a+r[1],0),P=rows.reduce((a,r)=>a+r[2],0),c=x=>x>1e-9?fq(x):'-';
+  return `<div class="tblwrap" style="margin:4px 0 8px"><table class="tbl chaintbl"><thead><tr><th>어디에</th><th>Anubis</th><th>Polygon</th><th>합계</th></tr></thead><tbody>
+    ${rows.filter(r=>r[1]+r[2]>1e-9).map(([k,a,b])=>`<tr><td>${k}</td><td>${c(a)}</td><td>${c(b)}</td><td>${c(a+b)}</td></tr>`).join('')||'<tr><td colspan="4">없어요</td></tr>'}
+    <tr style="font-weight:800"><td>합계 (LGNS)</td><td>${fq(A)}</td><td>${fq(P)}</td><td>${fq(A+P)}</td></tr>
+    <tr><td>DAI (시세)</td><td>${fmt(A*pL)}</td><td>${fmt(P*pLP)}</td><td>${fmt(A*pL+P*pLP)}</td></tr>
+  </tbody></table></div>
+  <p class="legend3" style="margin:-4px 0 8px">스테이킹 = 장기(원금+이자)·인스턴트·본드·디스카운트 · 터보란 = 터보란·추가이자·거미망 옛 방식 · 곧 받아요 = 터보 청구·신생태 금고·거미망 새 방식·본드 청구 · 시세 Anubis ${fmt(pL,4)} · Polygon ${fmt(pLP,4)} DAI · Polygon에는 지갑·sLGNS·대기·LP만 있어요</p>`;
+}
 function renderLgnsBox(){
   const box=$('lgnsBox');const ws=S.scope==='all'||!walletMode()?W.list:W.list.filter(w=>w.address===S.scope);
   const o=sumState(ws);if(!o.n){box.hidden=true;return;}
-  box.hidden=false;const pL=Math.max(.0001,num('pL')||.2),tot=lgnsTotal(o);
+  box.hidden=false;const pL=Math.max(.0001,num('pL')||.2),pLP=Math.max(.0001,num('pLP')||.28),tot=lgnsTotal(o);
   const who=ws.length>1?`전체 지갑 ${ws.length}개`:esc(ws[0].name);
-  const fut=lgnsFuture(o);
+  const fut=lgnsFuture(o),polyQ=o.lgnsP+o.slgP+o.warmP+o.lpP;
   box.innerHTML=`<div class="hd"><div class="nm">LGNS 총 보유량 · ${who}</div><b style="font:700 16px var(--f-num)">${fmt(tot,2)} LGNS</b></div>
-    <p class="msg" style="margin:-2px 0 4px">지금 시세로 약 ${fmt(tot*pL,2)} DAI · Anubis에서 바로 팔면 약 48%가 수수료라 실제로 받는 돈은 훨씬 적어요</p>
+    <p class="msg" style="margin:-2px 0 4px">지금 시세로 약 ${fmt((tot-polyQ)*pL+polyQ*pLP,2)} DAI · Anubis에서 바로 팔면 약 48%가 수수료라 실제로 받는 돈은 훨씬 적어요</p>
+    <div class="h3" style="margin:4px 0 0">체인별로 보면</div>
+    ${chainTable(o,pL,pLP)}
     ${lgnsGroups(o).map(g=>{const s=g.rows.reduce((a,r)=>a+r[1],0);return `<details${s>0?' open':''}><summary class="msg" style="cursor:pointer;color:var(--ink)"><b>${g.t}</b> · ${fq(s)} LGNS</summary>
       <div class="kv" style="margin:4px 0 6px">${(g.rows.filter(r=>r[1]>1e-9).length?g.rows.filter(r=>r[1]>1e-9):[['없어요',0]]).map(([k,v])=>`<div><span>${k}</span><b>${fq(v)}</b></div>`).join('')}</div>${g.note&&s>0?`<p class="legend3" style="margin:0 0 6px">${g.note}</p>`:''}</details>`;}).join('')}
     ${o.bondRem>1?`<div class="wc" style="margin:2px 0 8px"><div class="hd"><div class="nm">본드에서 앞으로 받을 몫 (따로)</div><b style="font:700 15px var(--f-num)">약 ${fmt(fut,2)} LGNS</b></div>
