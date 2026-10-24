@@ -179,8 +179,12 @@ function simulate(p,pl){
     // 시장 가정의 LGNS 가격 오름(lChg)은 ‘사는 값이 비싸진다’는 나쁜 가정이라, 들고 있는 LGNS 값에는 넣지 않아요 (지금 시세 기준)
     const lgUp=Math.max(1,Math.pow(1+p.lChg,t/30)),pLv=pL/lgUp,bondLeft=sumL(bonds),pLPt=p.pLP0*Math.pow(1+p.lChg,t/30)/lgUp;
     const lgAssets=lgHeld*pLv+polyHeld*pLPt+bondLeft+pend*pLv;
+    // 팔았을 때 손에 쥐는 DAI: 들고 있는 LGNS는 그날 한꺼번에 Anubis에서 팔고(판매세 5% 뒤 45% · 풀 가격 영향),
+    // 본드 몫은 나올 때마다 팔고(같은 수수료), Polygon LGNS도 같은 수수료로 쳐요 ❓. 터보란은 DAI(시세+5%)를 내야 받아서, 받아서 바로 팔면 손해라 0
+    const heldQ=lgHeld*ANUBIS_SELL,heldV=AMM?(v=>v*AMM.l.D/(AMM.l.D+v))(heldQ*pLv*(1-SWAP)):heldQ*pLv*(1-p.slip);
+    const lgSell=heldV+(polyHeld*pLPt+bondLeft)*ANUBIS_SELL*(1-p.slip);
     series.push({t,P,D,cost,cash,R,ai,ve,veVal:ve*pA,pA,pL,r,invested,liquid,burned:lgBurn,ntRemain,aiDaily:D/pA,
-      pAnow:AMM?pAb*AMM.a.m:pA,pLnow:AMM?pLb*AMM.l.m:pL,lgHeld,polyHeld,bondLeft,pendLeft:pend,lgAssets});
+      pAnow:AMM?pAb*AMM.a.m:pA,pLnow:AMM?pLb*AMM.l.m:pL,lgHeld,polyHeld,bondLeft,pendLeft:pend,lgAssets,lgSell});
   }
   return {series,last:series[series.length-1],startValue,startP,missed:unc*series[series.length-1].pA,uncQty:unc,pendLeft:pend,ntOut,ntLeft:ntDays>p.days?(ntDays-p.days)*ntDaily:0,csLeft:cs.reduce((a,s)=>a+s.d*s.left,0),fundLeft:fs.reduce((a,x)=>a+x.d*x.left,0),fundInv,cashDay,veDay,ext,streamsLeft:streams.reduce((a,s)=>a+s.d*s.left,0),exNtLeft:exNt.reduce((a,s)=>a+s.d*s.left,0),ntIn,xDai,xLgns,xDay,bondIn,bondOut};
 }
