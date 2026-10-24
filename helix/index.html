@@ -615,8 +615,8 @@ body.hasbar{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
 <div class="bottombar" id="bbar" hidden><button type="button" class="btn" id="bbarBtn">오늘 할 일 보기</button></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="engine.js?v=20261024b"></script>
-<script src="chain.js?v=20261024b"></script>
+<script src="engine.js?v=20261024c"></script>
+<script src="chain.js?v=20261024c"></script>
 <script>
 (function(){
 const $=id=>document.getElementById(id);
@@ -1312,14 +1312,20 @@ function renderWallets(){
     if(!d)body=`<p class="msg">${W.loading?'조회 중…':'아직 조회하지 않았어요.'}</p>`;
     else{const nt=(d.orders||[]).filter(x=>!x.completed);const lt=lgnsTotal(sumState([w]));
       body=`<div class="kv">
+        <div><span>스테이킹 합계 (디앱 초대 화면 기준) ✅</span><b>${d.v.agg?.ok&&d.v.slgP?.ok?fmt((d.v.agg.x||0)+(d.v.slgP.x||0),2):'<span class="err">못 읽음</span>'}</b></div>
+        <div><span>· Anubis 스테이킹 (디앱) ✅</span>${cell(d,'agg','',2)}</div>
+        <div><span>· Polygon 스테이킹 (sLGNS) ✅</span>${cell(d,'slgP','',2)}</div>
+        ${(d.v.warmP?.x||0)>1e-6?`<div><span>· Polygon 스테이킹 대기 (warmup) ✅</span>${cell(d,'warmP','',2)}</div>`:''}
+        ${[['slg','Anubis sLGNS'],['warm','Anubis 스테이킹 대기'],['inst','인스턴트 스테이킹'],['bst','본드 스테이킹'],['disc','디스카운트 스테이킹'],['act','활동 포인트 스테이킹'],['lpA','LP 지분 · Anubis'],['lpP','LP 지분 · Polygon']].map(([k,nm])=>d.v[k]&&(!d.v[k].ok||d.v[k].x>1e-6)?`<div><span>· ${nm} ✅</span>${cell(d,k,'',2)}</div>`:'').join('')}
+        ${(d.stakes||[]).length?`<div><span>· 장기 스테이킹 원금 + 받을 이자 ✅</span><b>${fmt(d.stakes.reduce((a,x)=>a+x.principal+x.interest,0),2)} · ${d.stakes.length}건</b></div>`:''}
         <div><span>LGNS 총 보유량 ✅</span><b>${fmt(lt,2)}</b></div>
         <div><span>활성 Power ✅</span>${cell(d,'power','',0)}</div>
         <div><span>보유 AiLGNS ✅</span>${cell(d,'ai')}</div>
         <div><span>터빈 대기 AiLGNS ✅</span>${cell(d,'unc')}</div>
         <div><span>터빈 잠김·수령 ✅</span><b>${fq((d.v.turbLocked?.x||0)+(d.v.turbClaim?.x||0))}</b></div>
         <div><span>DAI ✅</span>${cell(d,'dai','',2)}</div>
-        <div><span>LGNS Anubis ✅</span>${cell(d,'lgnsA','',2)}</div>
-        <div><span>LGNS Polygon ✅</span>${cell(d,'lgnsP','',2)}</div>
+        <div><span>지갑 LGNS · Anubis ✅</span>${cell(d,'lgnsA','',2)}</div>
+        <div><span>지갑 LGNS · Polygon (스테이킹 안 한 것) ✅</span>${cell(d,'lgnsP','',2)}</div>
         <div><span>일반 터보 쌓인 LGNS ✅</span>${cell(d,'pend')}</div>
         <div><span>터보란 전부 돌리는 DAI ✅</span>${cell(d,'turboDai','',2)}</div>
         <div><span>거미망 옛 방식 (청구 전) ✅</span>${d.v.cw&&!d.v.cw.ok?'<b class="err">못 읽음</b>':`<b>${fq(d.v.cw?.x||0)} LGNS</b>`}</div>
@@ -1342,7 +1348,8 @@ function renderWallets(){
   let h='';
   if(tot&&tot.n){h+=`<div class="wc${walletMode()&&S.scope==='all'?' sel':''}"><div class="hd"><div class="nm">전체 합계 · 지갑 ${W.list.length}개</div><div class="act"><button type="button" class="linkbtn" data-use="all">합계로 계산</button></div></div><div class="kv">
     <div><span>활성 Power</span><b>${fmt(tot.power)}</b></div><div><span>보유 AiLGNS</span><b>${fq(tot.ai)}</b></div><div><span>터빈 대기 AiLGNS</span><b>${fq(tot.unc)}</b></div><div><span>DAI</span><b>${fmt(tot.dai,2)}</b></div>
-    <div><span>LGNS Anubis</span><b>${fmt(tot.lgnsA,2)}</b></div><div><span>LGNS Polygon</span><b>${fmt(tot.lgnsP,2)}</b></div><div><span>일반 터보 쌓인 LGNS</span><b>${fq(tot.pend)}</b></div>
+    <div><span>스테이킹 · Anubis (디앱)</span><b>${tot.aggOk?fmt(tot.agg,2):'못 읽음'}</b></div><div><span>스테이킹 · Polygon (sLGNS)</span><b>${tot.polyOk?fmt(tot.slgP,2):'못 읽음'}</b></div>
+    <div><span>지갑 LGNS · Anubis</span><b>${fmt(tot.lgnsA,2)}</b></div><div><span>지갑 LGNS · Polygon</span><b>${fmt(tot.lgnsP,2)}</b></div><div><span>일반 터보 쌓인 LGNS</span><b>${fq(tot.pend)}</b></div>
     <div><span>장기 스테이킹 추가이자</span><b>${fq(tot.extra)} LGNS</b></div><div><span>하루 새 추가이자</span><b>${fq(tot.extraDaily)} LGNS</b></div>
     <div><span>본드 남은 지급</span><b>${fmt(tot.bondRem,2)} DAI어치</b></div><div><span>본드 청구 가능</span><b>${fq(tot.bondNow)} LGNS</b></div>
     <div><span>거미망 옛 방식 (청구 전)</span><b>${fq(tot.cw)} LGNS</b></div><div><span>거미망 새 방식 (청구 전)</span><b>${fq(tot.cw2)} LGNS</b></div><div><span>거미망 새 방식 하루 적립</span><b>${fq(tot.cw2Daily)} LGNS</b></div><div><span>신생태 남은 지급</span><b>${fmt(tot.ntRem,2)} DAI</b></div>
