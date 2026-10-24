@@ -615,8 +615,8 @@ body.hasbar{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
 <div class="bottombar" id="bbar" hidden><button type="button" class="btn" id="bbarBtn">오늘 할 일 보기</button></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="engine.js"></script>
-<script src="chain.js"></script>
+<script src="engine.js?v=20261024b"></script>
+<script src="chain.js?v=20261024b"></script>
 <script>
 (function(){
 const $=id=>document.getElementById(id);
@@ -660,7 +660,7 @@ function sumState(ws){
   const o={power:0,ai:0,unc:0,dai:0,pend:0,ve:0,ntRem:0,ntDaily:0,ntNowL:0,lgnsA:0,lgnsP:0,turbLocked:0,turbClaim:0,ntSell:0,ntLocked:0,ntClaim:0,orders:[],n:0,fail:[],
     extra:0,extraDaily:0,extraMeasured:true,stakeInterest:0,stakePrincipal:0,stakes:[],cw:0,cwDaily:0,cwMeasured:true,cwTotal:0,cwClaimed:0,tcLocked:0,tcReady:0,cw2:0,cw2Daily:0,cw2Measured:true,
     bonds:[],bondRem:0,bondDaily:0,bondNow:0,bondBurnRem:0,bondFixRem:0,
-    slg:0,warm:0,inst:0,bst:0,disc:0,lpA:0,lpP:0,slgP:0,warmP:0,act:0,agg:0,aggOk:true};
+    slg:0,warm:0,inst:0,bst:0,disc:0,lpA:0,lpP:0,slgP:0,warmP:0,act:0,agg:0,aggOk:true,polyOk:true};
   ws.forEach(w=>{const d=W.data[w.address.toLowerCase()];if(!d)return;o.n++;
     if(d.v.cw&&d.v.cw.ok)o.cw+=d.v.cw.x;
     if(d.v.tClaim&&d.v.tClaim.ok){o.tcLocked+=d.v.tClaim.locked;o.tcReady+=d.v.tClaim.ready;}
@@ -674,7 +674,7 @@ function sumState(ws){
     const v=k=>d.v[k]?.ok?d.v[k].x:0;
     o.power+=v('power');o.ai+=v('ai')+v('turbLocked')+v('turbClaim');o.unc+=v('unc');o.dai+=v('dai');o.pend+=v('pend');o.ve+=v('ve');
     o.lgnsA+=v('lgnsA');o.lgnsP+=v('lgnsP');o.turbLocked+=v('turbLocked');o.turbClaim+=v('turbClaim');
-    ['slg','warm','inst','bst','disc','lpA','lpP','slgP','warmP','act','agg'].forEach(k=>o[k]+=v(k));if(!d.v.agg||!d.v.agg.ok)o.aggOk=false;
+    ['slg','warm','inst','bst','disc','lpA','lpP','slgP','warmP','act','agg'].forEach(k=>o[k]+=v(k));if(!d.v.agg||!d.v.agg.ok)o.aggOk=false;if(!d.v.slgP||!d.v.slgP.ok||!d.v.lgnsP||!d.v.lgnsP.ok)o.polyOk=false;
     (d.orders||[]).forEach(x=>o.orders.push({...x,wallet:w.name}));
     ['nt25','nt4'].forEach(k=>{const z=d.nt?.[k];if(z){o.ntSell+=z.sellable;o.ntLocked+=z.locked;}});
     Object.entries(d.v).forEach(([k,x])=>{if(!x.ok)o.fail.push(w.name+' '+C.LABEL[k]);});
@@ -1335,7 +1335,7 @@ function renderWallets(){
       </div>`;
       // 지갑이 여러 개면 한 줄 요약만 보이고 눌러서 펼쳐요
       if(W.list.length>1){const pw=d.v.power?.ok?d.v.power.x:0;
-        body=`<details><summary class="msg" style="cursor:pointer">스테이킹 ${d.v.agg?.ok?fmt((d.v.agg.x||0)+(d.v.slgP?.x||0),2):'-'} (디앱 기준) · LGNS ${fmt(lt,2)} · Power ${fmt(pw)} · AiLGNS ${fq((d.v.ai?.x||0)+(d.v.turbLocked?.x||0)+(d.v.turbClaim?.x||0))} · DAI ${fmt(d.v.dai?.x||0,2)}${d.v.long?.x>0?` · 추가이자 ${fq(d.v.long.x)}`:''}${(d.v.cw?.x||0)+(d.v.cw2?.x||0)>0?` · 거미망 ${fq((d.v.cw?.x||0)+(d.v.cw2?.x||0))}`:''}${nt.length?` · 신생태 ${nt.length}건`:''}${Object.values(d.v).some(x=>!x.ok)?' · <span class="err">못 읽은 값 있음</span>':''}</summary><div style="margin-top:6px">${body}</div></details>`;}}
+        body=`<details><summary class="msg" style="cursor:pointer">스테이킹 ${d.v.agg?.ok?fmt((d.v.agg.x||0)+(d.v.slgP?.x||0),2):'-'} (디앱 기준 · Anubis ${d.v.agg?.ok?fmt(d.v.agg.x||0):'-'} + Polygon ${d.v.slgP?.ok?fmt(d.v.slgP.x||0):'못 읽음'}) · LGNS ${fmt(lt,2)} · Power ${fmt(pw)} · AiLGNS ${fq((d.v.ai?.x||0)+(d.v.turbLocked?.x||0)+(d.v.turbClaim?.x||0))} · DAI ${fmt(d.v.dai?.x||0,2)}${d.v.long?.x>0?` · 추가이자 ${fq(d.v.long.x)}`:''}${(d.v.cw?.x||0)+(d.v.cw2?.x||0)>0?` · 거미망 ${fq((d.v.cw?.x||0)+(d.v.cw2?.x||0))}`:''}${nt.length?` · 신생태 ${nt.length}건`:''}${Object.values(d.v).some(x=>!x.ok)?' · <span class="err">못 읽은 값 있음</span>':''}</summary><div style="margin-top:6px">${body}</div></details>`;}}
     return `<div class="wc${sel?' sel':''}"><div class="hd"><div class="nm"><span class="dot" style="background:${COLORS[i%COLORS.length]}"></span><span style="overflow-wrap:anywhere">${esc(w.name)}</span></div><div class="act"><a class="ad" href="https://browser.anubispace.org/address/${w.address}" target="_blank" rel="noopener">${w.address.slice(0,6)}…${w.address.slice(-4)}</a>
       ${W.list.length>1?`<button type="button" class="linkbtn" data-use="${w.address}">이 지갑으로 계산</button>`:''}<button type="button" class="linkbtn" data-ren="${w.address}">이름</button><button type="button" class="linkbtn danger" data-del="${w.address}">삭제</button></div></div>${body}</div>`;
   };
@@ -2105,7 +2105,8 @@ function renderAssetSum(){
   // 맨 위: 디앱 초대 화면과 같은 숫자 (Anubis = 공식 집계 getStakedAmount, Polygon = sLGNS 잔고)
   const hero=`<div class="stakehero"><div class="l">${ws.length>1?`지갑 ${ws.length}개 합계 · `:''}스테이킹 합계 <span style="opacity:.75">(디앱 초대 화면 기준 ✅)</span></div>
     <div class="big">${o.aggOk?fmt(o.agg+o.slgP,2):'-'} LGNS</div>
-    <div class="split"><div class="cell"><span class="l">Anubis 스테이킹</span><b>${o.aggOk?fmt(o.agg,2):'못 읽음'}</b></div><div class="cell"><span class="l">Polygon 스테이킹</span><b>${fmt(o.slgP,2)}</b></div></div>
+    <div class="split"><div class="cell"><span class="l">Anubis 스테이킹</span><b>${o.aggOk?fmt(o.agg,2):'못 읽음'}</b></div><div class="cell"><span class="l">Polygon 스테이킹 (sLGNS)</span><b>${o.polyOk?fmt(o.slgP,2):'못 읽음'}</b></div></div>
+    ${o.polyOk?'':'<div class="l" style="color:#ffd27a">Polygon 노드에 연결하지 못해서 Polygon 값을 못 읽었어요. 아래 ‘다시 조회’를 눌러 주세요.</div>'}
     <div class="l">지금 시세로 약 ${fmt(o.agg*pL+o.slgP*Math.max(.0001,num('pLP')||.28),2)} DAI${ws.length>1?` · ${ws.map(w=>{const d=W.data[w.address.toLowerCase()];return d?`${esc(w.name)} ${fmt((d.v.agg?.x||0)+(d.v.slgP?.x||0))}`:'';}).filter(Boolean).join(' · ')}`:''}</div></div>`;
   box.innerHTML=hero+`<div class="l">${ws.length>1?`지갑 ${ws.length}개 합계 · `:''}LGNS 총 보유량 (스테이킹 + 지갑 + 터보란 등 전부)</div><div class="big" style="font-size:22px">${fmt(lgnsTotal(o),2)} LGNS</div>${o.bondRem>1?`<div class="l">본드에서 앞으로 받을 몫은 따로: 약 ${fmt(lgnsFuture(o),2)} LGNS (${fmt(o.bondRem,2)} DAI어치를 지금 시세로 환산 ❓)</div>`:''}
     <div class="grid"><div class="cell"><span class="l">Power</span><b>${fmt(o.power)}</b></div><div class="cell"><span class="l">AiLGNS</span><b>${fq(o.ai)}</b></div><div class="cell"><span class="l">DAI</span><b>${fmt(o.dai,2)}</b></div></div>

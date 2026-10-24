@@ -3,7 +3,8 @@
 // 컨트랙트 주소와 함수는 디앱 JS 번들(anubis.origindefi.io, awakehelix.io)에서 찾아 실제 지갑으로 eth_call 해 본 것만 썼어요 (docs/helix-contracts.md).
 (function(root){
 const ANUBIS=['https://rpc.anubispace.org','https://rpc2.anubispace.org'];
-const POLYGON=['https://polygon-bor-rpc.publicnode.com','https://polygon.drpc.org'];
+// Polygon 공개 노드: 앞에서부터 쓰고 안 되면 다음 노드 (nodefree.io는 디앱도 쓰는 노드 · 10/24 여러 건 묶음 조회 확인)
+const POLYGON=['https://polygon-bor-rpc.publicnode.com','https://nodefree.io','https://1rpc.io/matic'];
 const CHAIN_ID=6714;
 const A={
   lgns:'0x4D1D808a081FdAc440703b3765FC61f8028C06B8',      // LGNS (9 decimals)
@@ -82,16 +83,19 @@ async function post(url,body){
 async function batch(urls,reqs){
   const out={};
   for(let i=0;i<reqs.length;i+=40){
-    const part=reqs.slice(i,i+40).map(q=>({jsonrpc:'2.0',...q}));
+    let part=reqs.slice(i,i+40).map(q=>({jsonrpc:'2.0',...q}));
     let ok=false,last;
     for(const u of urls){
       try{const res=await post(u,part);
-        if(Array.isArray(res)){res.forEach(x=>out[x.id]=x);ok=true;break;}
+        // 노드가 일부만 거절하면(한도 초과 등) 그 건만 다음 노드로 다시 물어봐요 (계약이 되돌린 건 그대로 둬요)
+        if(Array.isArray(res)){res.forEach(x=>out[x.id]=x);
+          const again=part.filter(q=>{const x=out[q.id];return !x||(x.error&&!/revert/i.test(x.error.message||''));});
+          if(!again.length){ok=true;break;}part=again;last=new Error('일부 응답 실패');continue;}
         // 배치를 지원하지 않는 노드는 하나씩
         for(const q of part){const x=await post(u,q);out[q.id]=x;}ok=true;break;
       }catch(e){last=e;}
     }
-    if(!ok)part.forEach(q=>out[q.id]={error:{message:(last&&last.message)||'노드 연결 실패'}});
+    if(!ok)part.forEach(q=>{if(!out[q.id]||!out[q.id].result)out[q.id]={error:{message:(last&&last.message)||'노드 연결 실패'}};});
   }
   return out;
 }
