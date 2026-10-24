@@ -311,7 +311,7 @@ body.hasbar{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
         <div class="more" style="margin-top:10px">
           <b style="font-size:14px">여러 개 한 번에 넣기</b>
           <button type="button" class="btn ghost" id="fromDash">‘내 디파이 지갑’ 대시보드에 등록한 지갑 가져오기</button>
-          <textarea id="impText" rows="3" placeholder="옮기기 코드(HS1:…), 대시보드 내보내기 코드(DW1:…), 또는 주소를 줄마다 붙여 넣어요"></textarea>
+          <textarea id="impText" rows="5" placeholder="이름 줄 다음에 주소 줄을 붙여 넣으면 이름까지 들어가요&#10;예)&#10;메인&#10;0x1234…&#10;서브 0xabcd…&#10;(옮기기 코드 HS1:… · 대시보드 코드 DW1:…도 돼요)"></textarea>
           <div class="row"><button type="button" class="btn ghost" id="impBtn">붙여 넣은 지갑 추가</button></div>
           <p class="msg" id="impMsg"></p>
         </div>
@@ -1323,17 +1323,19 @@ function renderWallets(){
   $('wl').querySelectorAll('[data-use]').forEach(b=>b.addEventListener('click',()=>{S.scope=b.dataset.use;S.mode='wallet';store.set('scope',S.scope);store.set('mode','wallet');fillStart();renderWallets();setTab('calc');}));
 }
 function addWallets(arr){
-  let added=0,dup=0,bad=0;
+  let added=0,dup=0,bad=0,renamed=0;
   arr.forEach(({name,address})=>{
     if(!C.isAddr(address)){bad++;return;}
-    if(W.list.some(w=>w.address.toLowerCase()===address.toLowerCase())){dup++;return;}
+    const have=W.list.find(w=>w.address.toLowerCase()===address.toLowerCase());
+    // 이미 있는 주소인데 이름이 기본값(지갑 N)이면 붙여 넣은 이름으로 바꿔 줘요
+    if(have){if(name&&name.trim()&&/^지갑( \d+)?$/.test(have.name)){have.name=name.trim().slice(0,30);renamed++;}else dup++;return;}
     W.list.push({name:(name||'').trim().slice(0,30)||'지갑 '+(W.list.length+1),address});added++;
   });
   store.set('wallets',W.list);
-  if(added)touched();
+  if(added||renamed)touched();
   if(added){if(S.mode!=='wallet'){S.mode='wallet';store.set('mode','wallet');$('amt').value=0;}loadAll();}
   renderWallets();render();
-  return {added,dup,bad};
+  return {added,dup,bad,renamed};
 }
 $('addForm').addEventListener('submit',e=>{
   e.preventDefault();const addr=$('wAddr').value.trim(),msg=$('addMsg');
@@ -1354,11 +1356,26 @@ function decodeWallets(text){
   const pairs=a=>a.map(([name,address])=>({name:String(name||''),address:String(address||'')}));
   if(t.startsWith('HS1:')){const j=JSON.parse(unb64(t.slice(4)));return {list:pairs(j.w||[]),basis:j.b||{},gist:j.g&&typeof j.g.t==='string'?{token:j.g.t,id:j.g.id||null}:null};}
   if(t.startsWith('DW1:'))return {list:pairs(JSON.parse(unb64(t.slice(4)))),basis:{}};
-  return {list:(t.match(/0x[0-9a-fA-F]{40}/g)||[]).map(address=>({name:'',address})),basis:{}};
+  return {list:parseNamed(t),basis:{}};
+}
+// 줄마다 붙여 넣은 목록: 주소 바로 위 줄(또는 같은 줄)의 글자를 이름으로 써요
+//   와용2            ← 이름
+//   0xa8D1…25f8      ← 주소     /  ‘메인 0x…’ · ‘메인, 0x…’ 처럼 한 줄에 써도 돼요
+function parseNamed(t){
+  const out=[];let pending='';
+  const clean=x=>x.replace(/^\s*(?:[-*•·]|\d+[.)])\s*/,'').replace(/[\s,:;|=\-–—]+$/,'').replace(/^[\s,:;|=\-–—]+/,'').trim();
+  t.split(/\r?\n/).forEach(line=>{
+    const addrs=line.match(/0x[0-9a-fA-F]{40}/g);
+    if(!addrs){const n=clean(line);if(n)pending=n;return;}
+    const own=clean(line.replace(/0x[0-9a-fA-F]{40}/g,' '));
+    addrs.forEach((address,k)=>{out.push({name:k===0?(own||pending):'',address});});
+    pending='';
+  });
+  return out;
 }
 // 받은 원금은 이 기기에 아직 적지 않은 칸만 채워요
 function mergeBasis(b){const cur=store.get('basis',{});let n=0;Object.entries(b||{}).forEach(([k,v])=>{if(!cur[k]){cur[k]=v;n++;}});store.set('basis',cur);if(n)fillStart();return n;}
-const impReport=(r,el)=>{el.className=r.added?'msg ok':'msg bad';el.textContent=r.added?`${r.added}개를 추가했어요${r.dup?` (이미 있던 ${r.dup}개는 건너뜀)`:''}.`:r.dup?'모두 이미 등록된 지갑이에요.':'추가할 주소를 찾지 못했어요.';};
+const impReport=(r,el)=>{const ok=r.added||r.renamed;el.className=ok?'msg ok':'msg bad';el.textContent=ok?[r.added?`${r.added}개를 추가했어요`:'',r.renamed?`${r.renamed}개 이름을 붙였어요`:'',r.dup?`이미 있던 ${r.dup}개는 건너뜀`:''].filter(Boolean).join(' · ')+'.':r.dup?'모두 이미 등록된 지갑이에요.':'추가할 주소를 찾지 못했어요.';};
 $('impBtn').addEventListener('click',()=>{let d={list:[],basis:{}};try{d=decodeWallets($('impText').value);}catch(e){}mergeBasis(d.basis);impReport(addWallets(d.list),$('impMsg'));if(d.list.length)$('impText').value='';});
 // QR은 이 페이지 주소 + #import=코드. # 뒤는 브라우저가 서버로 보내지 않고, 받은 쪽은 읽자마자 주소창에서 지워요.
 const SITE='https://oga55535-hub.github.io/defi-wallet/helix/';
