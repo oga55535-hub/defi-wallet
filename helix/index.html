@@ -1378,7 +1378,7 @@ function mergeBasis(b){const cur=store.get('basis',{});let n=0;Object.entries(b|
 const impReport=(r,el)=>{const ok=r.added||r.renamed;el.className=ok?'msg ok':'msg bad';el.textContent=ok?[r.added?`${r.added}개를 추가했어요`:'',r.renamed?`${r.renamed}개 이름을 붙였어요`:'',r.dup?`이미 있던 ${r.dup}개는 건너뜀`:''].filter(Boolean).join(' · ')+'.':r.dup?'모두 이미 등록된 지갑이에요.':'추가할 주소를 찾지 못했어요.';};
 $('impBtn').addEventListener('click',()=>{let d={list:[],basis:{}};try{d=decodeWallets($('impText').value);}catch(e){}mergeBasis(d.basis);impReport(addWallets(d.list),$('impMsg'));if(d.list.length)$('impText').value='';});
 // QR은 이 페이지 주소 + #import=코드. # 뒤는 브라우저가 서버로 보내지 않고, 받은 쪽은 읽자마자 주소창에서 지워요.
-const SITE='https://oga55535-hub.github.io/defi-wallet/helix/';
+const SITE='https://canon-simulator.github.io/'; // 파일로 열었을 때 QR에 넣는 주소 (공유용)
 const pageUrl=()=>location.protocol.startsWith('http')?location.origin+location.pathname:SITE;
 $('qrBtn').addEventListener('click',()=>{
   const msg=$('syncMsg');
@@ -2085,6 +2085,8 @@ if(S.mode==='wallet'&&W.list.length)$('amt').value=0;
 $('firstGuide').hidden=!!store.get('guideDone',false)&&W.list.length>0;
 $('guideClose').addEventListener('click',()=>{store.set('guideDone',true);$('firstGuide').hidden=true;});
 $('guideOpen').addEventListener('click',()=>{$('firstGuide').hidden=false;setTab('assets');$('firstGuide').scrollIntoView({behavior:'smooth'});});
+// 대시보드 지갑 가져오기는 그 대시보드를 쓰는 브라우저에서만 보여요
+try{$('fromDash').hidden=!localStorage.getItem('walletdash.wallets');}catch(e){$('fromDash').hidden=true;}
 applyView();renderWallets();fillStart();render();
 refreshPrices();
 const hadImport=location.hash.startsWith('#import=');
