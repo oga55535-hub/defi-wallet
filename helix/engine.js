@@ -37,7 +37,8 @@ function simulate(p,pl){
   // 본드에서 매일 풀리는 LGNS는 p.bondRelease: ‘hold’ 보유 · ‘rebond’ 다시 소각 본드 · ‘sell’ Anubis에서 팔기(약 48% 수수료) · ‘helix’ HELIX 소각(열렸을 때만)
   const OPEN=p.burnOpen!==false;
   // ✅ 10/23 컨트랙트 값: 소각 본드 LGNS 230%·DAI 250%, 12시간마다 원금의 0.4% / 픽스본드 200%, 12시간마다 0.3334% / Anubis LGNS 판매세 5% 뒤 45%
-  const BOND={lgCap:2.3,daiCap:2.5,fixCap:2,day:.008,fixDay:.006668},ANUBIS_SELL=.95*.55;
+  // p.anubisKeep: Anubis에서 LGNS를 팔 때 손에 남는 비율 (화면 4번에서 바꿀 때만, 기본은 판매세 5% 뒤 45%)
+  const BOND={lgCap:2.3,daiCap:2.5,fixCap:2,day:.008,fixDay:.006668},ANUBIS_SELL=p.anubisKeep!=null?p.anubisKeep:.95*.55;
   let lgHeld=0,polyHeld=0,bondOut=0,bondIn=0,lgBurn=0;
   let bonds=(ex.bonds||[]).filter(b=>b.d>0&&b.left>0).map(b=>({d:b.d,left:Math.ceil(b.left)}));
   const bondAdd=(principal,cap,day)=>{if(principal>0){bonds.push({d:principal*day,left:Math.round(cap/day)});bondIn+=principal;}};
