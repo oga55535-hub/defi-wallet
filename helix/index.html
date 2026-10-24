@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>HELIX 지갑 시뮬레이터</title>
+<title>Canon 시뮬레이터</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="HELIX 시뮬">
@@ -206,6 +206,15 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .termtip button{position:absolute;top:6px;right:6px;background:none;border:0;color:inherit;font-size:20px;cursor:pointer;padding:4px 8px}
 .how{margin:0;padding:0;list-style:none;font-size:14px;display:flex;flex-direction:column;gap:6px}
 .how b{font-weight:800}
+.notice{display:flex;flex-direction:column;gap:6px;margin:0 0 10px}
+.notice p{margin:0;border-radius:12px;padding:9px 12px;font-size:14px;line-height:1.5}
+.notice .ref1{background:var(--soft);color:var(--ink)}
+.notice .safe1{background:var(--acc-soft);color:var(--ink);border:1.5px solid var(--acc)}
+.dontshare{border:2px solid var(--warn);border-radius:12px;padding:10px 12px;font-size:14px;line-height:1.5;color:var(--ink)}
+.dontshare b{color:var(--warn)}
+.guide{border:2px solid var(--acc);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.guide h2{margin:0}
+.guide ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14.5px}
 .why{font-size:13.5px;margin:0;padding-left:18px}
 .why li{margin-bottom:3px}
 .routine li.done span{opacity:.55;text-decoration:line-through}
@@ -220,12 +229,17 @@ body.hasbar{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
 <body>
 <div class="wrap">
   <header class="top">
-    <h1>HELIX 지갑 시뮬레이터</h1>
+    <h1>Canon 시뮬레이터<span class="legend3" style="display:block;font-weight:500;margin-top:2px">HELIX · Anubis 참고용 계산기</span></h1>
     <div class="pricebar" aria-live="polite">
       <div><div class="pv" id="priceVals">LGNS Anubis $0.20 · Polygon $0.28 · AiLGNS $793</div><div class="pm" id="priceMeta">10/22 기준 기본값이에요. 온체인 시세를 불러오는 중…</div></div>
       <div class="row"><button type="button" class="linkbtn" id="priceRevert" hidden>온체인 시세로 되돌리기</button><button type="button" class="btn ghost sm" id="priceBtn">시세 새로고침</button></div>
     </div>
   </header>
+
+  <div class="notice">
+    <p class="ref1">📌 <b>참고용 계산기예요.</b> 가정으로 계산한 결과일 뿐 투자 권유가 아니고, 수익을 보장하지 않아요. 운영 측이 규칙·속도를 바꾸면 결과도 달라져요.</p>
+    <p class="safe1">🔒 <b>지갑 연결·서명이 없어요.</b> 0x 지갑 주소만 읽어서 보여 주기 때문에 해킹이나 자금이 빠져나갈 위험이 없어요. 승인(approve)·전송을 요청하는 일도 절대 없어요. <b>시드 문구·개인키는 어디에도 넣지 마세요.</b></p>
+  </div>
 
   <nav class="tabs" id="tabs" role="tablist" aria-label="화면">
     <button type="button" role="tab" id="tab-assets" data-tab="assets" aria-selected="true">내 자산</button>
@@ -239,6 +253,18 @@ body.hasbar{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
 
   <!-- ===== 내 자산 ===== -->
   <div class="panel" id="pAssets" role="tabpanel" aria-labelledby="tab-assets">
+    <section class="guide" id="firstGuide" hidden>
+      <h2>처음 쓰는 분 안내</h2>
+      <ol>
+        <li><b>아래 ‘내 지갑’에 0x로 시작하는 지갑 주소를 넣어요.</b> 여러 개 넣어도 돼요. 주소만 읽어요 — 지갑 연결·서명은 없어요.</li>
+        <li><b>‘오늘 할 일’</b>을 열면 매일 디앱에서 할 일을 금액까지 순서대로 알려 줘요. 한 것은 체크해 두세요.</li>
+        <li><b>‘계산해보기’</b>에서 조건(기간·괜찮은 것)만 고르면 가장 이득인 플랜을 자동으로 찾아 줘요. 지갑이 여러 개면 지갑마다 따로 찾아요.</li>
+        <li>점선 밑줄이 있는 <b>용어를 누르면</b> 한 줄 풀이가 떠요. 처음엔 <b>쉬운 보기</b>, 더 보고 싶으면 <b>자세히 보기</b>로 바꿔요.</li>
+        <li>폰과 PC에서 같이 쓰려면 아래 ‘PC·휴대폰 자동 동기화 설정’(내 GitHub 비공개 Gist)을 켜요.</li>
+      </ol>
+      <p class="legend3" style="margin:0">모든 내용은 이 기기 브라우저에만 저장돼요. 다른 사람은 내 지갑을 볼 수 없어요.</p>
+      <div class="row"><button type="button" class="btn" id="guideClose">알겠어요</button></div>
+    </section>
     <section class="sumcard" id="assetSum" hidden></section>
 
     <section class="q" id="walletSec">
@@ -252,6 +278,7 @@ body.hasbar{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
       <p class="msg" id="addMsg"></p>
       <div class="row" style="justify-content:space-between"><span class="msg" id="loadMeta">지갑을 추가하면 바로 조회해요.</span><button type="button" class="btn ghost sm" id="loadBtn" hidden>다시 조회</button></div>
       <div class="wl" id="wl"></div>
+      <button type="button" class="linkbtn" id="guideOpen" style="align-self:flex-start">처음 쓰는 분 안내 보기</button>
       <div class="wc" id="lgnsBox" hidden></div>
       <div class="row" style="justify-content:space-between"><span class="msg" id="gsBadge">자동 동기화 꺼짐</span><button type="button" class="linkbtn" id="gsOpen">PC·휴대폰 자동 동기화 설정</button></div>
       <details id="moreBox">
@@ -269,10 +296,11 @@ body.hasbar{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
           </div>
           <div class="row" id="gsOn" hidden><button type="button" class="btn ghost" id="gsNow">지금 맞추기</button> <button type="button" class="linkbtn danger" id="gsOff">이 기기에서 연결 끊기</button></div>
           <p class="msg" id="gsMsg"></p>
-          <p class="legend3" style="margin:0">토큰은 이 기기 브라우저에만 저장되고 GitHub 말고는 어디에도 보내지 않아요. 비공개 Gist는 검색에 안 나오지만 그 Gist 주소를 아는 사람은 볼 수 있어요.</p>
+          <p class="legend3" style="margin:0"><b style="color:var(--warn)">토큰은 남에게 보내지 마세요.</b> 토큰은 이 기기 브라우저에만 저장되고 GitHub 말고는 어디에도 보내지 않아요. 비공개 Gist는 검색에 안 나오지만 그 Gist 주소를 아는 사람은 볼 수 있어요.</p>
         </div>
         <div class="more" style="margin-top:10px">
-          <b style="font-size:14px">다른 기기로 옮기기</b>
+          <b style="font-size:14px">다른 기기로 옮기기 (내 기기끼리만)</b>
+          <p class="dontshare">⚠️ <b>QR코드와 옮기기 코드는 남에게 보내지 마세요.</b> 내 지갑 목록과 적어 둔 원금이 들어 있고, 자동 동기화를 담으면 <b>GitHub 토큰</b>까지 들어가요. 다른 사람에게는 이 <b>사이트 주소만</b> 알려 주세요.</p>
           <p class="msg">이 화면에서 QR을 만들고 휴대폰 카메라로 찍으면, 지갑 목록과 적어 둔 원금이 휴대폰에도 들어가요. 주소는 서버로 보내지 않아요.</p>
           <label class="msg" id="qrTokRow" hidden style="display:flex;gap:8px;align-items:flex-start;cursor:pointer"><input type="checkbox" id="qrTok" style="margin-top:4px;accent-color:var(--acc)"><span>자동 동기화 연결도 QR에 담기 — 휴대폰에서 토큰을 다시 넣지 않아도 돼요. 이 QR은 다른 사람에게 보여주지 마세요.</span></label>
           <div class="row"><button type="button" class="btn ghost" id="qrBtn">QR코드 만들기</button> <button type="button" class="btn ghost" id="codeBtn">옮기기 코드 복사</button></div>
@@ -1389,7 +1417,7 @@ async function gsRead(id){const x=await gh('/gists/'+id);const f=x.files&&x.file
 async function gsWrite(){
   const g=store.get('gist',null),body=JSON.stringify({files:{[GS_FILE]:{content:JSON.stringify(gsDoc(),null,1)}}});
   if(g.id)await gh('/gists/'+g.id,{method:'PATCH',body});
-  else{const x=await gh('/gists',{method:'POST',body:JSON.stringify({description:'HELIX 지갑 시뮬레이터 동기화 (지갑 목록)',public:false,files:{[GS_FILE]:{content:JSON.stringify(gsDoc(),null,1)}}})});store.set('gist',{...g,id:x.id});}
+  else{const x=await gh('/gists',{method:'POST',body:JSON.stringify({description:'Canon 시뮬레이터 동기화 (지갑 목록)',public:false,files:{[GS_FILE]:{content:JSON.stringify(gsDoc(),null,1)}}})});store.set('gist',{...g,id:x.id});}
   store.set('syncedAt',Date.now());
 }
 function gsApply(doc){
@@ -2036,6 +2064,10 @@ function renderAssetSum(){
 
 if(S.mode==='wallet'&&W.list.length)$('amt').value=0;
 ['assets','today','calc'].forEach(k=>{$({assets:'pAssets',today:'pToday',calc:'pCalc'}[k]).hidden=k!==S.tab;$('tab-'+k).setAttribute('aria-selected',k===S.tab);});
+// 처음 쓰는 분 안내: 지갑이 없거나 아직 닫지 않았으면 보여요
+$('firstGuide').hidden=!!store.get('guideDone',false)&&W.list.length>0;
+$('guideClose').addEventListener('click',()=>{store.set('guideDone',true);$('firstGuide').hidden=true;});
+$('guideOpen').addEventListener('click',()=>{$('firstGuide').hidden=false;setTab('assets');$('firstGuide').scrollIntoView({behavior:'smooth'});});
 applyView();renderWallets();fillStart();render();
 refreshPrices();
 const hadImport=location.hash.startsWith('#import=');
