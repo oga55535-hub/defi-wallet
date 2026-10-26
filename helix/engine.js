@@ -39,8 +39,10 @@ function simulate(p,pl){
   // p.burnCap: HELIX LGNS 소각 한도 (10/26 오픈 ✅ 소각 게이트: 지갑당 에포크(7일)마다 1번 최대 500 LGNS, Anubis LGNS만, 스테이킹 2만 이상).
   //   없으면 예전처럼 무제한. p.burnWait: 지금 에포크에 이미 소각했으면 다음 에포크까지 남은 날 (0이면 오늘 가능)
   //   한도를 넘는 Anubis LGNS는 p.lgnsDest(소각 본드/보유)로, Polygon LGNS는 p.polyDest로 가요.
-  const CAP=OPEN&&p.burnCap!=null?Math.max(0,p.burnCap):null,WAIT=Math.max(0,Math.round(p.burnWait||0));
-  let bud=CAP!=null&&WAIT===0?CAP:0;
+  // p.burnRate: 선착순으로 소각에 성공하는 에포크 비율 (1 매주 · 0.5 두 주에 한 번 · 0 못 함). 첫 에포크부터 고르게 나눠요
+  const CAP=OPEN&&p.burnCap!=null?Math.max(0,p.burnCap):null,WAIT=Math.max(0,Math.round(p.burnWait||0)),RATE=p.burnRate!=null?Math.min(1,Math.max(0,p.burnRate)):1;
+  const epochOk=k=>Math.ceil((k+1)*RATE-1e-9)>Math.ceil(k*RATE-1e-9);
+  let bud=CAP!=null&&WAIT===0&&epochOk(0)?CAP:0;
   // ✅ 10/23 컨트랙트 값: 소각 본드 LGNS 230%·DAI 250%, 12시간마다 원금의 0.4% / 픽스본드 200%, 12시간마다 0.3334% / Anubis LGNS 판매세 5% 뒤 45%
   // p.anubisKeep: Anubis에서 LGNS를 팔 때 손에 남는 비율 (화면 4번에서 바꿀 때만, 기본은 판매세 5% 뒤 45%)
   const BOND={lgCap:2.3,daiCap:2.5,fixCap:2,day:.008,fixDay:.006668},ANUBIS_SELL=p.anubisKeep!=null?p.anubisKeep:.95*.55;
@@ -115,7 +117,8 @@ function simulate(p,pl){
     const pA=AMM?pAb*AMM.a.m:pAb, pL=AMM?pLb*AMM.l.m:pLb;
     if(AMM){curLb=pLb;curAb=pAb;}
     // 소각 한도: 에포크(7일)마다 다시 500개 (WAIT일 뒤 첫 에포크부터)
-    if(CAP!=null&&t-1>=WAIT&&(t-1-WAIT)%7===0)bud=CAP;
+    // 새 에포크: 오늘 소각 가능하면 첫 에포크는 0일째에 시작했고, 아니면 WAIT일 뒤부터 7일마다
+    if(CAP!=null&&t-1>=WAIT&&(t-1-WAIT)%7===0&&!(WAIT===0&&t===1)){const k=(t-1-WAIT)/7;bud=epochOk(k)?CAP:0;}
     const lgPow=x=>{
       // 소각이 안 열렸으면: 소각 본드에 DAI로 바로 예치(250%) 또는 LGNS를 사서 보유
       if(!OPEN){if(p.lgnsDest==='hold'){const q=AMM?ammBuy(AMM.l,pLb,x):x/pL;lgHeld+=q;}else bondAdd(x,BOND.daiCap,BOND.day);return 0;}
