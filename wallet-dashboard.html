@@ -309,6 +309,52 @@ details.recs td, details.recs th { padding: 5px 6px; }
         <button type="button" role="tab" id="tab-dapp" aria-selected="true">디앱 상품<span class="count" id="cnt-dapp"></span></button>
         <button type="button" role="tab" id="tab-token" aria-selected="false">토큰<span class="count" id="cnt-token"></span></button>
         <button type="button" role="tab" id="tab-calc" aria-selected="false">매도 계산기</button>
+        <button type="button" role="tab" id="tab-sim" aria-selected="false">소각 해시파워 시뮬레이터</button>
+      </div>
+
+      <div id="pane-sim" hidden>
+        <div class="small muted" id="sim-rules" style="margin-bottom:12px"></div>
+        <div class="label" style="margin-bottom:6px">지갑별 참여 자격</div>
+        <div class="tbl-wrap" style="margin-bottom:18px">
+          <table>
+            <thead><tr><th>지갑</th><th class="r">360·600일 스테이킹+채권</th><th class="r">자격</th><th class="r hide-sm">이번 에포크</th></tr></thead>
+            <tbody id="sim-elig"></tbody>
+          </table>
+        </div>
+        <div class="calc">
+          <div class="addbox">
+            <label class="label" for="sim-amount">에포크(7일)마다 소각할 LGNS</label>
+            <input type="text" id="sim-amount" class="mono" inputmode="decimal" value="500">
+            <label class="label" for="sim-weeks">참여 횟수 (주)</label>
+            <input type="text" id="sim-weeks" class="mono" inputmode="numeric" value="4">
+            <label class="label" for="sim-wallets">참여 지갑 수</label>
+            <input type="text" id="sim-wallets" class="mono" inputmode="numeric" value="1">
+            <label class="label" for="sim-days">보는 기간 (일)</label>
+            <input type="text" id="sim-days" class="mono" inputmode="numeric" value="360">
+            <label class="label" for="sim-price">AiLGNS 가격 가정</label>
+            <select id="sim-price">
+              <option value="1">지금 가격 그대로</option>
+              <option value="0.5">지금보다 50% 하락</option>
+              <option value="0.2">지금보다 80% 하락</option>
+            </select>
+            <label class="label" for="sim-haircut">보상 실현 시 차감률 (%)</label>
+            <input type="text" id="sim-haircut" class="mono" inputmode="decimal" value="10">
+            <div class="small muted">터빈 수수료 2.5% + 소각 1.5% + AiLGNS 매도 수수료 등. 기본 10%로 잡았습니다.</div>
+          </div>
+          <div id="sim-out"></div>
+        </div>
+        <div id="sim-chart" style="margin-top:16px"></div>
+        <details style="margin-top:14px">
+          <summary class="small" style="cursor:pointer;color:var(--accent)">계산 방법과 가정</summary>
+          <ul class="small muted" style="line-height:1.7;padding-left:18px">
+            <li>소각한 LGNS 1개당 Power를 계약에 설정된 배율(현재 2)만큼 받고, 다음 날 정산부터 배출이 시작된다고 봅니다.</li>
+            <li>Power는 매일 정해진 비율만큼 AiLGNS로 배출되며, 배출된 만큼 Power가 줄어듭니다. Power 1이 줄 때 1 DAI 상당의 AiLGNS를 받는다고 가정합니다.</li>
+            <li><b>공지 기준</b>은 디앱 안내 0.7%/일, <b>실측</b>은 내 기존 헬릭스 Power가 실제로 줄어든 속도(없으면 전체 프로토콜 평균), <b>보수적</b>은 실측의 절반입니다.</li>
+            <li>배출된 AiLGNS를 쓰려면 같은 수량의 AiLGNS를 시장에서 직접 사서 터빈을 활성화해야 합니다. 이 매수 자금은 다시 돌려받는 돈이라 손익에는 넣지 않았지만, <b>보상 금액만큼 현금이 먼저 필요</b>합니다.</li>
+            <li>비용은 두 가지로 봅니다. <b>시세 기준</b>: 소각한 LGNS의 현재 가격. <b>매도 기준</b>: 소각하지 않고 팔았다면 수수료(약 48%)를 빼고 받았을 금액, 즉 실제로 포기하는 돈.</li>
+            <li>하루 참여 한도가 마감되어 참여하지 못하는 경우, 배출률 변경, 커뮤니티 동적 배출은 반영하지 않았습니다. 결과는 참고용이며 보장되지 않습니다.</li>
+          </ul>
+        </details>
       </div>
 
       <div id="pane-calc" hidden>
@@ -596,6 +642,8 @@ const ORIGIN = {
     vault: "0x3DEea5f638cA0dFb03A0873CF4c0b90BA50E1aA2",
     turbine: "0xE884A336550a4482Ca6A17A3F93aa30Ed4eD9BaD",
     productionNft: "0x77E6ab1C5557FD456b0656304E0e5c02a6d7DcCA",
+    burnGate: "0xb975fd9b03ff440d6a43a52a7f072154cb520a4b",   // LGNS 소각 해시파워 참여 조건 (Power 원장의 lgnsBurnGate)
+    clock: "0x6C5352E15A8327C3F44898FE220100Edc2989C58",
   },
   polygon: {
     lgns: "0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01",
@@ -610,6 +658,9 @@ const SEL = {
   getUserDepositCount: "0x1bae91a4", getDepositRewardInfo: "0xfac459cd", getTotalClaimable: "0x267e8ab6", totalDaiValue: "0xac541224",
   getUserStakesCount: "0x98dc8dea", stakes: "0x584b62a1", pendingPayout: "0xda709204", extraInterest: "0xb01d3563",
   claimable: "0x402914f5", rewardOf: "0x1d62ebd9", totalDaiOf: "0xe6746345", activityPoints: "0x5a43f789",
+  maximumLgns: "0x7300b78e", minimumStake: "0xec5ffac2", dailyMaximumLgns: "0x020bb577", burnedLgnsToday: "0xcb9ebaf2",
+  BURN_OPENS_AT: "0xb04e2dff", stakeOf: "0x42623360", burnEpochOf: "0x99e02c2d", currentEpoch: "0x76671808",
+  lgnsPowerRate: "0x3498100a", minimumLgns: "0xe2486825", totalActivePower: "0xf2cfb069", totalPowerRecorded: "0x8a420cfb", lastSettledDay: "0x80bc7175",
   recordCount: "0xba63245d", pendingAll: "0x7550115f", getRecord: "0xcdb8acf0", getUserVests: "0x466bac72",
   getClaimable: "0x6f5244b1", getGlgnsVesting: "0xd02b4c00", getUserDepositsPaged: "0x4698b883",
   feeRatio: "0x41744dd4", extraFeeRatio: "0x3c336ff4", PRECISION: "0xaaf5eb68", extraFeeReceiver: "0x44bfcc30",
@@ -651,6 +702,12 @@ async function loadMarket() {
       { id: "hr", to: ORIGIN.helix.ailgnsPair, fn: "getReserves" }, { id: "ht", to: ORIGIN.helix.ailgnsPair, fn: "token0" },
       { id: "gr", to: ORIGIN.anubis.glgnsPair, fn: "getReserves" }, { id: "gt", to: ORIGIN.anubis.glgnsPair, fn: "token0" },
       { id: "gff", to: ORIGIN.anubis.glgns, fn: "feeRatio" }, { id: "gfp", to: ORIGIN.anubis.glgns, fn: "PRECISION" },
+      { id: "bmax", to: ORIGIN.helix.burnGate, fn: "maximumLgns" }, { id: "bmin", to: ORIGIN.helix.power, fn: "minimumLgns" },
+      { id: "bstake", to: ORIGIN.helix.burnGate, fn: "minimumStake" }, { id: "bday", to: ORIGIN.helix.burnGate, fn: "dailyMaximumLgns" },
+      { id: "btoday", to: ORIGIN.helix.burnGate, fn: "burnedLgnsToday" }, { id: "bopen", to: ORIGIN.helix.burnGate, fn: "BURN_OPENS_AT" },
+      { id: "brate", to: ORIGIN.helix.power, fn: "lgnsPowerRate" }, { id: "pact", to: ORIGIN.helix.power, fn: "totalActivePower" },
+      { id: "prec", to: ORIGIN.helix.power, fn: "totalPowerRecorded" }, { id: "pday", to: ORIGIN.helix.power, fn: "lastSettledDay" },
+      { id: "epoch", to: ORIGIN.helix.clock, fn: "currentEpoch" },
       { id: "ff", to: ORIGIN.anubis.lgns, fn: "feeRatio" }, { id: "fx", to: ORIGIN.anubis.lgns, fn: "extraFeeRatio" },
       { id: "fp", to: ORIGIN.anubis.lgns, fn: "PRECISION" }, { id: "fr", to: ORIGIN.anubis.lgns, fn: "extraFeeReceiver" },
     ]),
@@ -678,6 +735,13 @@ async function loadMarket() {
     apy: rebase != null ? Math.pow(1 + rebase, perDay * 365) - 1 : null,
     polygonBlock: bn.bn ? parseInt(bn.bn, 16) : null,
     fees: { anubis: readFees(a), polygon: readFees(p), glgns: readFees({ ff: a.gff, fp: a.gfp }) },
+    // LGNS 소각 해시파워: 계약에 설정된 현재 규칙
+    burn: {
+      maxLgns: L(a.bmax?.[0]), minLgns: L(a.bmin?.[0]), minStake: L(a.bstake?.[0]),
+      dailyMax: L(a.bday?.[0]), burnedToday: L(a.btoday?.[0]), opensAt: Number(a.bopen?.[0] ?? 0n),
+      powerPerLgns: D(a.brate?.[0]) || 2, epoch: Number(a.epoch?.[0] ?? 0n),
+      netActive: D(a.pact?.[0]), netRecorded: D(a.prec?.[0]), settledDays: Number(a.pday?.[0] ?? 0n),
+    },
   };
 }
 
@@ -728,6 +792,7 @@ async function loadOriginWallet(w, mk) {
       ["hvp", H.vault, "pendingOf"], ["htl", H.turbine, "lockedBalanceOf"], ["htc", H.turbine, "claimableOf"], ["htd", H.turbine, "claimedBalance"],
       ["hnft", H.productionNft, "balanceOf"],
       ["kc", A.kopek, "recordCount"], ["kp", A.kopek, "pendingAll"], ["gv", A.glgnsVesting, "getUserVests"],
+      ["bs", H.burnGate, "stakeOf"], ["be", H.burnGate, "burnEpochOf"],
     ].map(([id, to, fn]) => ({ id, to, fn, addr: me })).concat([
       { id: "id", to: A.idoLedger, fn: "getUserDepositsPaged", addr: me, extra: word(0) + word(100) },
     ])),
@@ -941,7 +1006,11 @@ async function loadOriginWallet(w, mk) {
       note: "누적 이자 = 현재 잔액 − 남은 원금 (이미 받은 이자는 빠져 있음)" });
   }
 
-  return { items, points: n(a1, "pt") > 0 ? L(a1.pt[0]) : 0 };
+  return {
+    items, points: n(a1, "pt") > 0 ? L(a1.pt[0]) : 0,
+    // 소각 해시파워 참여 조건과 기존 Power (실측 배출률 계산용)
+    burn: { stake: L(a1.bs?.[0]), lastEpoch: n(a1, "be"), powerActive: hpa, powerTotal: hpt },
+  };
 }
 
 async function loadOrigin(wallets, errors) {
@@ -964,9 +1033,9 @@ async function loadOrigin(wallets, errors) {
     it.valueUsd = price != null ? counted * price : counted === 0 ? 0 : null;
     it.rewardUsd = price != null ? (it.reward || 0) * price : null;
   }
-  const points = {};
-  wallets.forEach((w, i) => points[w.address] = per[i].points);
-  return { market: mk, items, points };
+  const points = {}, burn = {};
+  wallets.forEach((w, i) => { points[w.address] = per[i].points; burn[w.address] = per[i].burn || state.origin?.burn?.[w.address]; });
+  return { market: mk, items, points, burn };
 }
 
 // ── 불러오기 ──────────────────────────────────────────────
@@ -1145,6 +1214,9 @@ function render() {
   $("tab-calc").setAttribute("aria-selected", state.tab === "calc");
   $("pane-calc").hidden = state.tab !== "calc";
   if (state.tab === "calc") renderCalcHoldings();
+  $("tab-sim").setAttribute("aria-selected", state.tab === "sim");
+  $("pane-sim").hidden = state.tab !== "sim";
+  if (state.tab === "sim") renderSim();
 
   $("custom-tokens").innerHTML = state.customTokens.map(tk =>
     `<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span><b>${esc(tk.symbol)}</b> <span class="mono muted">${short(tk.address)}</span></span><button type="button" class="ghost danger" data-tdel="${tk.address}">빼기</button></div>`).join("");
@@ -1348,6 +1420,115 @@ async function runCalc() {
       <div class="small muted num">${fmtUsd(q.net)} · ${fmtAmount(q.net)} DAI · 차감 <b style="color:var(--warn)">${(cut * 100).toFixed(1)}%</b></div>
     </div>`;
 }
+// ── 소각 해시파워 시뮬레이터 ──────────────────────────────────────────────
+let simTimer = null;
+const ANNOUNCED_RATE = 0.007;   // 디앱 안내: 정적·동적 하루 0.7%
+
+// 실측 배출률: 기존 Power가 정산일 수 동안 줄어든 비율을 하루 단위로 환산
+function observedRate() {
+  const o = state.origin, b = o?.market?.burn;
+  if (!b || !b.settledDays) return null;
+  const ws = Object.entries(o.burn || {}).filter(([a, x]) => x && x.powerTotal > 0 && (state.scope === "all" || a === state.scope));
+  const act = sum(ws, ([, x]) => x.powerActive), tot = sum(ws, ([, x]) => x.powerTotal);
+  if (tot > 0 && act > 0 && act < tot) return { rate: 1 - Math.pow(act / tot, 1 / b.settledDays), source: "내 기존 헬릭스 Power" };
+  if (b.netRecorded > 0 && b.netActive > 0) return { rate: 1 - Math.pow(b.netActive / b.netRecorded, 1 / b.settledDays), source: "프로토콜 전체 평균 (신규 유입 때문에 실제보다 낮게 나올 수 있음)" };
+  return null;
+}
+
+// 하루 단위로 Power를 쌓고 배출: 매주 첫날 소각분이 다음 날부터 배출에 참여
+function simulate({ perBurn, weeks, wallets, days, rate, priceFactor, haircut, powerPerLgns }) {
+  let power = 0, gross = 0;
+  const curve = [];
+  for (let d = 1; d <= days; d++) {
+    if ((d - 1) % 7 === 0 && (d - 1) / 7 < weeks) power += perBurn * wallets * powerPerLgns;
+    const pay = power * rate;
+    power -= pay; gross += pay;
+    curve.push(gross * priceFactor * (1 - haircut));
+  }
+  return { net: gross * priceFactor * (1 - haircut), remaining: power, curve };
+}
+
+function renderSim() {
+  const o = state.origin, mk = o?.market, b = mk?.burn;
+  if (!mk || !b) { $("sim-out").innerHTML = '<div class="small muted"><span class="spin"></span> 헬릭스 정보를 불러오는 중입니다.</div>'; return; }
+  const opens = b.opensAt ? new Date(b.opensAt * 1000) : null;
+  $("sim-rules").innerHTML = `계약에 설정된 현재 규칙: 1회 <b>${fmtAmount(b.minLgns)}~${fmtAmount(b.maxLgns)} LGNS</b> · 에포크(7일)당 1회 · 1 LGNS = Power <b>${fmtAmount(b.powerPerLgns)}</b> · 자격 360·600일 스테이킹+채권 <b>${fmtAmount(b.minStake)} LGNS</b> 이상 · 오늘 소각 ${fmtAmount(b.burnedToday)} / 하루 한도 ${fmtAmount(b.dailyMax)} LGNS` +
+    (opens ? ` · 오픈 ${opens.toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}` : "") + ` · 현재 에포크 ${b.epoch}`;
+
+  // 자격표
+  const ws = state.wallets.filter(w => state.scope === "all" || w.address === state.scope);
+  $("sim-elig").innerHTML = ws.map(w => {
+    const x = o.burn?.[w.address];
+    if (!x) return `<tr><td>${esc(w.name)}</td><td class="r" colspan="3">—</td></tr>`;
+    const ok = x.stake >= b.minStake;
+    const used = x.lastEpoch && x.lastEpoch === b.epoch;
+    return `<tr><td>${esc(w.name)}</td><td class="r num">${fmtAmount(x.stake)} LGNS</td>
+      <td class="r">${ok ? '<span class="pill" style="color:var(--good);border-color:currentColor">참여 가능</span>' : `<span class="pill warn">부족 ${fmtAmount(b.minStake - x.stake)}</span>`}</td>
+      <td class="r hide-sm small">${used ? "이미 참여" : x.lastEpoch ? `마지막 에포크 ${x.lastEpoch}` : "참여 기록 없음"}</td></tr>`;
+  }).join("") || '<tr><td colspan="4"><div class="empty">지갑을 추가하세요.</div></td></tr>';
+  const eligibleCount = ws.filter(w => (o.burn?.[w.address]?.stake ?? 0) >= b.minStake).length;
+
+  // 입력
+  const num = (id, d) => { const v = parseFloat(($(id).value || "").replace(/,/g, "")); return isFinite(v) && v >= 0 ? v : d; };
+  const perBurn = num("sim-amount", 500), weeks = Math.min(Math.floor(num("sim-weeks", 4)), 104);
+  const wallets = Math.max(1, Math.floor(num("sim-wallets", 1))), days = Math.min(Math.max(7, Math.floor(num("sim-days", 360))), 1460);
+  const priceFactor = Number($("sim-price").value), haircut = Math.min(num("sim-haircut", 10), 100) / 100;
+  const totalLgns = perBurn * weeks * wallets;
+  const outOfRule = perBurn > b.maxLgns || (b.minLgns && perBurn < b.minLgns);
+
+  // 비용: 시세 기준과 매도 기준(아누비스 LGNS 판매 수수료 반영)
+  const price = mk.lgnsAnubis ?? 0;
+  const f = mk.fees?.anubis || { fee: 0, extra: 0 };
+  const costMarket = totalLgns * price;
+  const costSell = totalLgns * price * (1 - f.fee) * (1 - f.extra);
+
+  const obs = observedRate();
+  const scen = [
+    { key: "공지 기준", rate: ANNOUNCED_RATE, color: "var(--polygon)", note: "하루 0.7%" },
+    obs ? { key: "실측", rate: obs.rate, color: "var(--accent)", note: `하루 ${(obs.rate * 100).toFixed(3)}%` } : null,
+    obs ? { key: "보수적", rate: obs.rate / 2, color: "var(--anubis)", note: `하루 ${(obs.rate * 50).toFixed(3)}%` } : null,
+  ].filter(Boolean).map(s => ({ ...s, ...simulate({ perBurn, weeks, wallets, days, rate: s.rate, priceFactor, haircut, powerPerLgns: b.powerPerLgns }) }));
+  const payback = (curve, cost) => { const i = curve.findIndex(v => v >= cost); return i < 0 ? null : i + 1; };
+
+  $("sim-out").innerHTML = `
+    ${eligibleCount === 0 && ws.length ? `<div class="err" style="margin-bottom:10px">선택한 범위에 참여 자격(${fmtAmount(b.minStake)} LGNS)을 갖춘 지갑이 없습니다. 아래 결과는 자격을 갖췄다고 가정한 계산입니다.</div>` : ""}
+    ${outOfRule ? `<div class="err" style="margin-bottom:10px">현재 계약 규칙상 1회 소각량은 ${fmtAmount(b.minLgns)}~${fmtAmount(b.maxLgns)} LGNS입니다.</div>` : ""}
+    <dl class="kv calc-kv">
+      <dt>총 소각 LGNS</dt><dd>${fmtAmount(totalLgns)} LGNS</dd>
+      <dt>받는 Power</dt><dd>${fmtAmount(totalLgns * b.powerPerLgns)}</dd>
+      <dt>비용 (시세 기준)</dt><dd>${fmtKrw(costMarket)}<br><span class="small muted">${fmtUsd(costMarket)}</span></dd>
+      <dt>비용 (팔았다면 받았을 돈)</dt><dd>${fmtKrw(costSell)}<br><span class="small muted">${fmtUsd(costSell)}</span></dd>
+    </dl>
+    <div class="tbl-wrap" style="margin-top:12px"><table>
+      <thead><tr><th>시나리오</th><th class="r">${days}일간 실수령 보상</th><th class="r">남은 Power</th><th class="r">회수 (매도 기준)</th><th class="r hide-sm">회수 (시세 기준)</th></tr></thead>
+      <tbody>${scen.map(s => {
+        const pbS = payback(s.curve, costSell), pbM = payback(s.curve, costMarket);
+        return `<tr><td><span class="dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${s.color};margin-right:6px"></span><b>${s.key}</b><br><span class="small muted">${s.note}</span></td>
+          <td class="r num">${fmtKrw(s.net)}<br><span class="small muted">${fmtUsd(s.net)}</span></td>
+          <td class="r num">${fmtAmount(s.remaining)}</td>
+          <td class="r num">${pbS ? `${pbS}일` : `<span class="muted">${days}일 안에 못 함</span>`}</td>
+          <td class="r num hide-sm">${pbM ? `${pbM}일` : `<span class="muted">못 함</span>`}</td></tr>`;
+      }).join("")}</tbody></table></div>
+    <div class="small muted" style="margin-top:8px">실측 출처: ${obs ? esc(obs.source) : "자료 없음"}. 보상을 활성화하려면 받은 AiLGNS와 같은 수량을 시장에서 사야 해서, 보상 금액만큼의 현금이 먼저 필요합니다.</div>`;
+
+  // 누적 실수령 그래프 (SVG)
+  const W = 640, Hh = 220, pad = { l: 64, r: 12, t: 12, b: 28 };
+  const maxY = Math.max(costMarket, ...scen.map(s => s.net), 1e-9) * 1.08;
+  const x = d => pad.l + (W - pad.l - pad.r) * (d / days);
+  const y = v => pad.t + (Hh - pad.t - pad.b) * (1 - v / maxY);
+  const path = curve => curve.map((v, i) => `${i ? "L" : "M"}${x(i + 1).toFixed(1)},${y(v).toFixed(1)}`).join("");
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map(t => maxY / 1.08 * t);
+  const hline = (v, label, color) => `<line x1="${pad.l}" x2="${W - pad.r}" y1="${y(v)}" y2="${y(v)}" stroke="${color}" stroke-dasharray="4 4"/><text x="${W - pad.r}" y="${y(v) - 4}" text-anchor="end" font-size="11" fill="${color}">${label}</text>`;
+  $("sim-chart").innerHTML = `<div class="label" style="margin-bottom:6px">누적 실수령 보상 (원화)</div>
+    <div class="tbl-wrap"><svg viewBox="0 0 ${W} ${Hh}" style="width:100%;min-width:420px;height:auto" role="img" aria-label="시나리오별 누적 실수령 보상">
+      ${ticks.map(t => `<line x1="${pad.l}" x2="${W - pad.r}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)"/><text x="${pad.l - 6}" y="${y(t) + 4}" text-anchor="end" font-size="10" fill="var(--muted)">${fmtKrw(t)}</text>`).join("")}
+      ${[0, 0.25, 0.5, 0.75, 1].map(t => `<text x="${x(days * t)}" y="${Hh - 8}" text-anchor="middle" font-size="10" fill="var(--muted)">${Math.round(days * t)}일</text>`).join("")}
+      ${hline(costSell, "비용 (매도 기준)", "var(--warn)")}
+      ${hline(costMarket, "비용 (시세 기준)", "var(--muted)")}
+      ${scen.map(s => `<path d="${path(s.curve)}" fill="none" stroke="${s.color}" stroke-width="2"/>`).join("")}
+    </svg></div>`;
+}
+
 function scheduleCalc() { clearTimeout(calcTimer); calcTimer = setTimeout(runCalc, 350); }
 
 function renderTokens() {
@@ -1516,6 +1697,9 @@ document.addEventListener("click", e => {
 
 $("tab-dapp").addEventListener("click", () => { state.tab = "dapp"; store.set("tab", "dapp"); render(); });
 $("tab-token").addEventListener("click", () => { state.tab = "token"; store.set("tab", "token"); render(); });
+$("tab-sim").addEventListener("click", () => { state.tab = "sim"; store.set("tab", "sim"); render(); });
+["sim-amount", "sim-weeks", "sim-wallets", "sim-days", "sim-haircut"].forEach(id => $(id).addEventListener("input", () => { clearTimeout(simTimer); simTimer = setTimeout(renderSim, 250); }));
+$("sim-price").addEventListener("change", renderSim);
 $("tab-calc").addEventListener("click", () => { state.tab = "calc"; store.set("tab", "calc"); render(); runCalc(); });
 $("calc-token").addEventListener("change", () => { renderCalcHoldings(); scheduleCalc(); });
 $("calc-amount").addEventListener("input", scheduleCalc);
