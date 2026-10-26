@@ -389,7 +389,7 @@ body.hasbar{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
         </details>
         <div class="field" style="margin-top:6px"><label for="exBasis">이미 들인 원금 DAI (알면 적어요 · 원금 찾는 날 계산용)</label><input id="exBasis" type="number" min="0" step="any" inputmode="decimal" placeholder="모르면 비워 두세요"></div>
       </div>
-      <div class="row"><span class="lb">HELIX LGNS 소각은 열렸나요?</span><span id="gBurn"><button type="button" class="chip" data-v="closed" aria-pressed="true">아직 안 열림</button> <button type="button" class="chip" data-v="open" aria-pressed="false">열렸다고 보고 (1개 = 1 DAI × 2배 📢)</button></span></div>
+      <div class="row"><span class="lb">HELIX LGNS 소각</span><span id="gBurn"><button type="button" class="chip" data-v="capped" aria-pressed="true">열림 · 지갑당 7일 500개 ✅</button> <button type="button" class="chip" data-v="closed" aria-pressed="false">안 쓰기 (소각 안 함)</button> <button type="button" class="chip" data-v="unlimited" aria-pressed="false">무제한 가정 (비교용)</button></span></div>
       <div class="row" id="gDays"><span class="lb">기간</span><button type="button" class="chip" data-v="30" aria-pressed="false">1개월</button> <button type="button" class="chip" data-v="90" aria-pressed="false">3개월</button> <button type="button" class="chip" data-v="180" aria-pressed="true">6개월</button> <button type="button" class="chip" data-v="365" aria-pressed="false">1년</button></div>
       <label class="cons" id="ownCondRow" hidden><span style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="ownCond"><span>이 지갑만 조건 따로 정하기 <small>끄면 다른 지갑과 같은 조건(기간·괜찮은 것·무엇을 크게)을 써요</small></span></span></label>
       <p class="sub" style="margin:0" id="condWho"></p>
@@ -605,7 +605,7 @@ body.hasbar{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
         <div><b>터보란 (일반 터보)</b>쌓인 LGNS만큼 DAI(시세 견적 + 5%)를 내면, 산 LGNS는 바로 지갑으로 오고 터보란의 같은 수량은 24시간 뒤 청구해요 → 1+1. 돌리지 않은 터보란은 사라지지 않아요 ✅.</div>
         <div><b>추가이자 · 거미망 보상</b>장기 스테이킹 추가이자는 ‘Turbine Extra Interest’로 터보란에 들어가요 ✅. 거미망(스파이더 웹) 보상은 10/7 17:30까지 쌓인 몫만 옛 방식(청구 → 터보란 → 1+1)이고, 10/12부터는 새 계약에 쌓여 청구하면 새 터빈에서 신생태 터보처럼 활성화(1%) → 24시간 → 판매(5%)예요 ✅ (온체인 확인 10/23).</div>
         <div><b>신생태 터보</b>넣은 DAI의 2.5배(300일)·4배(500일) 가치를 정해 두고 12시간마다 LGNS로 나눠 줘요. 금고에서 5%로 팔 수 있어요 ✅.</div>
-        <div><b>LGNS 소각 1 DAI 인정</b>LGNS 가격이 1달러 아래여도 1개 = 1 DAI × 2배 Power (📢 운영 측 안내, 소각 탭 오픈 전).</div>
+        <div><b>HELIX LGNS 소각</b>10/26 12:00(싱가포르) 오픈 ✅. LGNS 가격과 상관없이 1개 = 1 DAI × 2배 Power. Anubis LGNS만, 지갑당 7일(에포크)마다 1번 최대 500개, 360일·600일 장기 스테이킹 + 본드 스테이킹 합계 2만 LGNS 이상인 지갑만, 하루 전체 10만~20만 개 선착순 (소각 게이트 온체인 확인).</div>
         <div><b>현금으로 꺼낼 수 있는 금액</b>그동안 꺼낸 현금 + 터빈용 DAI + 모은 AiLGNS를 지금 시세로 판 금액(수수료 뺀 값)이에요.</div>
         <div><b>여러 지갑 합계</b>지갑마다 자기 플랜으로 따로 계산해서 더해요. 지갑을 하나만 조회했거나 조회 전이면 하나로 합친 근사치예요 (❓).</div>
         <div><b>시세로 · 팔면</b>‘시세로’는 지금 시세로 친 값, ‘팔면’은 Anubis에서 판매세 5% 뒤 45%(약 48%)를 내고 풀 가격이 내려가는 것까지 뺀, 실제로 손에 쥐는 DAI예요. 추천은 ‘팔면’ 값으로 비교해요.</div>
@@ -619,8 +619,8 @@ body.hasbar{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
 <div class="bottombar" id="bbar" hidden><button type="button" class="btn" id="bbarBtn">오늘 할 일 보기</button></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="engine.js?v=20261024d"></script>
-<script src="chain.js?v=20261024d"></script>
+<script src="engine.js?v=20261026a"></script>
+<script src="chain.js?v=20261026a"></script>
 <script>
 (function(){
 const $=id=>document.getElementById(id);
@@ -643,9 +643,14 @@ const SCEN={keep:[0,0,0],mid:[.25,-.10,.10],low:[.50,-.25,.25],drop:[.25,-.10,-.
 const POOL_DEFAULT={l:32994826,a:18652841};
 // 처음 쓰는 사람도 고를 게 없도록: 다시 넣기는 ‘자동 · 이득 순’, 터보란은 ‘매일 가장 먼저’
 // HELIX LGNS 소각은 아직 안 열려서(10/23) 기본은 ‘지금 되는 것만’: Anubis LGNS → 소각 본드, Polygon LGNS → 픽스본드, 풀린 LGNS → 보유
-const S={burnOpen:store.get('burnOpen',false),lgnsDest:'bond',polyDest:'fixed',bondRelease:'hold',
+// HELIX LGNS 소각: 10/26 12:00(싱가포르) 오픈 ✅ — 기본은 ‘열림 · 지갑당 7일 500개’. ‘무제한’은 비교용
+const S={burnMode:store.get('burnMode','capped'),burnOpen:true,lgnsDest:'bond',polyDest:'fixed',bondRelease:'hold',
   start:'anubis',goal:'C',days:180,scen:'mid',reinv:.8,aiSell:1,route:'auto',ntShare:0,xFund:'first',cashVia:'now',bFund:'self',rank:0,ntProd:'2.5|300',ntUse:'lgns',
   mode:store.get('mode',W.list.length?'wallet':'new'),scope:store.get('scope','all'),tab:store.get('tab',W.list.length?'today':'assets')};
+S.burnOpen=S.burnMode!=='closed';
+const UNL=()=>S.burnMode==='unlimited';
+// ✅ 소각 게이트 0xb975…0a4b · 에포크 시계 0x6C53…9C58 (genesis 2026-09-28 00:00 UTC, 7일)
+const BURN={max:500,min:20000,genesis:1790524800,epochSec:604800};
 const PLAN0=JSON.parse(JSON.stringify(S)); // 지갑에 저장된 플랜이 없을 때 쓰는 기본 플랜
 const GOALN={C:'원금 먼저',A:'많이 모으기',B:'편하게'};
 const PT={30:'1개월',90:'3개월',180:'6개월',365:'1년'};
@@ -746,7 +751,8 @@ function base(){
   if(nv('xCap')>0)p.xCap=nv('xCap');
   // LGNS 쓰는 곳: 소각 열림 여부 · 소각 본드/보유 · 픽스본드/보유 · 본드에서 풀린 LGNS
   if(CFG.sellFee!==CFG0.sellFee)p.anubisKeep=Math.max(0,1-CFG.sellFee/100);
-  p.burnOpen=S.burnOpen;p.lgnsDest=S.lgnsDest;p.polyDest=S.polyDest;p.bondRelease=S.bondRelease;
+  p.burnOpen=S.burnOpen;if(S.burnMode==='capped'){const b=burnScope();p.burnCap=b.cap;p.burnWait=b.wait;}
+  p.lgnsDest=S.lgnsDest;p.polyDest=S.polyDest;p.bondRelease=S.bondRelease;
   if(ex){const bd=nv('exBondDaily'),br=nv('exBondRem');ex.bonds=bd>0&&br>0?[{d:bd,left:br/bd}]:[];ex.bondNow=nv('exBondNow');}
   // 풀 가격 영향: 온체인에서 읽은 풀 DAI 잔고 (못 읽었으면 10/23에 읽은 값)
   if($('ammOn').checked)p.amm={l:(live&&live.lgnsDepth)||POOL_DEFAULT.l,a:(live&&live.aiDepth)||POOL_DEFAULT.a};
@@ -754,6 +760,24 @@ function base(){
   // 안 돌림: 터보란은 그대로 남겨 두고 계산에서만 빼요
   if(S.xFund==='none'){p.pend=0;if(ex){ex.pendDaily=0;ex.xNow=0;}}
   return p;
+}
+// 지금 보는 지갑(들)의 HELIX 소각 자격·이번 에포크 상태 (✅ 소각 게이트에서 읽은 값)
+function burnScope(){
+  if(!walletMode())return {cap:BURN.max,wait:0,elig:1,can:1,n:0,stake:0,min:BURN.min,known:false};
+  const bs=scopeWallets().map(w=>W.data[w.address.toLowerCase()]).filter(Boolean).map(d=>d.v.burn).filter(b=>b&&b.ok);
+  if(!bs.length)return {cap:BURN.max,wait:0,elig:1,can:1,n:0,stake:0,min:BURN.min,known:false};
+  const el=bs.filter(b=>b.eligible),can=el.filter(b=>!b.doneThisEpoch).length,ep=bs[0].epoch,min=bs[0].min||BURN.min,max=bs[0].max||BURN.max;
+  const next=BURN.genesis+ep*BURN.epochSec,waitDays=Math.max(1,Math.ceil((next-Date.now()/1000)/86400));
+  const day=bs[0].day||{};
+  return {cap:max*el.length,wait:el.length&&!can?waitDays:0,elig:el.length,can,n:bs.length,stake:bs.reduce((a,b)=>a+b.stake,0),min,max,next,ep,known:true,
+    dayLeft:day.max!=null&&day.used!=null?Math.max(0,day.max-day.used):null,dayMax:day.max};
+}
+function burnHint(){
+  const b=burnScope(),nx=b.next?new Date(b.next*1000).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+  const head=`HELIX 소각 ✅ 10/26 오픈: Anubis LGNS만, 지갑당 7일(에포크)마다 1번 최대 ${fmt(BURN.max)}개, 1개 = 1 DAI × 2배 Power. 자격: 360일·600일 장기 스테이킹 + 본드 스테이킹 합계 ${fmt(BURN.min)} 이상. 하루 전체 한도 10만~20만 개 선착순.`;
+  if(!b.known)return head+' 지갑을 조회하면 자격을 확인해요. 한도를 넘는 LGNS는 아래 곳으로 보내요.';
+  const st=b.elig?`자격 있는 지갑 ${b.elig}/${b.n}개 · 이번 에포크 소각 가능 ${b.can}개${b.can<b.elig?` (다음 에포크 ${nx})`:''}`:`자격 없음: 스테이킹 ${fmt(b.stake)} / ${fmt(b.min)} (${fmt(Math.max(0,b.min-b.stake))} 더 필요)`;
+  return `${head} ${st}${b.dayLeft!=null?` · 오늘 전체 남은 한도 ${fmt(b.dayLeft)}개`:''}. 한도를 넘는 LGNS·Polygon LGNS는 아래 곳으로 보내요.`;
 }
 // 시작 Power 추정 (터빈용 DAI 자동 계산과 화면 표시용)
 function startPower(p){
@@ -816,9 +840,9 @@ function render0(){
   $('moreTurbo').hidden=st!=='turbo';$('moreNT').hidden=st!=='newturbo';
   $('moreExNt').hidden=!(wm&&nv('exNtRem')+nv('exNtNow')+nv('exCw2')+nv('exCw2Daily')>0&&st!=='newturbo');
   // LGNS 쓰는 곳
-  document.querySelectorAll('#gBurn [data-v]').forEach(x=>x.setAttribute('aria-pressed',(x.dataset.v==='open')===S.burnOpen));
-  $('sinkRows').hidden=S.burnOpen;$('relHelix').hidden=!S.burnOpen;
-  $('lgHint').textContent=S.burnOpen?'HELIX에 LGNS를 1개 = 1 DAI × 2배 Power로 소각할 수 있다고 보고 계산해요 (운영 측 안내, 아직 안 열림 📢).'
+  document.querySelectorAll('#gBurn [data-v]').forEach(x=>x.setAttribute('aria-pressed',x.dataset.v===S.burnMode));
+  $('sinkRows').hidden=UNL();$('relHelix').hidden=!S.burnOpen;
+  $('lgHint').textContent=S.burnMode==='capped'?burnHint():UNL()?'비교용: 한도 없이 모든 LGNS를 1개 = 1 DAI × 2배 Power로 소각한다고 보고 계산해요 (실제로는 지갑당 7일 500개 한도 ✅).'
     :`HELIX 소각 대신 지금 되는 곳으로 보내요 ✅ — 소각 본드: LGNS는 시세로 원금을 잡아 230%, DAI는 250%를 약 ${S.lgnsDest==='bond'?'290~310':'—'}일 동안 LGNS로 받아요. 픽스본드: Polygon LGNS 1개를 1 DAI로 쳐서 200%를 300일 동안 받아요.${S.lgnsDest==='hold'?' 지금은 Anubis LGNS를 그대로 들고 있어요(시세로 자산에 들어가요).':''}`;
   const {p,P0,firstCost}=params();
   const hasHelix=!!(p.ex&&(p.ex.power>0||p.ex.unc>0));
@@ -885,11 +909,13 @@ function render0(){
 
   const w=[];
   if(p.route==='aiburn')w.push('AiLGNS 소각 2.5배는 SOS 보상 지도 자료 기준이에요 📢. 판 만큼의 AiLGNS를 소각했다고 보고 매도세를 빼지 않았어요.');
-  if(p.ex&&p.ex.burnP>0)w.push('Polygon LGNS를 HELIX 소각에 바로 쓸 수 있는지는 소각 탭이 열리면 확인이 필요해요 ❓.');
-  if(!S.burnOpen)w.push('<b>HELIX LGNS 소각은 아직 안 열렸어요.</b> 그래서 LGNS는 지금 되는 곳(소각 본드 · 픽스본드 · 보유)으로 계산했어요. 열렸을 때는 위 ‘LGNS는 어떻게 쓸까요?’에서 바꿔 비교해요.');
+  if(p.ex&&p.ex.burnP>0)w.push('Polygon LGNS는 HELIX에 소각할 수 없어요 (Anubis LGNS만 ✅). 픽스본드나 보유로 계산했어요.');
+  if(S.burnMode==='capped')w.push(`<b>HELIX LGNS 소각은 지갑당 7일마다 ${BURN.max}개까지예요 ✅.</b> 자격(장기·본드 스테이킹 ${fmt(BURN.min)} 이상)이 있는 지갑만 소각하고, 넘는 LGNS는 고른 곳(소각 본드·보유)으로 계산했어요. 하루 전체 한도(10만~20만 개)가 먼저 차면 그날은 못 할 수 있어요.`);
+  if(UNL())w.push('<b>비교용 계산이에요.</b> 실제 HELIX 소각은 지갑당 7일 500개 한도가 있어요 ✅. 무제한으로 소각한다고 보면 Power가 실제보다 훨씬 크게 나와요.');
+  if(!S.burnOpen)w.push('<b>HELIX LGNS 소각을 안 쓰는 걸로 계산했어요.</b> LGNS는 소각 본드 · 픽스본드 · 보유로만 계산했어요.');
   else if((p.ex&&p.ex.burnA+p.ex.burnP>0)||lg||p.route==='lgns'||p.route==='old'||p.route==='auto'||st==='turbo'||(st==='newturbo'&&S.ntUse!=='cash'&&S.ntUse!=='helix'))w.push('<b>LGNS 소각은 아직 열리지 않았어요.</b> 1개를 1 DAI로 인정한다는 건 운영 측 안내 기준이에요 📢 — 지금은 ‘열렸다고 보고’ 계산 중이에요.');
   if(!S.burnOpen&&(S.lgnsDest==='bond'||S.polyDest==='fixed'||S.bondRelease==='rebond'))w.push('본드 몫은 원금의 230%(소각 본드 LGNS)·250%(DAI)·200%(픽스본드) 가치를 그날 시세의 LGNS로 나눠 받는 거예요 ✅. 받은 LGNS를 Anubis에서 바로 팔면 약 48%가 수수료라, 실제로 손에 쥐는 DAI는 쓰는 방법에 따라 달라요.');
-  if(st==='polygon')w.push('Polygon LGNS를 HELIX 소각에 바로 쓸 수 있는지는 소각 탭이 열리면 확인이 필요해요 ❓.');
+  if(st==='polygon')w.push('Polygon LGNS는 HELIX에 소각할 수 없어요 (Anubis LGNS만 ✅). 픽스본드나 보유로 계산했어요.');
   if(st==='newturbo'||p.route==='turbo'||p.ntShare>0||p.cashVia==='nt'||(S.goal==='B'&&S.bFund==='nt')||(p.ex&&p.ex.nt.length))w.push('신생태 터보는 관리자가 지급 속도·한도를 바꾸거나 멈출 수 있는 기능이 컨트랙트에 있어요.');
   if((st==='turbo'||p.route==='old'||S.ntUse==='turbo')&&r.pendLeft<1)w.push('일반 터보에 쌓인 수량을 다 써서, 그 뒤 DAI는 HELIX에 DAI로 참여한 걸로 계산했어요.');
   if(p.route==='auto'&&p.ex&&p.ex.pendDaily>0)w.push(`장기 스테이킹 추가이자가 하루 약 ${fq(p.ex.pendDaily)} LGNS씩 새로 쌓인다고 보고, 매일 ‘Turbine Extra Interest’로 옮겨 터보에 쓰는 걸로 계산했어요.`);
@@ -926,9 +952,9 @@ function steps(p,P0,firstCost,r,ntCash){
   const F=f=>`<i class="fee">${f}</i>`;const out=[];const add=(t,d,loop)=>out.push(`<li${loop?' class="loop"':''}><b>${t}</b><span>${d}</span></li>`);
   const st=S.start;const oldT=`DAI로 LGNS 매수(시세 + 5%)${F('5%')} → 산 LGNS는 바로 지갑으로, 터보란의 같은 수량은 24시간 뒤 청구 (1+1)`;
   if(p.ex)add('내 지갑 현황에서 시작',`활성 Power ${fmt(p.ex.power)} · 보유 AiLGNS ${fq(p.ex.ai)}개 · 터빈 대기 ${fq(p.ex.unc)}개 · 터빈용 DAI ${fmt(p.ex.dai+p.R0)}`);
-  if(p.ex&&(p.ex.burnA>0||p.ex.burnP>0))add('지갑 LGNS를 HELIX에 소각',`${p.ex.burnA>0?`Anubis ${fq(p.ex.burnA)}개`:''}${p.ex.burnA>0&&p.ex.burnP>0?' + ':''}${p.ex.burnP>0?`Polygon ${fq(p.ex.burnP)}개`:''} · 1개 = 1 DAI 인정 × 2배 → 약 ${fmt(p.ex.burnA*2*Math.max(p.pL0,1)+p.ex.burnP*2*Math.max(p.pLP0,1))} Power (소각 탭 오픈 후 📢)`);
+  if(p.ex&&(p.ex.burnA>0||p.ex.burnP>0))add('지갑 LGNS를 HELIX에 소각',`${p.ex.burnA>0?`Anubis ${fq(p.ex.burnA)}개`:''}${p.ex.burnA>0&&p.ex.burnP>0?' + ':''}${p.ex.burnP>0?`Polygon ${fq(p.ex.burnP)}개`:''} · 1개 = 1 DAI 인정 × 2배 → 약 ${fmt(p.ex.burnA*2*Math.max(p.pL0,1)+p.ex.burnP*2*Math.max(p.pLP0,1))} Power (10/26 오픈 ✅ · 지갑당 7일 500개)`);
   if(p.ex&&p.startAmt<=0){}
-  else if(st==='anubis'||st==='polygon')add('LGNS를 HELIX에 소각',`1개 = 1 DAI 인정 × 2배 → ${fmt(startPower(p))} Power (소각 탭 오픈 후)`);
+  else if(st==='anubis'||st==='polygon')add('LGNS를 HELIX에 소각',`1개 = 1 DAI 인정 × 2배 → ${fmt(startPower(p))} Power (✅ 10/26 오픈 · 지갑당 7일 500개까지)`);
   else if(st==='dai')add('DAI로 HELIX 참여',`1 DAI = 2.5 Power → ${fmt(startPower(p))} Power`);
   else if(st==='turbo'){add('DAI로 일반 터보 돌리기',oldT);add('받은 LGNS를 HELIX에 소각',`1개 = 1 DAI 인정 × 2배 → 약 ${fmt(startPower(p))} Power`);}
   else{add(`DAI를 신생태 터보에 참여 (${p.ntMult}배 · ${p.ntDays}일)`,'받을 DAI 가치 확정 → 12시간마다 그 가치만큼 LGNS로 지급');add('12시간마다 풀린 LGNS 팔기',`활성화${F('1%')} → 24시간 잠금 → 금고에서 판매${F('5%')} → DAI`);
@@ -1017,18 +1043,18 @@ function renderGuide(p,P0,firstCost,r,R3,o){
     else T('아직 HELIX Power가 없어요','위 1번에서 시작 방법을 골라 추가로 넣는 경우를 계산해 보세요.',false,'✅');
     o.stakes.filter(s=>s.extra>1e-6).forEach(s=>T(`장기 스테이킹 ${s.term}일 #${s.idx+1} 추가이자 ${fq(s.extra)} LGNS (${esc(s.wallet)})`,`Anubis 장기 스테이킹 화면에서 ‘Turbine Extra Interest’ → 일반 터보로 옮긴 뒤 DAI 약 ${fmt(s.extra*pL*1.05,2)}로 1+1 · 소각하면 약 ${fmt(4*s.extra*Math.max(pL,1))} Power (📢)${s.daily!=null?` · 하루 약 ${fq(s.daily)}개씩 쌓여요`:''}`,true,'✅'));
     if(o.bondNow>1e-6)T(`본드에서 풀린 LGNS ${fq(o.bondNow)}개 청구`,`소각 본드·픽스본드 화면의 ‘전체 청구’ · 남은 지급 약 ${fmt(o.bondRem,2)} DAI어치는 하루 약 ${fmt(o.bondDaily,2)} DAI어치씩 계속 풀려요`,false,'✅');
-    if(!S.burnOpen&&o.lgnsP>=1&&S.polyDest==='fixed')T(`Polygon LGNS ${fmt(o.lgnsP,2)}개 → 픽스본드`,`Polygon dApp 홈에서 소각하면 1개 = 1 DAI 원금으로 쳐서 200%(약 ${fmt(o.lgnsP*2,2)} DAI어치)를 300일 동안 Anubis LGNS로 받아요. 지금 시세로는 ${fmt(o.lgnsP*pL,2)} DAI어치예요 ✅`,true,'✅');
+    if(!UNL()&&o.lgnsP>=1&&S.polyDest==='fixed')T(`Polygon LGNS ${fmt(o.lgnsP,2)}개 → 픽스본드`,`Polygon dApp 홈에서 소각하면 1개 = 1 DAI 원금으로 쳐서 200%(약 ${fmt(o.lgnsP*2,2)} DAI어치)를 300일 동안 Anubis LGNS로 받아요. 지금 시세로는 ${fmt(o.lgnsP*pL,2)} DAI어치예요 ✅`,true,'✅');
     if(!S.burnOpen&&o.lgnsA>=1&&S.lgnsDest==='bond')T(`Anubis LGNS ${fmt(o.lgnsA,2)}개 → 소각 본드`,`LGNS 예치는 시세로 원금을 잡아 230%(약 ${fmt(o.lgnsA*pL*2.3,2)} DAI어치)를 약 290일 동안 LGNS로 받아요. HELIX 소각은 아직 안 열렸어요`,false,'✅');
     if(o.cw>1e-6)T(`거미망 보상 · 옛 방식 ${fq(o.cw)} LGNS 청구`,`10/7까지 쌓인 몫이에요. 커뮤니티 보상(코브웹)에서 ‘청구’ → 터보란으로 가요 ✅ · 그다음 DAI 약 ${fmt(o.cw*pL*1.05,2)}로 1+1 · 소각하면 약 ${fmt(4*o.cw*Math.max(pL,1))} Power (📢) · 10/7 이후로는 새로 쌓이지 않아요`,true,'✅');
     if(o.cw2>1e-6||o.cw2Daily>1e-6)T(`거미망 보상 · 새 방식 ${fq(o.cw2)} LGNS`,`10/12부터 새 계약에 쌓여요${o.cw2Daily>0?` (하루 약 ${fq(o.cw2Daily)}개)`:''}. 청구하면 1+1 터보란이 아니라 새 터빈으로 가서 활성화(1%) → 24시간 → 판매(5%)로 약 ${fmt(o.cw2*pL*(1-.07),2)} DAI가 돼요 ✅ · 청구는 온체인에서 되지만 아직 디앱 화면을 못 찾았어요 ❓`,false,'✅');
-    if(o.stakeInterest>=1)T(`장기 스테이킹 받을 이자 ${fq(o.stakeInterest)} LGNS`,`‘Claim Interest’로 받아 HELIX에 소각하면 약 ${fmt(o.stakeInterest*2*Math.max(pL,1))} Power (📢 소각 탭 오픈 후) · Anubis에서 팔면 약 50% 수수료`,false,'✅');
-    if(nv('exPend')>1e-6){const pe=nv('exPend');T(`일반 터보에 쌓인 LGNS ${fq(pe)}개`,`DAI 약 ${fmt(pe*pL*1.05,2)}(시세+5%)로 같은 수량을 사면 1+1로 ${fq(pe*2)}개 · 소각하면 약 ${fmt(4*pe*Math.max(pL,1))} Power (📢 소각 탭 오픈 후)`,false,'✅');}
+    if(o.stakeInterest>=1)T(`장기 스테이킹 받을 이자 ${fq(o.stakeInterest)} LGNS`,`‘Claim Interest’로 받아 HELIX에 소각하면 약 ${fmt(o.stakeInterest*2*Math.max(pL,1))} Power (✅ 10/26 오픈 · 지갑당 7일 500개) · Anubis에서 팔면 약 50% 수수료`,false,'✅');
+    if(nv('exPend')>1e-6){const pe=nv('exPend');T(`일반 터보에 쌓인 LGNS ${fq(pe)}개`,`DAI 약 ${fmt(pe*pL*1.05,2)}(시세+5%)로 같은 수량을 사면 1+1로 ${fq(pe*2)}개 · 소각하면 약 ${fmt(4*pe*Math.max(pL,1))} Power (✅ 10/26 오픈 · 지갑당 7일 500개)`,false,'✅');}
     if(o.ntClaim>1e-6)T(`신생태 터보에서 풀린 LGNS ${fq(o.ntClaim)}개 활성화`,'활성화(1%) → 24시간 잠금 → 금고에서 판매(5%)',false,'✅');
     if(o.ntSell>1e-6)T(`신생태 금고에서 팔 수 있는 LGNS ${fq(o.ntSell)}개`,`지금 팔면 약 ${fmt(o.ntSell*pL*(1-.05-p.slip),2)} DAI · ${S.ntUse==='cash'?'현금으로 보관':'위에서 고른 대로 다시 넣기'}`,false,'✅');
     if(o.ntLocked>1e-6)T(`신생태 금고 잠김 LGNS ${fq(o.ntLocked)}개`,'24시간 잠금이 끝나면 팔 수 있어요.',false,'✅');
     o.orders.filter(x=>!x.completed).forEach(x=>T(`신생태 터보 ${x.mult}배 주문 #${x.id} (${esc(x.wallet)})`,`남은 지급 ${fmt(x.pending,2)} DAI 가치 · 하루 ${fmt(x.daily,2)} DAI · 약 ${fmt(x.pending/x.daily)}일 남음`,false,'✅'));
-    if(o.lgnsA>=1)T(`지갑의 Anubis LGNS ${fmt(o.lgnsA,2)}개`,`Anubis에서 바로 팔면 약 50%가 수수료예요. 소각 탭이 열리면 1개 = 1 DAI × 2배 → 약 ${fmt(o.lgnsA*2*Math.max(pL,1))} Power (📢)`,false,'✅');
-    if(o.lgnsP>=1)T(`지갑의 Polygon LGNS ${fmt(o.lgnsP,2)}개`,'HELIX 소각에 바로 쓸 수 있는지는 소각 탭이 열리면 확인이 필요해요 (❓)',false,'✅');
+    if(o.lgnsA>=1)T(`지갑의 Anubis LGNS ${fmt(o.lgnsA,2)}개`,`Anubis에서 바로 팔면 약 50%가 수수료예요. HELIX에 소각하면(지갑당 7일 500개) 1개 = 1 DAI × 2배 → 약 ${fmt(o.lgnsA*2*Math.max(pL,1))} Power (📢)`,false,'✅');
+    if(o.lgnsP>=1)T(`지갑의 Polygon LGNS ${fmt(o.lgnsP,2)}개`,'HELIX 소각은 Anubis LGNS만 돼요 ✅ · Polygon은 픽스본드(200%)로 보낼 수 있어요',false,'✅');
     if(o.fail.length)T('일부 값을 못 읽었어요',o.fail.slice(0,6).join(', ')+' — 0으로 채웠어요. 칸에 직접 적거나 다시 조회해 보세요.',true);
   }else{
     T('지갑 주소를 추가해 보세요','Power, 터빈 대기 몫, 터빈용 DAI, 신생태 터보 남은 지급을 읽어 와서 할 일을 알려 줘요.',false);
@@ -1109,7 +1135,7 @@ function routeRates(p,pendQty,unit){
   const after=pendQty>0?turbo:lgns; // 신생태에서 풀린 DAI를 다시 넣을 때
   return [
     {k:'turbo',name:'터보란 돌리기 → 1+1 LGNS 소각',v:turbo,cond:pendQty>0?`터보란 ${fq(pendQty)} LGNS까지 (DAI 약 ${fmt(pendQty*unit,2)}, 5% 포함)`:'터보란(쌓인 수량·추가이자)이 있을 때만',when:'산 몫 바로 · 터보란 몫 24시간 뒤'},
-    {k:'lgns',name:'LGNS 사서 소각',v:lgns,cond:'소각 탭 오픈 후 📢 · 큰 금액은 매수할수록 가격이 올라요',when:'바로'},
+    {k:'lgns',name:'LGNS 사서 소각',v:lgns,cond:'지갑당 7일 500개까지 ✅ · 큰 금액은 매수할수록 가격이 올라요',when:'바로'},
     {k:'nt25',name:'신생태 터보 2.5배 → 풀린 DAI 다시 소각',v:2.5*ntNet*after,slow:true,cond:`300일 동안 나눠 받은 DAI를 ${pendQty>0?'그때도 일반 터보에 쓸 수 있다고 본 값':'LGNS 사서 소각한 값'} · 최소 100 DAI · 관리자가 속도를 바꿀 수 있어요`,when:'300일에 걸쳐'},
     {k:'nt4',name:'신생태 터보 4배 → 풀린 DAI 다시 소각',v:4*ntNet*after,slow:true,cond:`500일 동안 나눠 받은 DAI를 ${pendQty>0?'그때도 일반 터보에 쓸 수 있다고 본 값':'LGNS 사서 소각한 값'} · 최소 100 DAI · 관리자가 속도를 바꿀 수 있어요`,when:'500일에 걸쳐'},
     {k:'ai',name:'AiLGNS를 팔지 않고 소각',v:2.5/(1-p.fee-p.slip),cond:'AiLGNS 소각 2.5배 📢',when:'바로'},
@@ -1143,10 +1169,14 @@ function todayItems(p,P0){
   const closed=p.burnOpen===false;
   const best=closed?rates.find(x=>x.u!=='Power'&&(x.k!=='turbo'||pend>0)&&x.k!=='hold'):rates.find(x=>!x.slow&&(x.k!=='turbo'||pend>0));
   const route=`<thead><tr><th>방법</th><th>${closed?'DAI 1개로 받는 것':'Power/DAI'}</th><th>언제</th></tr></thead><tbody>${rates.map(x=>`<tr${x===best?' style="font-weight:700;background:var(--acc-soft)"':''}><td>${x.name}<br><small style="color:var(--muted);font-weight:400">${x.cond}</small></td><td>${fmt(x.v,closed?2:1)}${x.u?' '+x.u:''}</td><td>${x.when}</td></tr>`).join('')}</tbody>`;
-  const burnPow=ex&&!closed?ex.burnA*2*Math.max(pL,1)+ex.burnP*2*Math.max(p.pLP0,1):0;
+  // 소각 한도: 이번 에포크에 남은 수량 (이미 했거나 자격 없으면 0) · 무제한 비교는 Infinity
+  const capMode=!closed&&p.burnCap!=null;let bCap=capMode?(p.burnWait>0?0:p.burnCap):Infinity;
+  const burnA0=ex?ex.burnA:0,bA=closed?0:Math.min(burnA0,bCap);if(capMode)bCap-=bA;
+  const burnPow=closed?0:bA*2*Math.max(pL,1)+(capMode?0:(ex?ex.burnP:0)*2*Math.max(p.pLP0,1));
+  const restA=burnA0-bA;
   const walletLg=ex?ex.burnA+ex.burnP:0,bondNow=ex?ex.bondNow||0:0;
   // Power가 없어도 터보란과 DAI가 있거나, 넣을 LGNS·청구할 본드가 있으면 할 일이 있어요
-  if(pow<=0&&unc<=0&&burnPow<=0&&walletLg<=0&&bondNow<=0&&!(pend0>0&&(ex?ex.dai:0)+p.R0>0))return {route,out:[],empty:`<li><label><span><b>${ex?'아직 HELIX Power가 없어요':'지갑을 먼저 추가해 보세요'}</b><small>${ex?'‘계산해보기’에서 새로 넣을 것을 고르면 하루 계획을 금액까지 보여줘요.':'‘내 자산’에서 지갑 주소를 넣으면 오늘 할 일을 금액까지 알려줘요.'}</small></span></label></li>`,sum:''};
+  if(pow<=0&&unc<=0&&burnPow<=0&&walletLg<=0&&bondNow<=0&&!(pend0>0&&(ex?ex.dai:0)+p.R0>0)&&!(capMode&&bCap>0&&isFinite(bCap)))return {route,out:[],empty:`<li><label><span><b>${ex?'아직 HELIX Power가 없어요':'지갑을 먼저 추가해 보세요'}</b><small>${ex?'‘계산해보기’에서 새로 넣을 것을 고르면 하루 계획을 금액까지 보여줘요.':'‘내 자산’에서 지갑 주소를 넣으면 오늘 할 일을 금액까지 알려줘요.'}</small></span></label></li>`,sum:''};
   const D=pow*p.r0, aiNew=D/pA, aiT=aiNew+unc, cost=aiT*pA*(1+.025+p.slip);
   let dai=ex?ex.dai+p.R0:p.R0;
   if(extra>1e-9&&S.xFund!=='none')add('장기 스테이킹 추가이자를 터보란으로 옮기기',`Anubis 장기 스테이킹에서 건마다 ‘Turbine Extra Interest’ → 추가이자 ${fq(extra)} LGNS가 터보란으로 그대로 옮겨져요 (가스만 들어요) ✅`);
@@ -1158,20 +1188,30 @@ function todayItems(p,P0){
   const lgTo=q=>{if(S.lgnsDest==='hold'){holdToday+=q;return `LGNS ${fq(q)}개 그대로 보유 (지금 시세로 약 ${fmt(q*pL,2)} DAI어치)`;}
     const pr=q*pL;bondToday+=pr;bondGet+=pr*2.3;return `LGNS ${fq(q)}개를 소각 본드에 예치 → 원금 약 ${fmt(pr,2)} DAI × 230% = 약 ${fmt(pr*2.3,2)} DAI어치를 약 290일 동안 LGNS로 받아요`;};
   if(bondNow>1e-9)add('본드에서 풀린 LGNS 청구',`소각 본드·픽스본드 ‘청구’ → ${fq(bondNow)} LGNS · ${{hold:'지갑에 보유',rebond:'다시 소각 본드에 예치',sell:'Anubis에서 판매 (약 48% 수수료)',helix:'HELIX에 소각'}[S.bondRelease]}로 계산해요 ✅`);
-  if(burnPow>0){powAdd+=burnPow;add('지갑 LGNS를 HELIX에 소각',`${fq(ex.burnA+ex.burnP)}개 · 1개 = 1 DAI × 2배 → 약 ${fmt(burnPow)} Power · 대기열을 거쳐 다음 정산부터 AiLGNS가 나와요 (소각 탭 오픈 후 📢)`);}
-  if(closed&&ex&&ex.burnA>1e-9)add(S.lgnsDest==='hold'?'지갑 Anubis LGNS 보유':'지갑 Anubis LGNS → 소각 본드',lgTo(ex.burnA));
-  if(closed&&ex&&ex.burnP>1e-9){if(S.polyDest==='hold'){add('지갑 Polygon LGNS 보유',`${fq(ex.burnP)}개 (지금 시세로 약 ${fmt(ex.burnP*p.pLP0,2)} DAI어치)`);}
+  if(capMode&&walletMode()){const b=burnScope();
+    if(!b.elig)add('HELIX 소각 자격 없음',`360일·600일 장기 스테이킹 + 본드 스테이킹 합계 ${fmt(b.stake)} / ${fmt(b.min)} LGNS · ${fmt(Math.max(0,b.min-b.stake))} 더 있으면 지갑당 7일마다 ${fmt(b.max)}개 소각 가능 ✅`);
+    else if(p.burnWait>0)add('이번 에포크 HELIX 소각은 이미 했어요',`다음 소각 가능 ${new Date(b.next*1000).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})} (약 ${p.burnWait}일 뒤) ✅`);}
+  if(burnPow>0){powAdd+=burnPow;const b=capMode?burnScope():null;
+    add('지갑 LGNS를 HELIX에 소각',`${fq(capMode?bA:burnA0+(ex?ex.burnP:0))}개 · 1개 = 1 DAI × 2배 → 약 ${fmt(burnPow)} Power · 대기열을 거쳐 다음 정산부터 AiLGNS가 나와요${capMode?` · 이번 에포크 1번 · 최대 ${fmt(b.max)}개 ✅${b.dayLeft!=null?` · 오늘 전체 남은 한도 ${fmt(b.dayLeft)}개 (선착순)`:''}`:' · 무제한 가정 (비교용)'}`);}
+  if((closed||capMode)&&ex&&restA>1e-9)add(closed?(S.lgnsDest==='hold'?'지갑 Anubis LGNS 보유':'지갑 Anubis LGNS → 소각 본드'):(S.lgnsDest==='hold'?'소각 한도를 넘는 Anubis LGNS 보유':'소각 한도를 넘는 Anubis LGNS → 소각 본드'),lgTo(restA));
+  if((closed||capMode)&&ex&&ex.burnP>1e-9){if(S.polyDest==='hold'){add('지갑 Polygon LGNS 보유',`${fq(ex.burnP)}개 (지금 시세로 약 ${fmt(ex.burnP*p.pLP0,2)} DAI어치)`);}
     else{bondToday+=ex.burnP;bondGet+=ex.burnP*2;add('지갑 Polygon LGNS → 픽스본드',`Polygon dApp 홈에서 ${fq(ex.burnP)}개 소각 → 1개 = 1 DAI 원금 × 200% = 약 ${fmt(ex.burnP*2,2)} DAI어치를 300일 동안 Anubis LGNS로 받아요 ✅`);}}
   // 터보란 돌리기: DAI를 내면 산 LGNS는 바로 지갑으로, 터보란의 같은 수량은 24시간 뒤 청구 (1+1)
   // 하루 터보 한도: 넘는 DAI는 쓰지 않고 다음 단계(LGNS 매수·현금)로 넘겨요
   let capLeft=nv('xCap')>0?nv('xCap'):Infinity;
   const xStep=(avail,title,how)=>{const capped=avail>capLeft;avail=Math.min(avail,capLeft);const m=Math.min(avail/unit,pend);if(m<=1e-9)return 0;pend-=m;capLeft-=m*unit;
     if(capped)how=(how?how+' · ':'')+`오늘 한도 ${fmt(nv('xCap'),2)} DAI까지만`;
-    let where;if(closed)where=lgTo(2*m);else{const pw=4*m*Math.max(pL,1);powAdd+=pw;where=`모두 ${fq(2*m)}개 HELIX에 소각 → 약 ${fmt(pw)} Power`;}
+    let where;if(closed)where=lgTo(2*m);
+    else if(capMode){const b=Math.min(2*m,bCap);bCap-=b;const pw=b*2*Math.max(pL,1);powAdd+=pw;where=b>1e-9?`${fq(b)}개 HELIX에 소각 → 약 ${fmt(pw)} Power${2*m-b>1e-9?` · 나머지 ${lgTo(2*m-b)}`:''}`:`${p.burnCap>0?'이번 에포크 소각 한도를 다 써서':'HELIX 소각 자격이 없어서'} ${lgTo(2*m)}`;}
+    else{const pw=4*m*Math.max(pL,1);powAdd+=pw;where=`모두 ${fq(2*m)}개 HELIX에 소각 → 약 ${fmt(pw)} Power`;}
     add(title,`${how?how+' · ':''}DAI ${fmt(m*unit,2)} 내기${F('시세+5%')} → 산 LGNS ${fq(m)}개는 바로 지갑으로, 터보란 ${fq(m)}개는 24시간 뒤 청구 → ${where}${pend>1e-6?` · 터보란 ${fq(pend)}개 남아요`:' · 터보란을 다 돌렸어요'}`);return m*unit;};
   // 소각이 안 열렸을 때 DAI로 LGNS를 ‘사서 소각’하던 몫: 소각 본드에 DAI로 바로 예치(250%) 또는 LGNS 사서 보유
   const daiTo=(d,title)=>{if(S.lgnsDest==='hold'){const q=d*(1-p.slip)/pL;holdToday+=q;add(title||'LGNS 사서 보유',`DAI ${fmt(d,2)} → LGNS 약 ${fq(q)}개${F('0%')} 보유`);}
     else{bondToday+=d;bondGet+=d*2.5;add(title||'소각 본드에 DAI 예치',`DAI ${fmt(d,2)} × 250% = 약 ${fmt(d*2.5,2)} DAI어치를 약 310일 동안 LGNS로 받아요 ✅`);}};
+  // DAI로 LGNS를 사서 소각: 한도가 있으면 이번 에포크에 남은 수량만큼만, 나머지는 소각 본드·보유
+  const buyBurn=(d,title)=>{if(!capMode){const pw=d*(1-p.slip)*2*Math.max(pL,1)/pL;powAdd+=pw;add(title,`DAI ${fmt(d,2)} → LGNS 약 ${fq(d*(1-p.slip)/pL)}개${F('0%')} → 소각 → 약 ${fmt(pw)} Power`);return;}
+    const d1=Math.min(d,bCap*pL/(1-p.slip));if(d1>.01){const q=d1*(1-p.slip)/pL;bCap-=q;const pw=q*2*Math.max(pL,1);powAdd+=pw;add(title+' (이번 에포크 한도 안)',`DAI ${fmt(d1,2)} → LGNS 약 ${fq(q)}개${F('0%')} → 소각 → 약 ${fmt(pw)} Power`);}
+    if(d-d1>.01)daiTo(d-d1,S.lgnsDest==='hold'?'소각 한도를 넘는 DAI로 LGNS 사서 보유':'소각 한도를 넘는 DAI는 소각 본드에 예치');};
   if(ex&&ex.xNow>0&&pend>0)dai-=xStep(Math.min(ex.xNow,dai),'지갑 DAI로 터보란 바로 돌리기');
   const hasAi=aiT>1e-12;
   if(hasAi)add('01:00 정산 뒤 나온 AiLGNS 확인',`Power ${fmt(pow)} × ${fmt(p.r0*100,3)}% → 약 ${fq(aiNew)}개${unc>1e-9?` + 대기 ${fq(unc)}개`:''} (싱가포르 자정 = 한국 01:00)`);
@@ -1203,11 +1243,11 @@ function todayItems(p,P0){
     if(burn>0){
       if(p.route==='auto'||p.route==='old'){
         if(pend>0)burn-=xStep(burn,'터보란 돌리기 (다시 넣는 돈)');
-        if(burn>0.01&&p.route==='auto'){if(closed)daiTo(burn,S.lgnsDest==='hold'?'남은 DAI로 LGNS 사서 보유':'남은 DAI는 소각 본드에 예치');else{const pw=burn*(1-p.slip)*2*Math.max(pL,1)/pL;powAdd+=pw;add('남은 DAI로 LGNS 사서 소각',`DAI ${fmt(burn,2)} → LGNS 약 ${fq(burn*(1-p.slip)/pL)}개${F('0%')} → 소각 → 약 ${fmt(pw)} Power`);}burn=0;}
+        if(burn>0.01&&p.route==='auto'){if(closed)daiTo(burn,S.lgnsDest==='hold'?'남은 DAI로 LGNS 사서 보유':'남은 DAI는 소각 본드에 예치');else buyBurn(burn,'남은 DAI로 LGNS 사서 소각');burn=0;}
       }
       if(burn>0.01){
         if(p.route==='bond')daiTo(burn,'소각 본드에 DAI 예치');
-        else if(p.route==='lgns'||(p.route==='aiburn'&&closed)){if(closed)daiTo(burn);else{const pw=burn*(1-p.slip)*2*Math.max(pL,1)/pL;powAdd+=pw;add('LGNS 사서 소각',`DAI ${fmt(burn,2)} → 약 ${fmt(pw)} Power`);}}
+        else if(p.route==='lgns'||(p.route==='aiburn'&&closed)){if(closed)daiTo(burn);else buyBurn(burn,'LGNS 사서 소각');}
         else if(p.route==='aiburn'){const pw=burn*2.5/(1-p.fee-p.slip);powAdd+=pw;add('그만큼 AiLGNS를 팔지 않고 소각',`AiLGNS ${fq(burn/net)}개 → 약 ${fmt(pw)} Power (📢 2.5배)`);}
         else if(p.route==='dai'){powAdd+=burn*2.5;add('DAI로 HELIX 참여',`DAI ${fmt(burn,2)} → ${fmt(burn*2.5)} Power · 01:00·13:00 한도 경쟁`);}
         else if(p.route==='turbo')add('신생태 터보 참여',`DAI ${fmt(burn,2)} → ${p.ntMult}배 가치를 ${p.ntDays}일 동안 나눠 받아 터보·소각`);
@@ -1217,12 +1257,14 @@ function todayItems(p,P0){
     if(ntP>0)add('신생태 터보 참여',ntP>=100?`DAI ${fmt(ntP,2)} → ${p.ntMult}배(${fmt(ntP*p.ntMult)} DAI 가치)를 ${p.ntDays}일 동안 12시간마다 받아요${F('1%+5%')}`:`오늘 몫 ${fmt(ntP,2)} DAI · 최소 100 DAI가 모일 때까지 모아뒀다가 넣어요`);
     if(cash>0.01)add('현금으로 보관',`약 ${fmt(cash,2)} DAI`);
   }
+  // 이번 에포크 소각 한도가 남았으면 알려 줘요 (지갑에 LGNS가 없으면 DAI로 사서 소각)
+  if(capMode&&bCap>1e-6&&isFinite(bCap)){const q=bCap,d=q*pL/(1-p.slip);add('이번 에포크 HELIX 소각 한도가 남았어요',`${fq(q)} LGNS 더 소각할 수 있어요 · 지갑에 LGNS가 없으면 DAI 약 ${fmt(d,2)}로 사서${F('0%')} 소각 → 약 ${fmt(q*2*Math.max(pL,1))} Power · 7일에 1번이라 한 번에 넣어요 ✅`);}
   // 이대로 매일 하면 한 달 뒤 (시장 가정대로)
   const m30=simulate(Object.assign({},p,{days:30}),S.goal).last;
   const m30t=S.burnOpen?`이대로 매일 하면 한 달 뒤 Power 약 ${fmt(m30.P)} · 하루 AiLGNS 약 ${fq(m30.aiDaily)}개 · 소각한 LGNS 누적 ${fmt(m30.burned)}개 (시장 가정 ‘${SCN[S.scen]}’)`
     :`이대로 매일 하면 한 달 뒤 LGNS·본드 자산 시세로 약 ${fmt(m30.lgAssets)} DAI어치 · 팔면 약 ${fmt(m30.lgSell)} DAI (보유 LGNS ${fmt(m30.lgHeld)}개 · 본드에서 받을 몫 ${fmt(m30.bondLeft)} DAI어치)${m30.P>1?` · Power ${fmt(m30.P)}`:''} (시장 가정 ‘${SCN[S.scen]}’)`;
   const bondTxt=bondToday>0.01?`오늘 본드에 넣는 원금 약 ${fmt(bondToday,2)} DAI → 앞으로 약 ${fmt(bondGet,2)} DAI어치를 LGNS로 나눠 받아요`:'',holdTxt=holdToday>1e-6?`오늘 보유로 남기는 LGNS ${fq(holdToday)}개`:'';
-  let sum=powAdd>0?`오늘 늘어나는 Power 약 ${fmt(powAdd)} (지금 ${fmt(pow)}) · 내일 나오는 AiLGNS 약 ${fq((pow-D+powAdd)*p.r0/pA)}개 · 터빈은 매일, 소각은 소각 탭이 열린 뒤예요 📢`
+  let sum=powAdd>0?`오늘 늘어나는 Power 약 ${fmt(powAdd)} (지금 ${fmt(pow)}) · 내일 나오는 AiLGNS 약 ${fq((pow-D+powAdd)*p.r0/pA)}개 · 터빈은 매일, HELIX 소각은 7일마다 1번이에요 ✅`
     :[bondTxt,holdTxt].filter(Boolean).join(' · ')||(closed?'오늘은 본드에 넣을 DAI·LGNS가 남지 않아요. 터빈용 DAI를 먼저 지켜요.':'오늘은 소각에 쓸 DAI가 남지 않아요. 터빈용 DAI를 먼저 지켜요.');
   if(powAdd>0&&(bondTxt||holdTxt))sum+=' · '+[bondTxt,holdTxt].filter(Boolean).join(' · ');
   return {route,out,sum:sum+' · '+m30t,m30};
@@ -1323,6 +1365,7 @@ function renderWallets(){
         ${(d.v.warmP?.x||0)>1e-6?`<div><span>· Polygon 스테이킹 대기 (warmup) ✅</span>${cell(d,'warmP','',2)}</div>`:''}
         ${[['slg','Anubis sLGNS'],['warm','Anubis 스테이킹 대기'],['bst','본드 스테이킹'],['disc','디스카운트 스테이킹'],['act','활동 포인트 스테이킹'],['lpA','LP 지분 · Anubis'],['lpP','LP 지분 · Polygon']].map(([k,nm])=>d.v[k]&&(!d.v[k].ok||d.v[k].x>1e-6)?`<div><span>· ${nm} ✅</span>${cell(d,k,'',2)}</div>`:'').join('')}
         ${(d.stakes||[]).length?`<div><span>· 장기 스테이킹 원금 + 받을 이자 ✅</span><b>${fmt(d.stakes.reduce((a,x)=>a+x.principal+x.interest,0),2)} · ${d.stakes.length}건</b></div>`:''}
+        ${d.v.burn?`<div><span>HELIX 소각 (7일마다 ${fmt(d.v.burn.max||BURN.max)}개) ✅</span><b>${!d.v.burn.ok?'<span class="err">못 읽음</span>':d.v.burn.eligible?(d.v.burn.doneThisEpoch?`이번 에포크 완료 · 다음 ${new Date((BURN.genesis+d.v.burn.epoch*BURN.epochSec)*1000).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}`:'자격 있음 · 이번 에포크 가능'):`자격 없음 (스테이킹 ${fmt(d.v.burn.stake)} / ${fmt(d.v.burn.min)})`}</b></div>`:''}
         <div><span>LGNS 총 보유량 ✅</span><b>${fmt(lt,2)}</b></div>
         <div><span>활성 Power ✅</span>${cell(d,'power','',0)}</div>
         <div><span>보유 AiLGNS ✅</span>${cell(d,'ai')}</div>
@@ -1346,7 +1389,7 @@ function renderWallets(){
       </div>`;
       // 지갑이 여러 개면 한 줄 요약만 보이고 눌러서 펼쳐요
       if(W.list.length>1){const pw=d.v.power?.ok?d.v.power.x:0;
-        body=`<details><summary class="msg" style="cursor:pointer">스테이킹 ${d.v.agg?.ok?fmt((d.v.agg.x||0)+(d.v.slgP?.x||0),2):'-'} (디앱 기준 · Anubis ${d.v.agg?.ok?fmt(d.v.agg.x||0):'-'} + Polygon ${d.v.slgP?.ok?fmt(d.v.slgP.x||0):'못 읽음'}) · LGNS ${fmt(lt,2)} · Power ${fmt(pw)} · AiLGNS ${fq((d.v.ai?.x||0)+(d.v.turbLocked?.x||0)+(d.v.turbClaim?.x||0))} · DAI ${fmt(d.v.dai?.x||0,2)}${d.v.long?.x>0?` · 추가이자 ${fq(d.v.long.x)}`:''}${(d.v.cw?.x||0)+(d.v.cw2?.x||0)>0?` · 거미망 ${fq((d.v.cw?.x||0)+(d.v.cw2?.x||0))}`:''}${nt.length?` · 신생태 ${nt.length}건`:''}${Object.values(d.v).some(x=>!x.ok)?' · <span class="err">못 읽은 값 있음</span>':''}</summary><div style="margin-top:6px">${body}</div></details>`;}}
+        body=`<details><summary class="msg" style="cursor:pointer">${d.v.burn?.ok?(d.v.burn.eligible?(d.v.burn.doneThisEpoch?'🔥 이번 주 소각 완료 · ':'🔥 소각 가능 · '):'소각 자격 없음 · '):''}스테이킹 ${d.v.agg?.ok?fmt((d.v.agg.x||0)+(d.v.slgP?.x||0),2):'-'} (디앱 기준 · Anubis ${d.v.agg?.ok?fmt(d.v.agg.x||0):'-'} + Polygon ${d.v.slgP?.ok?fmt(d.v.slgP.x||0):'못 읽음'}) · LGNS ${fmt(lt,2)} · Power ${fmt(pw)} · AiLGNS ${fq((d.v.ai?.x||0)+(d.v.turbLocked?.x||0)+(d.v.turbClaim?.x||0))} · DAI ${fmt(d.v.dai?.x||0,2)}${d.v.long?.x>0?` · 추가이자 ${fq(d.v.long.x)}`:''}${(d.v.cw?.x||0)+(d.v.cw2?.x||0)>0?` · 거미망 ${fq((d.v.cw?.x||0)+(d.v.cw2?.x||0))}`:''}${nt.length?` · 신생태 ${nt.length}건`:''}${Object.values(d.v).some(x=>!x.ok)?' · <span class="err">못 읽은 값 있음</span>':''}</summary><div style="margin-top:6px">${body}</div></details>`;}}
     return `<div class="wc${sel?' sel':''}"><div class="hd"><div class="nm"><span class="dot" style="background:${COLORS[i%COLORS.length]}"></span><span style="overflow-wrap:anywhere">${esc(w.name)}</span></div><div class="act"><a class="ad" href="https://browser.anubispace.org/address/${w.address}" target="_blank" rel="noopener">${w.address.slice(0,6)}…${w.address.slice(-4)}</a>
       ${W.list.length>1?`<button type="button" class="linkbtn" data-use="${w.address}">이 지갑으로 계산</button>`:''}<button type="button" class="linkbtn" data-ren="${w.address}">이름</button><button type="button" class="linkbtn danger" data-del="${w.address}">삭제</button></div></div>${body}</div>`;
   };
@@ -1565,7 +1608,7 @@ $('exBasis').addEventListener('input',()=>{const b=store.get('basis',{});b[S.sco
 // 선택 버튼
 function group(id,key,conv){const bs=document.querySelectorAll('#'+id+' [data-v]');bs.forEach(b=>b.addEventListener('click',()=>{bs.forEach(x=>x.setAttribute('aria-pressed',x===b));const v=conv?conv(b.dataset.v):b.dataset.v;if(key)S[key]=v;else if(id==='gRk')rk=+v;render();}));}
 group('qGoal','goal');group('gDays','days',Number);group('qScen','scen');group('gReinv','reinv',Number);group('gAiSell','aiSell',Number);group('gRoute','route');group('gCash','cashVia');group('gBFund','bFund');group('gRank','rank',Number);group('gNtShare','ntShare',Number);group('gXFund','xFund');group('gLgDest','lgnsDest');group('gPolyDest','polyDest');group('gRel','bondRelease');
-document.querySelectorAll('#gBurn [data-v]').forEach(b=>b.addEventListener('click',()=>{S.burnOpen=b.dataset.v==='open';store.set('burnOpen',S.burnOpen);
+document.querySelectorAll('#gBurn [data-v]').forEach(b=>b.addEventListener('click',()=>{S.burnMode=b.dataset.v;S.burnOpen=S.burnMode!=='closed';store.set('burnMode',S.burnMode);
   if(!S.burnOpen&&S.bondRelease==='helix'){S.bondRelease='hold';document.querySelectorAll('#gRel [data-v]').forEach(x=>x.setAttribute('aria-pressed',x.dataset.v==='hold'));}
   render();}));group('gRk',null);
 // 같은 값을 두 곳에서 고르는 버튼(신생태 터보 판 돈 쓰임·상품)은 서로 맞춰요
@@ -1674,7 +1717,7 @@ const PV=()=>CFG.powVal;
 const PLAN_KEYS=['goal','reinv','aiSell','route','ntShare','ntProd','cashVia','bFund','xFund','ntUse','lgnsDest','polyDest','bondRelease'];
 const LBL={
   goal:v=>`‘${GOALN[v]}’`,reinv:v=>`판 돈의 ${fmt(v*100)}% 다시 넣기`,
-  route:v=>({auto:'자동 · 이득 순으로 다시 넣기',lgns:S.burnOpen?'LGNS 사서 소각':'LGNS 사서 (본드·보유)',old:'일반 터보로만',turbo:'신생태 → 터보 → 소각',aiburn:'AiLGNS 소각',bond:'소각 본드에 DAI 예치 (250%)'}[v]),
+  route:v=>({auto:'자동 · 이득 순으로 다시 넣기',lgns:UNL()?'LGNS 사서 소각':S.burnOpen?'LGNS 사서 소각 (주 한도 넘으면 본드·보유)':'LGNS 사서 (본드·보유)',old:'일반 터보로만',turbo:'신생태 → 터보 → 소각',aiburn:'AiLGNS 소각',bond:'소각 본드에 DAI 예치 (250%)'}[v]),
   lgnsDest:v=>v==='hold'?'Anubis LGNS는 그대로 보유':'Anubis LGNS는 소각 본드 (230%)',polyDest:v=>v==='hold'?'Polygon LGNS는 그대로 보유':'Polygon LGNS는 픽스본드 (1 DAI × 200%)',
   bondRelease:v=>({hold:'본드에서 풀린 LGNS는 보유',rebond:'본드에서 풀린 LGNS는 다시 소각 본드',sell:'본드에서 풀린 LGNS는 팔기',helix:'본드에서 풀린 LGNS는 HELIX 소각'}[v]),
   aiSell:v=>v>=1?'받은 AiLGNS 전부 팔기':v>0?`터빈 비용 빼고 남는 AiLGNS의 ${fmt(v*100)}%만 팔고 나머지 보유`:'받은 AiLGNS는 터빈 비용만큼만 팔고 나머지 보유',
@@ -1695,7 +1738,7 @@ function planCandidates(){
   const out=[],hasNt=S.start==='newturbo'||(walletMode()&&nv('exNtRem')+nv('exNtNow')+nv('exCw2')+nv('exCw2Daily')>0);
   const ntUses=hasNt?['lgns','turbo','helix','cash']:[S.ntUse];
   // 소각이 안 열렸으면 AiLGNS 소각은 빼고, 소각 본드 DAI 예치를 넣어요
-  const routes=S.burnOpen?['auto','lgns','old','turbo','aiburn','bond']:['auto','bond','lgns','old','turbo'];
+  const routes=UNL()?['auto','lgns','old','turbo','aiburn','bond']:['auto','bond','lgns','old','turbo'];
   const sink={lgnsDest:OK.bond?S.lgnsDest:'hold',polyDest:OK.bond?S.polyDest:'hold',bondRelease:okPlan({bondRelease:S.bondRelease})?S.bondRelease:'hold'};
   for(const ntUse of ntUses)for(const xFund of ['first','plan','none']){
     // ‘매일 내 DAI’·‘신생태 터보 DAI’는 지갑 밖의 새 돈이 들어가서, 체크했을 때만 비교해요
@@ -1710,7 +1753,7 @@ function planCandidates(){
 function sinkCombos(){
   const hasPoly=walletMode()&&nv('exBurnP')>0,out=[];
   const rel=S.burnOpen?['hold','rebond','sell','helix']:['hold','rebond','sell'];
-  for(const lgnsDest of (S.burnOpen?[S.lgnsDest]:['bond','hold']))for(const polyDest of (!S.burnOpen&&hasPoly?['fixed','hold']:[S.polyDest]))for(const bondRelease of rel)out.push({lgnsDest,polyDest,bondRelease});
+  for(const lgnsDest of (UNL()?[S.lgnsDest]:['bond','hold']))for(const polyDest of (!UNL()&&hasPoly?['fixed','hold']:[S.polyDest]))for(const bondRelease of rel)out.push({lgnsDest,polyDest,bondRelease});
   return out.filter(okPlan);
 }
 // 한 조합을 한 시장 가정으로 돌려서 점수와 숫자를 돌려줘요 (화면 선택 S는 그대로 되돌려 놓아요)
@@ -1771,10 +1814,10 @@ async function computeBest(run,wrap,prog){
     // 이유: 1등 플랜에서 한 가지만 바꿔 다시 돌려 봐요 (다른 선택은 그대로)
     const why=[];{const b=res[0].c,hasNt=S.start==='newturbo'||(walletMode()&&nv('exNtRem')+nv('exNtNow')+nv('exCw2')+nv('exCw2Daily')>0);
       const dom={xFund:['first','plan','none'],bondRelease:S.burnOpen?['hold','rebond','sell','helix']:['hold','rebond','sell']};
-      if(!S.burnOpen){dom.lgnsDest=['bond','hold'];if(walletMode()&&nv('exBurnP')>0)dom.polyDest=['fixed','hold'];}
+      if(!UNL()){dom.lgnsDest=['bond','hold'];if(walletMode()&&nv('exBurnP')>0)dom.polyDest=['fixed','hold'];}
       if(hasNt)dom.ntUse=['lgns','turbo','helix','cash'];
       if(b.goal==='B')dom.bFund=['self','ext','nt'];
-      else{dom.route=S.burnOpen?['auto','lgns','old','turbo','aiburn','bond']:['auto','bond','lgns','old','turbo'];dom.reinv=[.5,.8,1];dom.aiSell=[1,.7,.5,0];dom.ntShare=[0,.2,.5];if(b.goal==='A'&&b.reinv<1)dom.cashVia=['now','nt'];}
+      else{dom.route=UNL()?['auto','lgns','old','turbo','aiburn','bond']:['auto','bond','lgns','old','turbo'];dom.reinv=[.5,.8,1];dom.aiSell=[1,.7,.5,0];dom.ntShare=[0,.2,.5];if(b.goal==='A'&&b.reinv<1)dom.cashVia=['now','nt'];}
       const sc0=s=>obj==='safe'?Math.min(...['keep','mid','low','drop'].map(x=>runPlan(s,x,'total').score)):runPlan(s,scens[0],obj).score;
       for(const [k,vals] of Object.entries(dom)){let alt=null;for(const v of vals){if(String(v)===String(b[k])||!okPlan({...b,[k]:v}))continue;const s=sc0({...b,[k]:v});if(!alt||s>alt.s)alt={v,s};}
         if(alt)why.push({k,v:alt.v,d:res[0].score-alt.s});}
@@ -1815,7 +1858,7 @@ async function findAll(auto){
 function whyLines(a){
   if(a.why)return a.why.slice(0,5).map(x=>({k:x.k,d:x.d,t:x.d>=.5?`${LBL[x.k](a.best.c[x.k])} 대신 ${LBL[x.k](x.v)}${x.k==='goal'?' 방식':''}이면 약 <b>${fmt(x.d)} DAI</b> 덜 나와요`:`${LBL[x.k](a.best.c[x.k])} 대신 ${LBL[x.k](x.v)}${x.k==='goal'?' 방식':''}이어도 거의 같아요`}));
   const {best,res}=a,b=best.c,lines=[];
-  const dims=(b.goal==='B'?['goal','bFund','xFund','ntUse']:['goal','route','xFund','reinv','ntShare','cashVia','ntUse']).concat(S.burnOpen?['bondRelease']:['lgnsDest','polyDest','bondRelease']);
+  const dims=(b.goal==='B'?['goal','bFund','xFund','ntUse']:['goal','route','xFund','reinv','ntShare','cashVia','ntUse']).concat(UNL()?['bondRelease']:['lgnsDest','polyDest','bondRelease']);
   dims.forEach(k=>{
     if(k==='cashVia'&&!(b.goal==='A'&&b.reinv<1))return;
     if(k==='ntUse'&&!res.some(x=>x.c.ntUse!==b.ntUse))return;
@@ -1835,7 +1878,8 @@ function describe(c){
   else{if(c.aiSell<1)l.push(LBL.aiSell(c.aiSell));l.push(LBL.reinv(c.reinv)+(c.goal==='C'?' (원금을 찾은 뒤)':''),LBL.route(c.route));if(c.ntShare>0)l.push(`${LBL.ntShare(c.ntShare)} (${LBL.ntProd(c.ntProd)})`);if(c.goal==='A'&&c.reinv<1)l.push(LBL.cashVia(c.cashVia));}
   l.push(LBL.xFund(c.xFund));
   if(S.start==='newturbo'||(walletMode()&&nv('exNtRem')+nv('exNtNow')+nv('exCw2')+nv('exCw2Daily')>0))l.push(LBL.ntUse(c.ntUse));
-  if(!S.burnOpen){l.push(LBL.lgnsDest(c.lgnsDest));if(walletMode()&&nv('exBurnP')>0)l.push(LBL.polyDest(c.polyDest));}
+  if(S.burnMode==='capped')l.push(`HELIX 소각: 지갑당 7일 ${BURN.max}개까지 (Anubis LGNS)`);
+  if(!UNL()){l.push(LBL.lgnsDest(c.lgnsDest).replace('Anubis LGNS는',S.burnOpen?'소각 한도를 넘는 Anubis LGNS는':'Anubis LGNS는'));if(walletMode()&&nv('exBurnP')>0)l.push(LBL.polyDest(c.polyDest));}
   l.push(LBL.bondRelease(c.bondRelease));
   return l;
 }
@@ -1947,7 +1991,7 @@ var aiKey=null,aiTimer=0;
 const EXF=['exPower','exAi','exUnc','exDai','exPend','exExtra','exExtraDaily','exCw','exCwDaily','exCw2','exCw2Daily','exBurnA','exBurnP','exBondRem','exBondDaily','exBondNow','exVe','exNtRem','exNtDaily','exNtNow','exBasis'];
 function condKey(){
   const wm=walletMode();
-  return JSON.stringify([S.mode,wm?S.scope:'',wm?EXF.map(id=>String(+fv(id)||0)):'',S.burnOpen,S.days,OK,S.obj,S.scen,$('ammOn').checked,CFG]);
+  return JSON.stringify([S.mode,wm?S.scope:'',wm?EXF.map(id=>String(+fv(id)||0)):'',S.burnMode,S.days,OK,S.obj,S.scen,$('ammOn').checked,CFG]);
 }
 function autoFind(){
   if(S.tab!=='calc'||condKey()===aiKey)return;
@@ -2027,7 +2071,7 @@ function renderHow(p){
   add('② 터빈을 돌려요',`나온 AiLGNS만큼 시장에서 사요 (2.5% + 슬리피지 ${fmt(p.slip*100,1)}%). 산 몫과 나온 몫을 함께 받아 2배가 돼요. 터빈용 DAI가 모자라면 못 산 몫은 대기로 쌓여요.`);
   add('③ 받은 AiLGNS를 어떻게 할지',S.goal==='B'?`‘편하게’: 터빈 비용만큼만 팔고(매도세 ${fmt(p.fee*100)}%) 나머지는 AiLGNS로 모아요.`:`‘${GOALN[S.goal]}’: ${p.aiSell==null?'전부 팔아요':`터빈 비용을 채우고 남는 몫의 ${fmt(p.aiSell*100)}%만 팔아요`} (매도세 ${fmt(p.fee*100)}%).`);
   add('④ 남는 DAI',`다음 날 터빈용 DAI(2일치)를 먼저 남겨요 → ${p.xFirst?'터보란을 먼저 돌려요 (DAI = 시세 + 5%, 1+1) → ':''}${S.goal==='C'?'원금을 찾을 때까지 현금으로 → 그 뒤 ':''}${S.goal==='B'?'남은 DAI는 그대로 둬요':`${fmt(p.reinv*100)}%를 다시 넣어요 (${LBL.route(p.route)}${p.ntShare?` · 그중 ${fmt(p.ntShare*100)}%는 신생태 터보`:''})`}.`);
-  add('⑤ LGNS는 어디로',S.burnOpen?`HELIX 소각이 열렸다고 보고 LGNS 1개 = 1 DAI × 2배 Power로 쳐요 📢.`:`HELIX 소각이 아직 안 열려서 ${S.lgnsDest==='bond'?'Anubis LGNS·다시 넣는 DAI는 소각 본드(LGNS 230% · DAI 250%)에 넣어요':'LGNS는 그대로 들고 있어요'}${S.polyDest==='fixed'?' · Polygon LGNS는 픽스본드(200%)':''} ✅.`);
+  add('⑤ LGNS는 어디로',S.burnMode==='capped'?`HELIX 소각 ✅: 자격 있는 지갑은 7일(에포크)마다 Anubis LGNS ${fmt(BURN.max)}개까지 1개 = 1 DAI × 2배 Power로 소각해요. 넘는 LGNS는 ${S.lgnsDest==='bond'?'소각 본드':'보유'}${S.polyDest==='fixed'?' · Polygon LGNS는 픽스본드':''}로 가요.`:UNL()?`비교용: 한도 없이 LGNS 1개 = 1 DAI × 2배 Power로 쳐요.`:`HELIX 소각이 아직 안 열려서 ${S.lgnsDest==='bond'?'Anubis LGNS·다시 넣는 DAI는 소각 본드(LGNS 230% · DAI 250%)에 넣어요':'LGNS는 그대로 들고 있어요'}${S.polyDest==='fixed'?' · Polygon LGNS는 픽스본드(200%)':''} ✅.`);
   add('⑥ 본드가 풀려요',`소각 본드는 12시간마다 원금의 0.4%, 픽스본드는 0.333% 가치를 그날 시세의 LGNS로 줘요 ✅. 풀린 LGNS는 ‘${LBL.bondRelease(S.bondRelease).replace('본드에서 풀린 LGNS는 ','')}’로 계산해요.`);
   add('⑦ 신생태 터보',`진행 중인 주문은 하루 지급만큼 LGNS가 풀려요 → 활성화 1% → 24시간 → 판매 5% → DAI ✅. 그 DAI는 ‘${LBL.ntUse(S.ntUse).replace('신생태에서 풀린 돈은 ','')}’로 써요.`);
   add('⑧ 가격이 움직여요',`시장 가정 ‘${SCN[S.scen]}’: AiLGNS 월 ${pc(sc[1])}, LGNS 월 ${pc(sc[2])}${sc[2]>0?' (사는 값만 오르고 들고 있는 LGNS 값엔 안 넣어요)':''}. ${$('ammOn').checked?'내가 사고파는 양만큼 풀 가격도 움직여요 (스왑 0.3%).':'풀 가격 영향은 꺼져 있어요.'}`);
@@ -2123,6 +2167,8 @@ function renderAssetSum(){
       <div class="cell"><span class="l">Anubis 초대 화면 스테이킹</span><b>${o.aggOk?fmt(o.agg,2):'못 읽음'}</b><span class="l">유연한 스테이킹 포함 · 장기·활동 포인트 등 Anubis 전체</span></div>
     </div>
     ${o.polyOk?'':'<div class="l" style="color:#ffd27a">Polygon 노드에 연결하지 못해서 Polygon 값을 못 읽었어요. 아래 ‘다시 조회’를 눌러 주세요.</div>'}
+    ${(()=>{const bs=ws.map(w=>W.data[w.address.toLowerCase()]).filter(d=>d&&d.v.burn&&d.v.burn.ok).map(d=>d.v.burn);if(!bs.length)return '';const el=bs.filter(b=>b.eligible),can=el.filter(b=>!b.doneThisEpoch);const dl=bs[0].day&&bs[0].day.max!=null&&bs[0].day.used!=null?bs[0].day.max-bs[0].day.used:null;
+      return `<div class="cell" style="background:rgba(255,255,255,.12)"><span class="l">HELIX LGNS 소각 (10/26 오픈 ✅)</span><b style="font-size:14px">${el.length?`자격 있는 지갑 ${el.length}/${bs.length}개 · 이번 에포크 소각 가능 ${can.length}개 → 최대 ${fmt(can.length*(bs[0].max||BURN.max))} LGNS = ${fmt(can.length*(bs[0].max||BURN.max)*2)} Power`:`자격 있는 지갑 없음 (360일·600일 장기 + 본드 스테이킹 ${fmt(bs[0].min||BURN.min)} 이상 필요)`}</b>${dl!=null?`<span class="l">오늘 전체 남은 한도 ${fmt(Math.max(0,dl))} / ${fmt(bs[0].day.max)} LGNS (선착순)</span>`:''}</div>`;})()}
     <div class="l">지금 시세로 약 ${fmt(o.agg*pL+o.slgP*Math.max(.0001,num('pLP')||.28),2)} DAI${ws.length>1?` · ${ws.map(w=>{const d=W.data[w.address.toLowerCase()];return d?`${esc(w.name)} ${fmt((d.v.agg?.x||0)+(d.v.slgP?.x||0))}`:'';}).filter(Boolean).join(' · ')}`:''}</div></div>`;
   box.innerHTML=hero+`<div class="l">${ws.length>1?`지갑 ${ws.length}개 합계 · `:''}LGNS 총 보유량 (스테이킹 + 지갑 + 터보란 등 전부)</div><div class="big" style="font-size:22px">${fmt(lgnsTotal(o),2)} LGNS</div>${o.bondRem>1?`<div class="l">본드에서 앞으로 받을 몫은 따로: 약 ${fmt(lgnsFuture(o),2)} LGNS (${fmt(o.bondRem,2)} DAI어치를 지금 시세로 환산 ❓)</div>`:''}
     <div class="grid"><div class="cell"><span class="l">Power</span><b>${fmt(o.power)}</b></div><div class="cell"><span class="l">AiLGNS</span><b>${fq(o.ai)}</b></div><div class="cell"><span class="l">DAI</span><b>${fmt(o.dai,2)}</b></div></div>
